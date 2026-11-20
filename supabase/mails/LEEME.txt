@@ -1,0 +1,19 @@
+Los textos de los mails de registro (los manda Supabase, no nuestra cola de avisos).
+Se cargan a mano en el panel de Supabase: Authentication > Emails > Templates.
+
+  Plantilla del panel    Asunto                                  Archivo
+  Confirm sign up        Confirmá tu mail para pedir acceso      confirmar-cuenta.html
+  Reset password         Elegí una contraseña nueva              elegir-contrasena.html
+
+El enlace de los dos va a la página misma, con un código de un solo uso después del #
+( {{ .RedirectTo }}#token_hash={{ .TokenHash }}&type=... ). La página lo canjea por la sesión. Así:
+  - el enlace muestra la dirección del consultorio y no la de Supabase;
+  - un filtro de correo que "mira" los enlaces antes que la persona no lo gasta.
+{{ .RedirectTo }} es la dirección de la página desde la que se pidió el mail (Supabase la valida: tiene que ser el
+Site URL o estar en la lista de Redirect URLs; si no, usa el Site URL). Por eso el mismo texto sirve para todos los consultorios.
+
+El plazo de 1 hora que nombran sale de "Email OTP expiration" (3600 segundos) en Sign In / Providers > Email:
+si se cambia allá, cambiarlo también acá.
+
+Las demás plantillas (Invite user, Magic link, Change email address) siguen como vienen de fábrica, en inglés:
+todavía no se usan. La página también entiende los enlaces de fábrica.

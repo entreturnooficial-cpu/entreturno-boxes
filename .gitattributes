@@ -1,0 +1,2 @@
+# Guardar cada archivo tal cual, sin cambiarle los finales de linea: las comprobaciones comparan byte a byte
+* -text

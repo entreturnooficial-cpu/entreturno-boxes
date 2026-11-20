@@ -1,0 +1,2539 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Consultorio Yani · Boxes</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#1C1917">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0E0C0B">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%231C1917'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' font-family='Georgia,serif' font-size='19' fill='white'%3EY%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Demo de la app de alquiler de boxes del consultorio: reservas, pagos y panel de administración.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Libre+Franklin:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+/* Modo claro u oscuro elegido con el botón de arriba: se aplica antes de pintar, para que no haya destello al abrir */
+try { var t = localStorage.getItem("boxes-demo-theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+<style>
+/* =========================================================
+   Marca Y|O: tinta, arena y papel.
+   Los mismos colores que la app de turnos de la doctora.
+   El verde salvia aparece solo donde hay un turno libre
+   o algo salió bien.
+   ========================================================= */
+:root{
+  --ground:#F7F3EE; --side:#F2ECE4; --surface:#FFFFFF; --raised:#F0EAE2; --active:#ECE3D8;
+  --border:#E4DBD0; --rule:#EEE7DE; --control:#D3C7B8;
+  --text:#1C1917; --muted:#5F574F; --faint:#786E64;
+  --primary:#1C1917; --primary-hover:#36312C; --on-primary:#FFFFFF; --on-primary-muted:rgba(255,255,255,.72);
+  --free:#3F7D58; --free-ink:#2F5C41; --free-on-primary:#A9DDBC; --free-bg:#FFFFFF;
+  --negative:#B3443B; --now:#B3443B;
+  --pill-positive-bg:#E1EFE5; --pill-positive-ink:#25543A;
+  --pill-negative-bg:#F6E1DE; --pill-negative-ink:#8E2F27;
+  --pill-warning-bg:#F7ECD9; --pill-warning-ink:#7A4E0E;
+  --pill-neutral-bg:#EFEAE3; --pill-neutral-ink:#4A433C;
+  --pill-accent-bg:#ECE3D8; --pill-accent-ink:#1C1917;
+  --busy:#ECE3D8; --busy-ink:#5F574F; --hatch:#D9CEC0;
+  --scrim:rgba(28,25,23,.45);
+  --bar:#1C1917; --bar-control:#2B2724; --bar-line:rgba(255,255,255,.14); --bar-ink:#F3EEE7;
+  --hero:#1C1917; --hero-ink:#F7F3EE; --hero-muted:rgba(247,243,238,.72); --hero-line:#E9DFD2;
+  --shadow-rest:0 1px 2px rgba(28,25,23,.07);
+  --shadow-lift:0 3px 10px rgba(28,25,23,.11);
+  --shadow-float:0 28px 64px -16px rgba(28,25,23,.32), 0 2px 8px rgba(28,25,23,.08);
+  --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23786E64' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
+  --lens:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23786E64' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E");
+  /* Radios por jerarquía: control, panel, hoja */
+  --r-control:10px; --r-card:14px; --r-sheet:22px;
+  --gap:24px; --control-height:40px;
+  --serif:"Libre Baskerville","Baskerville","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --sans:"Libre Franklin","Franklin Gothic Medium","Helvetica Neue",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --ease-out:cubic-bezier(0.23,1,0.32,1);
+  --ease-in-out:cubic-bezier(0.77,0,0.175,1);
+  --ease-drawer:cubic-bezier(0.32,0.72,0,1);
+  --demobar:calc(44px + env(safe-area-inset-top,0px)); --sidebar:248px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#141210; --side:#100E0C; --surface:#1D1A17; --raised:#272320; --active:#302B27;
+    --border:#332E29; --rule:#29251F; --control:#4D463F;
+    --text:#F3EEE7; --muted:#B9AFA4; --faint:#978D82;
+    --primary:#F3EEE7; --primary-hover:#FFFFFF; --on-primary:#1C1917; --on-primary-muted:rgba(28,25,23,.68);
+    --free:#7FBF98; --free-ink:#A9DDBC; --free-on-primary:#2F5C41; --free-bg:#2D2824;
+    --negative:#E8897F; --now:#E8897F;
+    --pill-positive-bg:#1A2B21; --pill-positive-ink:#A9DDBC;
+    --pill-negative-bg:#33201D; --pill-negative-ink:#F2A79F;
+    --pill-warning-bg:#30261A; --pill-warning-ink:#EFC585;
+    --pill-neutral-bg:#2A2622; --pill-neutral-ink:#D6CCC1;
+    --pill-accent-bg:#302B27; --pill-accent-ink:#F3EEE7;
+    --busy:#1F1C19; --busy-ink:#B9AFA4; --hatch:#3A342E;
+    --scrim:rgba(0,0,0,.62);
+    --bar:#0E0C0B; --bar-control:#211E1B; --hero:#0E0C0B;
+    --shadow-rest:0 1px 2px rgba(0,0,0,.4);
+    --shadow-lift:0 3px 10px rgba(0,0,0,.5);
+    --shadow-float:0 28px 64px -16px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.4);
+    --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23B9AFA4' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
+    --lens:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B9AFA4' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E");
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#141210; --side:#100E0C; --surface:#1D1A17; --raised:#272320; --active:#302B27;
+  --border:#332E29; --rule:#29251F; --control:#4D463F;
+  --text:#F3EEE7; --muted:#B9AFA4; --faint:#978D82;
+  --primary:#F3EEE7; --primary-hover:#FFFFFF; --on-primary:#1C1917; --on-primary-muted:rgba(28,25,23,.68);
+  --free:#7FBF98; --free-ink:#A9DDBC; --free-on-primary:#2F5C41; --free-bg:#2D2824;
+  --negative:#E8897F; --now:#E8897F;
+  --pill-positive-bg:#1A2B21; --pill-positive-ink:#A9DDBC;
+  --pill-negative-bg:#33201D; --pill-negative-ink:#F2A79F;
+  --pill-warning-bg:#30261A; --pill-warning-ink:#EFC585;
+  --pill-neutral-bg:#2A2622; --pill-neutral-ink:#D6CCC1;
+  --pill-accent-bg:#302B27; --pill-accent-ink:#F3EEE7;
+  --busy:#1F1C19; --busy-ink:#B9AFA4; --hatch:#3A342E;
+  --scrim:rgba(0,0,0,.62);
+  --bar:#0E0C0B; --bar-control:#211E1B; --hero:#0E0C0B;
+  --shadow-rest:0 1px 2px rgba(0,0,0,.4);
+  --shadow-lift:0 3px 10px rgba(0,0,0,.5);
+  --shadow-float:0 28px 64px -16px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.4);
+  --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23B9AFA4' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
+  --lens:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B9AFA4' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+
+/* ========== Base ========== */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--ground);color:var(--text);font:400 15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+/* Lo que es control no se selecciona ni espera un segundo toque; el texto de contenido sí se puede copiar */
+button,a,summary,label{touch-action:manipulation}
+button,summary,.nav a,.bottomnav a{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+a{color:inherit;text-underline-offset:3px}
+h1,h2,h3,h4,p{margin:0}
+.num{font-variant-numeric:tabular-nums lining-nums}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+::selection{background:#CDBFAF;color:#1C1917}
+
+/* ========== Barra de la demo (andamiaje, no es parte de la app) ========== */
+.demobar{position:fixed;inset:0 0 auto 0;height:var(--demobar);z-index:50;display:flex;align-items:center;gap:12px;padding:env(safe-area-inset-top,0px) 16px 0;background:var(--bar);color:var(--bar-ink);font-size:13px;border-bottom:1px solid var(--bar-line)}
+.demobar strong{font-weight:600;white-space:nowrap}
+.demobar label{display:flex;align-items:center;gap:8px;min-width:0;color:rgba(243,238,231,.72)}
+.demobar select,.demobar button{height:30px;border-radius:8px;border:1px solid var(--bar-line);background-color:var(--bar-control);color:var(--bar-ink);font-size:13px}
+.demobar select{padding:0 28px 0 10px;max-width:260px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23F3EEE7' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:10px}
+.demobar option{background:#2B2724;color:#F3EEE7}
+.demobar .sp{flex:1}
+.demobar button{padding:0 11px;white-space:nowrap;transition:background-color .16s ease,transform .14s var(--ease-out)}
+.demobar button:active{transform:scale(.97)}
+.demobar .count{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:#F3EEE7;color:#1C1917;font-weight:600;font-size:11.5px;line-height:18px;text-align:center}
+.demobar .themebtn{display:inline-flex;align-items:center;gap:7px}
+.demobar .themebtn .icon{width:15px;height:15px}
+.demobar :focus-visible{outline-color:#F3EEE7}
+.demobar select{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+@media (max-width:640px){ .demobar .lbl-txt,.demobar .hide-sm,.demobar .sp{display:none} .demobar label{flex:1} .demobar select{max-width:none;width:100%;min-width:0} .demobar{gap:6px} .demobar .themebtn{padding:0 8px} }
+
+/* ========== Estructura ========== */
+.app{padding-top:var(--demobar);min-height:100vh;min-height:100dvh}
+.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);min-height:calc(100vh - var(--demobar));min-height:calc(100dvh - var(--demobar))}
+.sidebar{position:sticky;top:var(--demobar);height:calc(100vh - var(--demobar));height:calc(100dvh - var(--demobar));display:flex;flex-direction:column;padding:22px 14px 14px;background:var(--side);border-right:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:12px;padding:2px 8px 26px}
+/* Monograma Y|O, el mismo del logo de la doctora */
+.mono{width:38px;height:38px;flex:none;display:block}
+.mono circle{fill:var(--primary)}
+.mono text{fill:var(--on-primary);font-family:var(--serif);font-size:13.5px}
+.mono path{stroke:var(--on-primary);stroke-width:.9;fill:none}
+.mono-sm{width:30px;height:30px}
+.brand-name{font-weight:600;font-size:15px;line-height:1.25}
+.brand-sub{font-size:12.5px;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;border:1px solid transparent;color:var(--muted);text-decoration:none;font-size:14.5px;font-weight:500;transition:background-color .16s ease,color .16s ease}
+.nav a[aria-current="page"]{background:var(--surface);border-color:var(--border);color:var(--text);font-weight:600;box-shadow:var(--shadow-rest)}
+.nav .badge{margin-left:auto;min-width:20px;padding:0 6px;border-radius:999px;background:var(--primary);color:var(--on-primary);font-size:11.5px;font-weight:600;line-height:20px;text-align:center}
+.side-foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:14px 8px 4px;border-top:1px solid var(--border)}
+.avatar{width:34px;height:34px;border-radius:999px;background:var(--active);display:grid;place-items:center;font-weight:600;font-size:12px;letter-spacing:.02em;color:var(--text);flex:none}
+.side-foot .who{min-width:0;line-height:1.3}
+.side-foot .who b{display:block;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-foot .who span{font-size:12.5px;color:var(--muted)}
+.side-foot .iconbtn{border-color:transparent;background:transparent}
+.icon{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.topbar,.bottomnav{display:none}
+main{min-width:0;padding:40px 48px 80px;max-width:1220px;width:100%}
+
+@media (max-width:1023px){
+  .shell{display:block}
+  .sidebar{display:none}
+  .topbar{display:flex;position:sticky;top:var(--demobar);z-index:20;height:54px;align-items:center;gap:10px;padding:0 16px;background:var(--ground);background:color-mix(in srgb,var(--ground) 84%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid var(--border)}
+  .topbar .brand-name{font-size:15.5px}
+  .topbar .sp{flex:1}
+  .topbar .iconbtn{border-color:transparent;background:transparent}
+  .bottomnav{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;inset:auto 0 0 0;z-index:20;background:var(--surface);background:color-mix(in srgb,var(--surface) 88%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);border-top:1px solid var(--border);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+  .bottomnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;border-radius:12px;color:var(--muted);text-decoration:none;font-size:11.5px;font-weight:500;position:relative}
+  /* El ícono lleva su propia pastilla: en la pestaña activa se pinta de arena */
+  .bottomnav a .icon{width:56px;height:30px;padding:4px 17px;border-radius:999px}
+  .bottomnav a[aria-current="page"]{color:var(--text);font-weight:600}
+  .bottomnav a[aria-current="page"] .icon{background:var(--active)}
+  .bottomnav a:active .icon{background:var(--raised)}
+  .bottomnav .dot{position:absolute;top:3px;left:calc(50% + 9px);min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--primary);color:var(--on-primary);font-size:10.5px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 0 0 2px var(--surface)}
+  main{padding:22px 16px calc(104px + env(safe-area-inset-bottom,0px))}
+}
+
+/* ========== Encabezado de cada pantalla ========== */
+.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 24px;margin-bottom:28px;flex-wrap:wrap}
+.title-row h1{font-family:var(--serif);font-size:34px;font-weight:400;letter-spacing:-.015em;line-height:1.12}
+.title-row .sub{margin-top:8px;color:var(--muted);font-size:15.5px;max-width:62ch}
+.finding{margin-top:10px;font-size:15.5px;color:var(--text);max-width:68ch}
+.finding b{font-weight:600}
+@media (max-width:640px){ .title-row h1{font-size:27px} .title-row{margin-bottom:20px} .title-row .sub,.finding{font-size:15px} }
+
+/* ========== Controles ========== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--control-height);padding:0 16px;border-radius:var(--r-control);border:1px solid var(--control);background:var(--surface);color:var(--text);font-weight:600;font-size:14px;white-space:nowrap;text-decoration:none;transition:background-color .16s ease,border-color .16s ease,transform .14s var(--ease-out)}
+.btn:active{transform:scale(.97)}
+.btn-primary,.btn-dark{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.btn-danger{color:var(--negative)}
+.btn-text{border-color:transparent;background:transparent;padding:0 8px}
+.btn-text:not(:has(svg)){text-decoration:underline;text-decoration-color:var(--control);text-underline-offset:4px}
+.btn-sm{height:34px;padding:0 12px;font-size:13.5px;border-radius:9px}
+.btn-block{width:100%}
+.btn[disabled]{opacity:.4;cursor:not-allowed;transform:none}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field label,.field .lab{font-size:13.5px;font-weight:600}
+.field .hint{font-size:12.5px;color:var(--muted)}
+.input,select.input,textarea.input{height:42px;padding:0 12px;border-radius:var(--r-control);border:1px solid var(--control);background-color:var(--surface);width:100%;font-size:14.5px;transition:border-color .15s ease,box-shadow .15s ease}
+select.input{-webkit-appearance:none;appearance:none;padding-right:34px;background-image:var(--chev);background-repeat:no-repeat;background-position:right 12px center;background-size:11px}
+textarea.input{height:auto;min-height:120px;padding:10px 12px;line-height:1.5;resize:vertical}
+input[type="search"].input{-webkit-appearance:none;appearance:none;padding-left:36px;background-image:var(--lens);background-repeat:no-repeat;background-position:12px center;background-size:15px}
+.input::placeholder{color:var(--faint)}
+.input:focus{outline:2px solid transparent;border-color:var(--text);box-shadow:0 0 0 3px rgba(28,25,23,.13);box-shadow:0 0 0 3px color-mix(in srgb,var(--text) 15%,transparent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;cursor:pointer}
+.check input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--primary);flex:none}
+.iconbtn{width:36px;height:36px;border-radius:var(--r-control);border:1px solid var(--control);background:var(--surface);display:grid;place-items:center;color:var(--text);flex:none;transition:background-color .16s ease,transform .14s var(--ease-out)}
+.iconbtn:active{transform:scale(.94)}
+.iconbtn[disabled]{opacity:.38;cursor:not-allowed;transform:none}
+
+/* pestañas: el peso no cambia al elegir, así las vecinas no se mueven */
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{border:0;background:none;padding:10px 0 11px;font-size:14.5px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:color .16s ease}
+.tabs button[aria-selected="true"]{color:var(--text);border-color:var(--text)}
+.tabs .n{color:var(--muted);margin-left:6px;font-size:12.5px}
+
+/* estados: el punto acompaña al color, para no depender solo del fondo */
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px 0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.pill-positive{background:var(--pill-positive-bg);color:var(--pill-positive-ink)}
+.pill-negative{background:var(--pill-negative-bg);color:var(--pill-negative-ink)}
+.pill-warning{background:var(--pill-warning-bg);color:var(--pill-warning-ink)}
+.pill-neutral{background:var(--pill-neutral-bg);color:var(--pill-neutral-ink)}
+.pill-accent{background:var(--pill-accent-bg);color:var(--pill-accent-ink)}
+.tag-example{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;border:1px dashed var(--control);font-size:11.5px;color:var(--muted);font-weight:500;white-space:nowrap}
+
+/* paneles: borde fino y sin sombra; la sombra queda para lo que flota */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card)}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px 0}
+.panel-h h2{font-size:16px;font-weight:600}
+.panel-h > .num:not(:empty){display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--primary);color:var(--on-primary);font-size:12px;font-weight:600}
+.panel-b{padding:12px 22px 20px}
+.grid-home{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--gap);align-items:start}
+.stack{display:flex;flex-direction:column;gap:var(--gap)}
+@media (max-width:1023px){ .grid-home{grid-template-columns:1fr} }
+@media (max-width:640px){ .panel-h{padding:16px 16px 0} .panel-b{padding:10px 16px 16px} }
+
+/* resumen de la administradora */
+.kpis{display:flex;flex-direction:column}
+.kpi{padding:20px 22px;border-top:1px solid var(--rule)}
+.kpi:first-child{border-top:0}
+.kpi .lab{font-size:13px;font-weight:500;color:var(--muted)}
+.kpi .val{font-family:var(--serif);font-size:30px;font-weight:400;letter-spacing:-.01em;line-height:1.15;margin-top:6px}
+.kpi .val small{font-size:14px;font-weight:400;color:var(--muted);margin-left:2px}
+.kpi .sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+.meter{height:6px;border-radius:999px;background:var(--active);margin-top:12px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--primary);border-radius:999px}
+
+/* listas */
+.list{list-style:none;margin:0;padding:0}
+.li{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--rule)}
+.li:first-child{border-top:0}
+.li .main{flex:1;min-width:0}
+.li .t{font-weight:600;font-size:14.5px}
+.li .s{font-size:13px;color:var(--muted);margin-top:1px}
+.li .acts{display:flex;gap:8px;flex:none;align-items:center}
+.queue-kind{font-size:12.5px;font-weight:600;color:var(--muted);padding:16px 0 2px}
+.queue-kind:first-child{padding-top:2px}
+@media (max-width:640px){ .li{flex-wrap:wrap} .li .acts{width:100%;justify-content:flex-end} }
+
+.empty{padding:36px 12px;text-align:center;color:var(--muted);font-size:14.5px}
+.empty b{display:block;color:var(--text);font-weight:600;font-size:15px;margin-bottom:4px}
+
+/* tablas */
+.table{width:100%;border-collapse:collapse}
+.table th{font-size:12.5px;font-weight:500;color:var(--muted);text-align:left;padding:0 14px 10px}
+.table td{padding:13px 14px;border-top:1px solid var(--rule);vertical-align:middle;font-size:14px}
+.table tr.click{cursor:pointer}
+.table td.num,.table th.num{text-align:right}
+.table .t{font-weight:600}
+.table .s{font-size:12.5px;color:var(--muted)}
+main > .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:16px 8px 6px}
+.panel .table-wrap{margin:8px -14px 0}
+.mrows{display:none}
+@media (max-width:760px){
+  .table-wrap{display:none}
+  .mrows{display:block}
+  main > .mrows{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:2px 16px}
+}
+.mrow{display:flex;gap:12px;align-items:center;padding:14px 0;border:0;border-top:1px solid var(--rule);cursor:pointer;width:100%;text-align:left;background:none;color:inherit}
+.mrow:first-child{border-top:0}
+.mrow .main{flex:1;min-width:0}
+.mrow .l1{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:14.5px}
+.mrow .l2{font-size:13px;color:var(--muted);margin-top:2px}
+.mrow .icon{color:var(--faint)}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.toolbar .input{max-width:280px}
+.toolbar select.input{max-width:190px}
+.toolbar .count{margin-left:auto;color:var(--muted);font-size:13px}
+@media (max-width:640px){ .toolbar .input,.toolbar select.input{max-width:none;flex:1 1 200px} .toolbar .count{width:100%;margin:0} }
+
+/* =========================================================
+   Agenda de los 3 boxes: la pieza central.
+   Lo libre resalta en blanco, lo ocupado se hunde en arena
+   y tu reserva va en tinta.
+   ========================================================= */
+.cal-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.cal-head .wk{font-weight:600;font-size:15.5px;margin-right:auto;min-width:0}
+.cal-head .wk-s{display:none}
+@media (max-width:640px){ .cal-head{flex-wrap:nowrap} .cal-head .wk-l{display:none} .cal-head .wk-s{display:inline} }
+.days{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.day{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:9px 4px;text-align:center;line-height:1.2;color:var(--text);transition:background-color .16s ease,border-color .16s ease,transform .14s var(--ease-out)}
+.day:active{transform:scale(.97)}
+.day .dn,.day .dd,.day .df{display:block}
+.day .dn{font-size:12.5px;color:var(--muted)}
+.day .dd{font-family:var(--serif);font-size:21px;line-height:34px;width:34px;height:34px;margin:2px auto 3px;border-radius:999px}
+.day.is-today .dd{box-shadow:inset 0 0 0 1.5px currentColor}
+.day .df{font-size:12px;color:var(--muted);white-space:nowrap}
+.day .df.has{color:var(--free-ink);font-weight:600}
+.day[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.day[aria-pressed="true"] .dn,.day[aria-pressed="true"] .df{color:var(--on-primary-muted)}
+.day[aria-pressed="true"] .df.has{color:var(--free-on-primary)}
+.day.past:not([aria-pressed="true"]){opacity:.55}
+.day.closed:not([aria-pressed="true"]){opacity:.5}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:16px;height:12px;border-radius:4px;display:inline-block;flex:none;position:relative}
+.sw-free{background:var(--free-bg);border:1px solid var(--control)}
+.sw-free::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:var(--free)}
+.sw-rel{background:var(--free-bg);border:1.5px dashed var(--free)}
+.sw-busy{background:var(--busy)}
+.sw-block{background:repeating-linear-gradient(135deg,var(--hatch) 0 1.5px,transparent 1.5px 5px);border:1px solid var(--border)} /* trama: codifica "no disponible" */
+.sw-mine{background:var(--primary)}
+
+.cal{--ph:32px;--axis:34px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 16px 18px}
+.cal-cols{display:grid;grid-template-columns:var(--axis) repeat(3,minmax(0,1fr));gap:10px;position:relative}
+.cal-boxh{display:flex;align-items:center;gap:10px;padding:0 2px 12px;min-width:0;line-height:1.25}
+/* el número del box, como la chapa de la puerta */
+.plate{width:30px;height:30px;border-radius:999px;border:1px solid var(--control);background:var(--ground);display:grid;place-items:center;font-family:var(--serif);font-size:15px;line-height:1;flex:none}
+.bx-txt{min-width:0}
+.cal-boxh b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-boxh .sh{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.axis{position:relative}
+.axis span{position:absolute;right:4px;font-size:11.5px;color:var(--faint);transform:translateY(-50%)}
+.lane{position:relative;border-radius:12px;background-color:var(--ground);background-image:repeating-linear-gradient(to bottom,transparent 0 calc(var(--ph) - 1px),var(--border) calc(var(--ph) - 1px) var(--ph));box-shadow:inset 0 -1px 0 var(--ground)} /* líneas de hora */
+.seg{position:absolute;left:4px;right:4px;margin:0;border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:1px;text-align:left;border:1px solid transparent;overflow:hidden;line-height:1.25;font-size:13px;color:var(--text);transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .14s var(--ease-out)}
+.seg .k{font-weight:600}
+.seg .tm{font-size:12px;color:var(--muted)}
+.seg .pr{font-size:13px;font-weight:600;margin-top:auto}
+.seg-free,.seg-rel{background:var(--free-bg);box-shadow:var(--shadow-rest);cursor:pointer}
+.seg-free{border-color:var(--border)}
+.seg-rel{border:1.5px dashed var(--free)}
+.seg-free .k,.seg-rel .k{display:flex;align-items:center;gap:6px;color:var(--free-ink)}
+.seg-free .k::before,.seg-rel .k::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--free);flex:none}
+.seg-busy{background:var(--busy);color:var(--busy-ink)}
+.seg-busy.admin{color:var(--text)}
+.seg-block{background:repeating-linear-gradient(135deg,var(--hatch) 0 1.5px,transparent 1.5px 7px);border-color:var(--border);color:var(--busy-ink)} /* trama: codifica "bloqueado" */
+.seg-block > span{align-self:flex-start;max-width:100%;background:var(--ground);border-radius:5px;padding:0 5px;margin-left:-5px}
+.seg-mine{background:var(--primary);border-color:var(--primary);color:var(--on-primary);cursor:pointer}
+.seg-mine .tm{color:var(--on-primary-muted)}
+.seg-gap{background:transparent}
+.seg-gone{background:transparent;border:1px dashed var(--control);color:var(--faint)}
+.seg.admin{cursor:pointer}
+button.seg:active{transform:scale(.985)}
+.seg.past{opacity:.5;cursor:default;pointer-events:none}
+.seg .pill{height:19px;font-size:11px;padding:0 7px 0 6px;gap:5px;align-self:flex-start;margin-top:4px}
+.seg .pill::before{width:5px;height:5px}
+.seg.short{padding-top:4px;padding-bottom:4px;justify-content:center}
+.seg.short .tm,.seg.short .pr{display:none}
+.cal-closed{padding:44px 12px;text-align:center;color:var(--muted)}
+/* la hora actual, solo cuando se mira el día de hoy */
+.nowline{position:absolute;left:calc(var(--axis) + 6px);right:0;height:0;border-top:1.5px solid var(--now);z-index:3;pointer-events:none}
+.nowline::before{content:"";position:absolute;left:-4px;top:-4.75px;width:8px;height:8px;border-radius:50%;background:var(--now)}
+@media (max-width:640px){
+  .days{gap:5px}
+  .day{padding:7px 2px 8px;border-radius:11px}
+  .day .dd{font-size:19px;width:32px;height:32px;line-height:32px}
+  .day .df{font-size:11px}
+  .legend{display:grid;grid-template-columns:1fr 1fr}
+  .cal{--ph:27px;--axis:22px;padding:12px 8px;border-radius:14px}
+  .cal-cols{gap:6px}
+  .cal-boxh{gap:7px;padding-bottom:10px}
+  .plate{width:26px;height:26px;font-size:13.5px}
+  .cal-boxh b{font-size:13.5px}
+  .cal-boxh .sh{display:none}
+  .seg{left:2px;right:2px;padding:6px 7px;font-size:12px}
+  .seg .tm{font-size:11.5px}
+  .seg .pr{font-size:12px}
+  .axis span{font-size:11px;right:2px}
+}
+
+/* hoy en los boxes (inicio de la administradora) */
+.today-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.slots{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.slot{border-radius:10px;padding:9px 11px;line-height:1.3;border:1px solid transparent;min-width:0}
+.slot .hr{display:block;font-size:12.5px;color:var(--muted)}
+.slot .who{display:block;font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.slot-busy{background:var(--busy)}
+.slot-free{background:var(--free-bg);border-color:var(--border)}
+.slot-free .who{color:var(--free-ink)}
+.slot-rel{border:1.5px dashed var(--free)}
+.slot-rel .who{color:var(--free-ink)}
+.slot-block{background:repeating-linear-gradient(135deg,var(--hatch) 0 1.5px,transparent 1.5px 7px);border-color:var(--border)}
+.slot-block span{width:fit-content;background:var(--surface);border-radius:5px;padding:0 5px;margin-left:-5px}
+.slot-gone{border:1px dashed var(--control)}
+.slot-gone .who{color:var(--faint);font-weight:500}
+@media (max-width:640px){ .today-cols{gap:8px} .slot{padding:8px} .slot .who{font-size:13px} .slot .hr{font-size:12px} }
+
+/* mis reservas */
+.bk{display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:18px;align-items:center;padding:18px 22px;border-top:1px solid var(--rule)}
+.bk:first-child{border-top:0}
+.bk-date{text-align:center;line-height:1.15;border-radius:12px;background:var(--raised);padding:9px 4px}
+.bk-date .m{font-size:12px;color:var(--muted)}
+.bk-date .d{font-family:var(--serif);font-size:27px;line-height:1.2}
+.bk-date .w{font-size:12px;color:var(--muted)}
+.bk .t{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;font-weight:600;font-size:16px}
+.bk .t .hr{font-weight:500;font-size:14.5px;color:var(--muted)}
+.bk .s{font-size:13.5px;color:var(--muted);margin-top:2px}
+.bk .pay{font-size:13.5px;margin-top:8px}
+.bk .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.timer{font-weight:600;color:var(--pill-warning-ink)}
+@media (max-width:640px){
+  .bk{grid-template-columns:62px minmax(0,1fr);padding:16px;gap:14px;align-items:start}
+  .bk .acts{grid-column:1 / -1;justify-content:stretch}
+  .bk .acts .btn{flex:1}
+  .bk-date .d{font-size:23px}
+}
+
+/* los boxes */
+.boxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap)}
+.boxcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.boxcard .plan{display:block;width:100%;height:auto;background:var(--raised);border-bottom:1px solid var(--border)}
+.boxcard .bd{padding:18px 20px 20px;display:flex;flex-direction:column;gap:12px;flex:1}
+.boxcard h3{font-family:var(--serif);font-size:21px;font-weight:400;letter-spacing:-.01em;line-height:1.2}
+.boxcard .sh{color:var(--muted);font-size:13.5px;margin-top:-8px}
+.eq{margin:0;padding:0;list-style:none}
+.eq li{position:relative;padding:7px 0 7px 20px;border-top:1px solid var(--rule);font-size:14.5px}
+.eq li:first-child{border-top:0}
+.eq li::before{content:"";position:absolute;left:1px;top:50%;width:10px;height:1.5px;background:var(--control)}
+.photo-note{font-size:12.5px;color:var(--muted)}
+@media (max-width:900px){ .boxes{grid-template-columns:1fr} }
+
+/* Plano del consultorio: una sola ilustración para toda la app */
+.plan{color:var(--text)}
+.plan .wall{fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.plan .fur{fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+.plan .swing{fill:none;stroke:currentColor;stroke-width:1;stroke-dasharray:2 3;opacity:.6}
+.plan .floor{fill:transparent}
+.plan .no{font-family:var(--serif);font-size:30px;fill:currentColor}
+.plan .lbl{font-family:var(--sans);font-size:8.5px;font-weight:500;letter-spacing:.02em;fill:currentColor;opacity:.6}
+.plan[data-focus] .bx,.plan[data-focus] .hall{opacity:.3}
+.plan[data-focus="1"] .bx-1,.plan[data-focus="2"] .bx-2,.plan[data-focus="3"] .bx-3{opacity:1}
+.plan[data-focus="1"] .bx-1 .floor,.plan[data-focus="2"] .bx-2 .floor,.plan[data-focus="3"] .bx-3 .floor{fill:var(--surface)}
+
+/* configuración */
+.set-sec{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:36px;padding:32px 0;border-top:1px solid var(--border)}
+.set-sec:first-of-type{border-top:0;padding-top:4px}
+.set-sec h2{font-size:16px;font-weight:600;display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap}
+.set-sec .desc{color:var(--muted);margin-top:8px;font-size:14.5px;max-width:44ch}
+.set-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:22px}
+.set-panel .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.days-check{display:flex;flex-wrap:wrap;gap:8px}
+.days-check label{position:relative;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid var(--control);border-radius:999px;background:var(--surface);font-size:14px;font-weight:500;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .14s var(--ease-out)}
+.days-check label:active{transform:scale(.97)}
+.days-check input{accent-color:var(--primary)}
+@supports selector(:has(a)){
+  /* cada día es una ficha que se prende o se apaga */
+  .days-check input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+  .days-check label:has(input:checked){background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+  .days-check label:has(input:focus-visible){outline:2px solid var(--text);outline-offset:2px}
+}
+.policy{width:100%;border-collapse:collapse;font-size:14px;margin-top:4px}
+.policy th{font-weight:500;color:var(--muted);text-align:left;padding:6px 10px;font-size:12.5px}
+.policy td{padding:9px 10px;border-top:1px solid var(--rule)}
+.policy tr.hit td{background:var(--active);font-weight:600}
+.policy .num{text-align:right}
+@media (max-width:860px){ .set-sec{grid-template-columns:1fr;gap:14px;padding:24px 0} }
+@media (max-width:520px){ .set-panel{padding:18px 16px} .set-panel > .row2{grid-template-columns:1fr;gap:0} }
+
+/* =========================================================
+   Hojas: diálogo centrado en la compu, hoja que sube desde
+   abajo en el celular. Sale por donde entró y más rápido.
+   ========================================================= */
+.overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px}
+.overlay::before{content:"";position:absolute;inset:0;background:var(--scrim);opacity:0;transition:opacity .2s ease}
+.overlay.open::before{opacity:1}
+.sheet{position:relative;background:var(--surface);color:var(--text);width:100%;max-width:540px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow:hidden auto;overscroll-behavior:contain;border-radius:var(--r-sheet);box-shadow:var(--shadow-float);opacity:0;transform:scale(.97);transition:transform .16s var(--ease-out),opacity .16s ease}
+.overlay.open .sheet{opacity:1;transform:none;transition:transform .24s var(--ease-out),opacity .2s ease}
+.sheet.wide{max-width:760px}
+.sheet-h{position:sticky;top:0;background:var(--surface);z-index:1;display:flex;align-items:flex-start;gap:12px;padding:22px 24px 12px}
+.sheet-h h2{font-family:var(--serif);font-size:22px;font-weight:400;letter-spacing:-.01em;line-height:1.25}
+.sheet-h .sub{color:var(--muted);font-size:13.5px;margin-top:4px}
+.sheet-h .x{margin-left:auto;flex:none;border-radius:999px;border-color:transparent;background:var(--raised)}
+.sheet-b{padding:4px 24px 24px}
+.sheet-f{position:sticky;bottom:0;background:var(--surface);padding:14px 24px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.sheet-f .btn{min-width:124px}
+@media (max-width:640px){
+  .overlay{align-items:flex-end;padding:0}
+  .sheet,.sheet.wide{max-width:none;max-height:92vh;max-height:92dvh;border-radius:var(--r-sheet) var(--r-sheet) 0 0;opacity:1;transform:translateY(100%);transition:transform .22s var(--ease-out)}
+  .overlay.open .sheet{transform:none;transition:transform .42s var(--ease-drawer)}
+  .sheet-h{padding:28px 18px 12px}
+  .sheet-h::before{content:"";position:absolute;top:9px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:999px;background:var(--control)}
+  .sheet-b{padding:4px 18px 22px}
+  .sheet-b:last-child{padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+  .sheet-f{padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px))}
+  .sheet-f .btn{flex:1;min-width:0;height:48px}
+}
+.steps{display:flex;gap:6px;margin:0 0 18px}
+.steps span{flex:1;font-size:12.5px;font-weight:500;color:var(--faint);padding-top:9px;border-top:3px solid var(--active)}
+.steps span.on{color:var(--text);border-color:var(--primary);font-weight:600}
+.steps span.done{color:var(--muted);border-color:var(--primary)}
+.summary{display:grid;grid-template-columns:1fr auto;gap:3px 12px;background:var(--raised);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:14.5px}
+.summary b{font-weight:600}
+.summary .r{text-align:right}
+.choice{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--control);border-radius:12px;padding:13px 15px;margin-bottom:10px;cursor:pointer;color:inherit;transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .14s var(--ease-out)}
+.choice input{margin-top:3px;accent-color:var(--primary);width:18px;height:18px;flex:none}
+.choice .ct{font-weight:600}
+.choice .cs{font-size:13px;color:var(--muted);margin-top:1px}
+.choice .camt{margin-left:auto;font-weight:600;white-space:nowrap}
+.choice:has(input:checked){border-color:var(--text);background:var(--raised);box-shadow:inset 0 0 0 1px var(--text)}
+button.choice:active{transform:scale(.985)}
+.group-l{font-size:14.5px;font-weight:600;margin:20px 0 10px}
+.group-l:first-child{margin-top:0}
+.terms{border:1px solid var(--border);border-radius:12px;padding:12px 16px;max-height:220px;overflow:auto;overscroll-behavior:contain;background:var(--ground);font-size:14px}
+.terms ol{margin:4px 0 0;padding-left:20px}
+.terms li{margin:6px 0}
+.note{border-radius:12px;padding:12px 14px;background:var(--raised);font-size:14px;margin:12px 0}
+.note.warn{background:var(--pill-warning-bg);color:var(--pill-warning-ink)}
+.note.ok{background:var(--pill-positive-bg);color:var(--pill-positive-ink)}
+.note.acc{background:var(--active);color:var(--text)}
+.kv{display:grid;grid-template-columns:auto 1fr auto;gap:8px 14px;align-items:center;margin:10px 0}
+.kv dt{color:var(--muted);font-size:13.5px}
+.kv dd{margin:0;font-weight:500;word-break:break-all}
+.mp-head{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:var(--raised);margin-bottom:16px}
+.mp-head.is-line{background:none;border:1px solid var(--control);margin-bottom:0}
+.mp-logo{width:38px;height:38px;border-radius:999px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.amount{font-family:var(--serif);font-size:38px;line-height:1.15;letter-spacing:-.02em}
+.success{text-align:center;padding:6px 0 4px}
+.success .ok-ic{width:58px;height:58px;border-radius:999px;background:var(--pill-positive-bg);color:var(--pill-positive-ink);display:grid;place-items:center;margin:0 auto 14px}
+.success .ok-ic .icon{width:28px;height:28px;stroke-width:2.2}
+.success h3{font-family:var(--serif);font-size:23px;font-weight:400;letter-spacing:-.01em;line-height:1.25}
+.success p{color:var(--muted);margin-top:8px}
+/* seguimiento: es una secuencia real, por eso los puntos van unidos */
+.track{list-style:none;padding:0;margin:18px 0 0;text-align:left}
+.track li{position:relative;display:flex;gap:12px;align-items:center;padding:8px 0;font-size:14.5px;color:var(--muted)}
+.track li i{width:10px;height:10px;border-radius:999px;background:var(--control);flex:none;position:relative;z-index:1}
+.track li:not(:last-child)::before{content:"";position:absolute;left:4.25px;top:50%;width:1.5px;height:100%;background:var(--control)}
+.track li.done{color:var(--text)}
+.track li.done i{background:var(--primary)}
+.track li.done:not(:last-child)::before{background:var(--primary)}
+.track li.now{color:var(--text);font-weight:600}
+.track li.now i{background:var(--surface);box-shadow:inset 0 0 0 2.5px var(--primary)}
+
+/* =========================================================
+   Ingreso: la mitad en tinta, como el logo, con el plano
+   ========================================================= */
+.auth{min-height:calc(100vh - var(--demobar));min-height:calc(100dvh - var(--demobar));display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}
+.auth-side{background:var(--hero);color:var(--hero-ink);padding:52px 60px 48px;display:flex;flex-direction:column;justify-content:space-between;gap:36px}
+.auth-side .brand{padding:0 0 44px}
+.auth-side .brand-sub{color:var(--hero-muted)}
+.auth-side .mono circle{fill:var(--hero-ink)}
+.auth-side .mono text{fill:var(--hero)}
+.auth-side .mono path{stroke:var(--hero)}
+.auth-side h1{font-family:var(--serif);font-size:clamp(34px,3.6vw,50px);line-height:1.08;letter-spacing:-.02em;font-weight:400;max-width:13ch}
+.auth-side p{font-size:17px;line-height:1.5;color:var(--hero-muted);max-width:38ch;margin-top:18px}
+.auth-side .plan{display:block;width:100%;max-width:540px;height:auto;color:var(--hero-line)}
+.auth-side ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;max-width:540px;font-size:13.5px;line-height:1.4;color:var(--hero-muted)}
+.auth-side li{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid rgba(247,243,238,.22)}
+.auth-side li .icon{color:#A9DDBC}
+.auth-main{display:flex;align-items:center;justify-content:center;padding:44px 24px}
+.auth-card{width:100%;max-width:400px}
+.auth-card h2{font-family:var(--serif);font-size:27px;font-weight:400;letter-spacing:-.015em;line-height:1.2;margin-bottom:6px}
+.demo-users{display:grid;gap:8px;margin-top:8px}
+.demo-user{display:flex;align-items:center;gap:12px;border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:11px 12px;text-align:left;color:var(--text);transition:background-color .16s ease,transform .14s var(--ease-out)}
+.demo-user:active{transform:scale(.985)}
+.demo-user .main{flex:1;min-width:0}
+.demo-user b{display:block;font-weight:600;font-size:14.5px}
+.demo-user span{font-size:12.5px;color:var(--muted)}
+.demo-user .icon{color:var(--faint)}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12.5px;margin:24px 0 12px}
+.divider::before,.divider::after{content:"";height:1px;background:var(--border);flex:1}
+@media (max-width:900px){
+  .auth{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .auth-side{padding:28px 20px 30px;gap:0}
+  .auth-side .brand{padding-bottom:26px}
+  .auth-side h1{font-size:31px}
+  .auth-side p{font-size:15.5px;margin-top:12px}
+  .auth-side .plan,.auth-side ul{display:none}
+  .auth-main{align-items:flex-start;padding:28px 20px 48px}
+}
+
+/* solicitud pendiente */
+.pending-card{max-width:640px}
+.pending-card h2{font-family:var(--serif);font-size:23px;font-weight:400;letter-spacing:-.01em;line-height:1.25}
+
+/* mails */
+.mail{border-top:1px solid var(--rule)}
+.mail:first-child{border-top:0}
+.mail summary{list-style:none;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:13px 0;cursor:pointer}
+.mail summary::-webkit-details-marker{display:none}
+.mail .to{font-size:12.5px;color:var(--muted)}
+.mail .sj{font-weight:600}
+.mail.unread .sj::before{content:"";display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--free);margin-right:8px;vertical-align:1px}
+.mail .at{font-size:12px;color:var(--muted);grid-row:1 / span 2;grid-column:2;align-self:center}
+.mail .body{white-space:pre-line;background:var(--raised);border-radius:12px;padding:14px 16px;margin:0 0 14px;font-size:14px}
+
+/* aviso: entra y sale por abajo */
+.toast{position:fixed;left:50%;bottom:24px;z-index:80;transform:translate(-50%,14px);opacity:0;background:var(--primary);color:var(--on-primary);padding:12px 18px;border-radius:12px;font-size:14.5px;font-weight:500;box-shadow:var(--shadow-float);max-width:calc(100vw - 32px);pointer-events:none;transition:opacity .18s ease,transform .18s var(--ease-out)}
+.toast.show{opacity:1;transform:translate(-50%,0);transition:opacity .22s ease,transform .28s var(--ease-out)}
+@media (max-width:1023px){ .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))} }
+
+/* ========== Puntero fino: el hover queda solo para quien tiene mouse ========== */
+@media (hover:hover) and (pointer:fine){
+  .demobar button:hover{background-color:#3A3531}
+  .nav a:hover{background:var(--raised);color:var(--text)}
+  .nav a[aria-current="page"]:hover{background:var(--surface)}
+  .btn:not([disabled]):hover{background:var(--raised)}
+  .btn-primary:not([disabled]):hover,.btn-dark:not([disabled]):hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+  .btn-danger:not([disabled]):hover{background:var(--pill-negative-bg);border-color:var(--pill-negative-bg)}
+  .iconbtn:not([disabled]):hover{background:var(--raised)}
+  .table tr.click:hover td{background:var(--raised)}
+  .day:not([aria-pressed="true"]):hover{background:var(--raised)}
+  .seg-free:hover,.seg-rel:hover{border-color:var(--text);box-shadow:var(--shadow-lift)}
+  .seg-busy.admin:hover,.seg-block.admin:hover{border-color:var(--text)}
+  .seg-mine:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+  .choice:hover{background:var(--raised)}
+  .demo-user:hover{background:var(--raised)}
+  .days-check label:hover{border-color:var(--text)}
+}
+
+/* ========== Dedo: campos de 16 px (el iPhone no hace zoom) y zonas de toque más grandes ========== */
+@media (pointer:coarse){
+  input,select,textarea,.input,select.input,textarea.input,.demobar select{font-size:16px}
+  .btn{height:44px}
+  .btn-sm{height:38px}
+  .iconbtn{width:40px;height:40px}
+  .nav a{height:44px}
+}
+
+/* ========== Movimiento ==========
+   Solo donde explica algo: el plano se dibuja una vez, la grilla
+   acompaña el cambio de día y el tilde confirma un pago. */
+@media (prefers-reduced-motion:no-preference){
+  .is-drawing .wall,.is-drawing .fur{stroke-dasharray:1;stroke-dashoffset:1;animation:plan-draw 1.1s var(--ease-in-out) both}
+  .is-drawing .fur{animation-duration:.8s}
+  .is-drawing .bx-1 .fur{animation-delay:.32s}
+  .is-drawing .bx-2 .fur{animation-delay:.42s}
+  .is-drawing .bx-3 .fur{animation-delay:.52s}
+  .is-drawing .hall .fur{animation-delay:.62s}
+  .is-drawing .no{animation:plan-fade .5s ease .9s backwards}
+  .is-drawing .lbl,.is-drawing .swing{animation:plan-fade .5s ease 1s backwards}
+  .cal.fx-in .seg{animation:seg-in .26s var(--ease-out) backwards}
+  .cal.fx-in .lane:nth-child(3) .seg{animation-delay:35ms}
+  .cal.fx-in .lane:nth-child(4) .seg{animation-delay:70ms}
+  .success .ok-ic{animation:ok-pop .32s var(--ease-out) backwards}
+  .success .ok-ic .icon path{stroke-dasharray:22 30;stroke-dashoffset:24;animation:ok-draw .36s var(--ease-out) .16s forwards}
+}
+@keyframes plan-draw{from{stroke-dashoffset:1;opacity:0}6%{opacity:1}to{stroke-dashoffset:0;opacity:1}}
+@keyframes plan-fade{from{opacity:0}}
+@keyframes seg-in{from{opacity:0;transform:translateY(5px)}}
+@keyframes ok-pop{from{opacity:0;transform:scale(.9)}}
+@keyframes ok-draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){
+  /* menos movimiento, no cero: quedan los fundidos, se van los desplazamientos */
+  .sheet{transform:none !important;opacity:0 !important;transition:opacity .15s ease !important}
+  .overlay.open .sheet{opacity:1 !important}
+  .toast,.toast.show{transform:translate(-50%,0)}
+  .cal.fx-in .seg{animation:plan-fade .2s ease backwards}
+}
+
+/* Agenda: por día, por semana, por mes o la cantidad de días que se elija */
+.viewsw{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-8px 0 18px}
+.viewsw .vs{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--control);background:var(--surface);font-size:13.5px;font-weight:500;color:var(--text);cursor:pointer;transition:background-color .15s ease,border-color .15s ease,transform .1s ease}
+.viewsw .vs[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.viewsw .vs:active{transform:scale(.97)}
+.viewsw .vs-n{display:inline-flex;align-items:center;gap:8px;margin-left:6px;font-size:13.5px;color:var(--muted)}
+.viewsw .vs-n .input{width:76px;height:34px}
+.aglist{display:flex;flex-direction:column;gap:14px}
+.agday.past{opacity:.72}
+.agday .panel-h h2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.slot.click{cursor:pointer}
+.month{padding:14px}
+.mhead,.mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.mhead span{font-size:12.5px;color:var(--muted);font-weight:500;padding:0 10px 8px}
+.mgrid{gap:6px}
+.mday{min-height:94px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:9px 10px;display:flex;flex-direction:column;gap:4px;text-align:left;color:inherit;font:inherit;cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
+.mday.out{border:0;background:none;cursor:default}
+.mday .dn{font-family:var(--serif);font-size:18px;line-height:1.1}
+.mday .mr{font-size:12.5px;font-weight:600}
+.mday .mp{font-size:11.5px;color:var(--muted)}
+.mday .meter{margin-top:auto}
+.mday.closed{background:var(--raised);color:var(--muted)}
+.mday.closed .mr{font-weight:400}
+.mday.past{opacity:.6}
+.mday.is-today{border-color:var(--text);box-shadow:inset 0 0 0 1px var(--text)}
+@media (hover:hover) and (pointer:fine){ .viewsw .vs:not([aria-pressed="true"]):hover,.mday:not(.out):hover{background:var(--raised)} .slot.click:hover{border-color:var(--control)} }
+@media (max-width:640px){ .month{padding:8px} .mgrid{gap:4px} .mhead span{padding:0 4px 6px;font-size:11.5px} .mday{min-height:62px;padding:6px 5px;border-radius:9px} .mday .dn{font-size:15px} .mday .mr{font-size:10.5px;font-weight:500;line-height:1.2} .mday .mp,.mday .meter{display:none} }
+
+/* v3: fotos, máquinas, categorías y facturación */
+.boxcard .foto{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:var(--raised);border-bottom:1px solid var(--border)}
+.boxcard .rate{font-size:14.5px;color:var(--muted)}
+.boxcard .rate b{font-family:var(--serif);font-size:22px;font-weight:400;color:var(--text);margin-right:3px}
+.thumb{width:56px;height:42px;border-radius:8px;object-fit:cover;background:var(--raised);border:1px solid var(--border);flex:none;display:grid;place-items:center;color:var(--faint)}
+.thumb-lg{width:132px;height:96px;border-radius:12px}
+.photo-edit{display:flex;gap:14px;align-items:center}
+.photo-acts{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.photo-acts .hint{font-size:12.5px;color:var(--muted)}
+.photo-acts label.btn{cursor:pointer}
+.set-item{display:flex;gap:18px;align-items:flex-start;padding:18px 0;border-top:1px solid var(--rule)}
+.set-item:first-child{border-top:0;padding-top:0}
+.set-item .grow{flex:1;min-width:0}
+.set-item .photo-edit{flex-direction:column;align-items:flex-start;gap:10px}
+.set-item .photo-acts{flex-direction:row;flex-wrap:wrap}
+.li .price{font-weight:600;white-space:nowrap}
+.li .price small,.choice .camt small{font-weight:400;color:var(--muted);font-size:12.5px}
+.set-panel>.acts{margin-top:14px}
+select.input-sm{height:32px;font-size:13px;width:auto;max-width:100%}
+.catline label{display:inline-flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.choice.is-off{opacity:.55;cursor:not-allowed}
+.pricein{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.table tr.tot td{font-weight:600;border-top:1px solid var(--border)}
+.inv-line{margin-top:8px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+@media (max-width:640px){ .set-item{flex-direction:column} .li .price{margin-left:auto} }
+</style>
+</head>
+<body>
+<div class="demobar" role="region" aria-label="Controles de la demo">
+  <strong>Demo</strong>
+  <label><span class="lbl-txt">Ver como</span>
+    <select id="as" aria-label="Ver la app como"></select>
+  </label>
+  <span class="sp"></span>
+  <button type="button" data-action="open-mails" id="mailsBtn">Mails<span class="hide-sm"> enviados</span></button>
+  <button type="button" data-action="reset-demo" title="Volver a los datos de ejemplo">Reiniciar<span class="hide-sm"> demo</span></button>
+  <button type="button" class="themebtn" data-action="toggle-theme" id="themeBtn" aria-label="Pasar a modo oscuro"></button>
+</div>
+<div id="app" class="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   Utilidades
+   ========================================================= */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (n) => "$ " + Math.round(n).toLocaleString("es-AR");
+const uid = (p) => p + Math.random().toString(36).slice(2, 8);
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fromIso = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = fromIso(s); d.setDate(d.getDate() + n); return iso(d); };
+const weekday = (s) => fromIso(s).getDay(); // 0 dom … 6 sáb
+const todayIso = () => iso(new Date());
+const at = (dateIso, hour) => { const d = fromIso(dateIso); d.setHours(hour, 0, 0, 0); return d; };
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const DIAS_C = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const MESES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const fmtDay = (s) => { const d = fromIso(s); return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`; };
+const fmtDayShort = (s) => { const d = fromIso(s); return `${DIAS_C[d.getDay()]} ${d.getDate()} ${MESES_C[d.getMonth()]}`; };
+const fmtRange = (a, b) => `${a} a ${b} h`;
+const fmtWhen = (ts) => { const d = new Date(ts); return `${d.getDate()} ${MESES_C[d.getMonth()]} · ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const initials = (n) => n.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+const mondayOf = (s) => { const wd = weekday(s); return addDays(s, wd === 0 ? -6 : 1 - wd); };
+
+const ICONS = {
+  calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  door: '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17M3 21h18M15 12h.01"/>',
+  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  receipt: '<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2zM9 7.5h6M9 11.5h6M9 15.5h4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.6.8 2.6 2.6 3 5.2"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+  chevL: '<path d="m15 18-6-6 6-6"/>',
+  chevR: '<path d="m9 18 6-6-6-6"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4"/>',
+  device: '<rect x="4" y="3" width="11" height="13" rx="2"/><path d="M7.5 7h4M9.5 16v5M6 21h7M15 8h2a3 3 0 0 1 3 3v5.5"/><circle cx="20" cy="18.5" r="1.8"/>',
+  image: '<rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 3-3 4 4"/>',
+};
+const ic = (name, cls = "") => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+
+/* Monograma Y|O: el mismo del logo de la doctora */
+const mono = (cls = "") => `<svg class="mono ${cls}" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20"/><text x="12.4" y="24.8" text-anchor="middle">Y</text><path d="M20 12.2v15.6"/><text x="27.8" y="24.8" text-anchor="middle">O</text></svg>`;
+
+/* Plano del consultorio con los 3 boxes (ilustración: acá van las fotos reales).
+   focus = número del box a destacar; sin focus se ve el consultorio entero. */
+function planSvg(focus = 0, cls = "") {
+  const L = 'pathLength="1"';
+  const r = (x, y, w, h, rx = 0) => `<rect class="fur" ${L} x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/>`;
+  const c = (cx, cy, rad) => `<circle class="fur" ${L} cx="${cx}" cy="${cy}" r="${rad}"/>`;
+  const p = (d) => `<path class="fur" ${L} d="${d}"/>`;
+  const w = (d) => `<path class="wall" ${L} d="${d}"/>`;
+  // Lo que tienen los tres: aire, camilla con almohada, escritorio con sus sillas y la puerta
+  const base = (x) => r(x + 56, 14, 30, 6, 3)
+    + r(x + 16, 40, 32, 80, 7) + r(x + 20, 45, 24, 15, 5)
+    + r(x + 92, 40, 46, 24, 3) + c(x + 115, 28, 7) + c(x + 103, 77, 6.5) + c(x + 127, 77, 6.5)
+    + p(`M${x + 138} 160V130`) + `<path class="swing" d="M${x + 138} 130A30 30 0 0 0 ${x + 108} 160"/>`;
+  const sink = (x) => r(x + 60, 130, 40, 22, 3) + `<ellipse class="fur" ${L} cx="${x + 80}" cy="141" rx="10" ry="6.5"/>`;
+  const own = {
+    1: (x) => sink(x) + p(`M${x + 62} 44l7 11-7 11 7 11-7 11 7 11-7 11`), // lavatorio y biombo
+    2: (x) => r(x + 124, 90, 18, 36, 2) + p(`M${x + 124} 102h18M${x + 124} 114h18`) + r(x + 62, 128, 24, 24, 4) + c(x + 74, 140, 6) + p(`M${x + 95} 126v28M${x + 92} 126h6`), // vitrina, balanza y tallímetro
+    3: (x) => sink(x) + r(x + 58, 44, 22, 28, 3) + c(x + 65, 53, 2.5) + c(x + 73, 53, 2.5) + p(`M${x + 63} 63h12`) + c(x + 66, 100, 10) + c(x + 66, 100, 4.5) + p(`M${x + 58} 94l-9-9`), // electroterapia, lámpara y lavatorio
+  };
+  const box = (n, x) => `<g class="bx bx-${n}"><rect class="floor" x="${x}" y="10" width="${n === 2 ? 154 : 153}" height="150"/>${base(x)}${own[n](x)}<text class="no" x="${x + 19}" y="152">${n}</text></g>`;
+  const hall = `<g class="hall">`
+    + p("M40 240V204") + `<path class="swing" d="M40 204A36 36 0 0 1 76 240"/>`
+    + r(112, 216, 14, 14, 4) + r(132, 216, 14, 14, 4) + r(152, 216, 14, 14, 4) + c(186, 223, 7)
+    + r(330, 196, 112, 20, 4) + c(350, 206, 2.6) + c(361, 206, 2.6) + c(372, 206, 2.6) + c(402, 228, 7)
+    + `<text class="lbl" x="112" y="206">Espera</text><text class="lbl" x="330" y="186">Recepción</text></g>`;
+  const walls = w("M40 240H10V10H470V240H76") + w("M163 10V160") + w("M317 10V160")
+    + w("M10 160H118") + w("M148 160H271") + w("M301 160H425") + w("M455 160H470");
+  const vb = ["0 0 480 250", "-8 0 303 180", "88 0 303 180", "185 0 303 180"][focus];
+  return `<svg class="plan ${cls}" viewBox="${vb}" ${focus ? `data-focus="${focus}"` : ""} role="img" aria-label="${focus ? "Plano del box " + focus : "Plano del consultorio con los tres boxes"}">${box(1, 10)}${box(2, 163)}${box(3, 317)}${hall}${walls}</svg>`;
+}
+
+/* =========================================================
+   Estado (localStorage) y datos de ejemplo
+   ========================================================= */
+const KEY = "boxes-demo-v4"; // v4: además de las categorías, cada box puede tener su propio precio; los datos guardados de antes no sirven
+let S;
+
+function seed() {
+  const now = Date.now();
+  const t = todayIso();
+  const dayOff = (n) => { let s = addDays(t, n); if (weekday(s) === 0) s = addDays(s, 1); return s; };
+  const nextWd = (wd) => { let s = addDays(t, 1); while (weekday(s) !== wd) s = addDays(s, 1); return s; };
+
+  S = {
+    v: 4,
+    config: {
+      open: 8, close: 20, days: [1, 2, 3, 4, 5, 6], turnHours: 4,
+      depositPct: 50,
+      policy: { days: 7, senaBefore: 100, senaAfter: 0, totalBefore: 100, totalAfter: 50 },
+      mpMinutes: 15,
+      // Cada profesional elige su categoría al pedir acceso y paga el precio por hora de esa categoría
+      categories: [
+        { id: "medica", name: "Médicas y médicos", note: "Atención médica. Incluye el servicio de emergencias y el seguro.", pricePerHour: 25000 },
+        { id: "estetica", name: "Esteticistas", note: "Tratamientos estéticos, sin práctica médica.", pricePerHour: 15000 },
+      ],
+      billing: { name: "Yanina Onzari", cuit: "27-30111222-4", cond: "Monotributo", pos: 2, next: 58 },
+      terms: {
+        version: 3,
+        text: "Dejá el box limpio y ordenado al terminar: camilla con papel nuevo, superficies desinfectadas y residuos en su lugar.\nRespetá el horario: entrá y salí dentro de tu turno. Si te pasás, se cobra el turno siguiente.\nLas llaves se retiran y se devuelven en recepción. No se hacen copias.\nPodés usar el equipamiento del box. No se mueven muebles ni equipos entre boxes.\nLos residuos patogénicos van en el recipiente rojo. Cada profesional trae sus insumos descartables.\nCualquier rotura o faltante se avisa el mismo día a la administradora.",
+      },
+    },
+    boxes: [
+      { id: 1, name: "Box 1", short: "Camilla · lavatorio", equipment: ["Camilla eléctrica", "Lavatorio con agua caliente", "Escritorio y 2 sillas", "Biombo", "Aire acondicionado"] },
+      { id: 2, name: "Box 2", short: "Camilla · vitrina", equipment: ["Camilla fija", "Vitrina para insumos", "Escritorio y 2 sillas", "Balanza y tallímetro", "Aire acondicionado"] },
+      // El más amplio: tiene su propio precio por hora para cada categoría (ejemplo)
+      { id: 3, name: "Box 3", short: "Amplio · aparatología", equipment: ["Camilla eléctrica", "Equipo de electroterapia", "Lámpara de luz fría", "Lavatorio", "Aire acondicionado"], prices: { medica: 30000, estetica: 20000 } },
+    ],
+    users: [
+      { id: "u0", role: "admin", name: "Yani", profession: "Administradora", email: "yani@consultorio.com.ar", phone: "11 5555-0100", status: "aprobado", since: now - 400 * 864e5 },
+      { id: "u1", role: "pro", name: "Lucía Ferrari", profession: "Médica dermatóloga", category: "medica", cuit: "27-28111222-3", email: "lucia.ferrari@mail.com", phone: "11 5555-0111", status: "aprobado", since: now - 90 * 864e5 },
+      { id: "u2", role: "pro", name: "Carolina Méndez", profession: "Cosmetóloga", category: "estetica", cuit: "27-30222333-4", email: "caro.mendez@mail.com", phone: "11 5555-0122", status: "aprobado", since: now - 120 * 864e5 },
+      { id: "u3", role: "pro", name: "Paula Ríos", profession: "Médica clínica", category: "medica", cuit: "27-29333444-5", email: "paula.rios@mail.com", phone: "11 5555-0133", status: "aprobado", since: now - 60 * 864e5 },
+      { id: "u4", role: "pro", name: "Sofía Herrera", profession: "Esteticista corporal", category: "estetica", cuit: "27-31444555-6", email: "sofi.herrera@mail.com", phone: "11 5555-0144", status: "aprobado", since: now - 30 * 864e5 },
+      { id: "u5", role: "pro", name: "Martina Sosa", profession: "Cosmiatra", category: "estetica", cuit: "27-33555666-7", email: "martina.sosa@mail.com", phone: "11 5555-0155", status: "pendiente", since: now - 2 * 864e5 },
+      { id: "u6", role: "pro", name: "Julián Paz", profession: "Médico flebólogo", category: "medica", cuit: "20-27666777-8", email: "julian.paz@mail.com", phone: "11 5555-0166", status: "pendiente", since: now - 3 * 36e5 },
+      { id: "u7", role: "pro", name: "Andrés Molina", profession: "Masajista", category: "estetica", cuit: "20-26777888-9", email: "andres.molina@mail.com", phone: "11 5555-0177", status: "bloqueado", since: now - 200 * 864e5 },
+    ],
+    blocks: [
+      { id: "bl1", boxIds: [1], recurring: true, weekday: 2, start: 8, end: 16, note: "Atiendo yo" },
+      { id: "bl2", boxIds: [1], recurring: true, weekday: 4, start: 8, end: 16, note: "Atiendo yo" },
+      { id: "bl3", boxIds: [1], recurring: true, weekday: 1, start: 16, end: 20, note: "Atiendo yo" },
+    ],
+    releases: [],
+    // Equipos que se alquilan por hora, aparte del box. Los precios y los equipos son de ejemplo.
+    machines: [
+      { id: "m1", name: "Láser de depilación", short: "Equipo de diodo, para depilación definitiva.", pricePerHour: 40000, active: true },
+      { id: "m2", name: "Criolipólisis", short: "Para tratamientos corporales.", pricePerHour: 35000, active: true },
+      { id: "m3", name: "Radiofrecuencia", short: "Facial y corporal.", pricePerHour: 30000, active: true },
+      { id: "m4", name: "Ultrasonido focalizado", short: "Para tratamientos faciales.", pricePerHour: 45000, active: false },
+    ],
+    invoices: [],
+    bookings: [],
+    mails: [],
+    session: { userId: "u1" },
+    ui: { view: null, calDate: t, tab: {} },
+  };
+  // Rato libre publicado: el jueves que viene, Box 1 de 12 a 14
+  S.releases.push({ id: "rl1", boxId: 1, date: nextWd(4), start: 12, end: 14 });
+
+  const B = (o) => {
+    const date = o.date || dayOff(o.off);
+    if (!canBook(o.box, date, o.start, o.end, true)) return null;
+    const u = userById(o.user), hours = o.end - o.start;
+    const machines = (o.machines || []).filter(id => !machineBusy(id, date, o.start, o.end)).map(id => machineLine(machineById(id), hours));
+    const boxAmount = priceFor(hours, u, o.box);
+    const total = boxAmount + machines.reduce((a, m) => a + m.amount, 0);
+    const paidAt = o.date ? at(date, 9).getTime() - 2 * 864e5 : now - 5 * 864e5;
+    const b = {
+      id: uid("r"), userId: o.user, boxId: o.box, date, start: o.start, end: o.end,
+      service: o.service, category: u.category, rate: rateOf(u, boxById(o.box)), boxAmount, machines, total, plan: o.plan, status: "confirmada",
+      payments: [], termsVersion: 3, createdAt: paidAt, expiresAt: null, refund: null,
+    };
+    // Todo se cobra por Mercado Pago: cada reserva de ejemplo ya tiene aprobada su seña o su total
+    b.payments.push({ id: uid("p"), kind: o.plan, amount: o.plan === "sena" ? senaOf(total) : total, status: "aprobado", at: paidAt });
+    S.bookings.push(b);
+    return b;
+  };
+  B({ user: "u1", off: -10, box: 2, start: 16, end: 20, plan: "total", service: "Dermatología" });
+  B({ user: "u1", off: 3, box: 2, start: 8, end: 12, plan: "sena", service: "Dermatología", machines: ["m1"] });
+  B({ user: "u1", off: 11, box: 3, start: 16, end: 20, plan: "total", service: "Dermatología" });
+  B({ user: "u1", off: 6, box: 2, start: 12, end: 16, plan: "sena", service: "Dermatología" });
+  B({ user: "u2", off: 0, box: 2, start: 8, end: 12, plan: "total", service: "Limpiezas faciales" });
+  B({ user: "u2", off: 1, box: 3, start: 12, end: 16, plan: "sena", service: "Tratamientos faciales", machines: ["m3"] });
+  B({ user: "u3", off: 0, box: 3, start: 16, end: 20, plan: "total", service: "Medicina estética" });
+  B({ user: "u3", off: 2, box: 3, start: 8, end: 12, plan: "total", service: "Medicina estética" });
+  B({ user: "u4", off: 1, box: 2, start: 16, end: 20, plan: "sena", service: "Tratamientos corporales", machines: ["m2"] });
+  B({ user: "u4", off: 4, box: 2, start: 8, end: 12, plan: "total", service: "Tratamientos corporales" });
+  B({ user: "u2", off: 8, box: 3, start: 8, end: 12, plan: "sena", service: "Limpiezas faciales" });
+  B({ user: "u4", off: -3, box: 3, start: 8, end: 12, plan: "total", service: "Tratamientos corporales", machines: ["m2"] });
+  B({ user: "u3", off: 5, box: 2, start: 16, end: 20, plan: "total", service: "Medicina estética" });
+  // Una cancelación con su devolución, que Mercado Pago hace sola
+  const c = B({ user: "u2", off: 2, box: 2, start: 12, end: 16, plan: "total", service: "Limpiezas faciales" });
+  if (c) {
+    c.status = "cancelada"; c.cancelledAt = now - 864e5; c.cancelledBy = "pro";
+    const r = Math.round(c.total * 0.5);
+    c.refund = { amount: r, pct: 50, done: true };
+    c.payments.push({ id: uid("p"), kind: "devolucion", amount: r, status: "aprobado", at: now - 864e5 });
+  }
+  // El mes pasado: turnos ya usados, que más abajo quedan facturados
+  const pm = new Date(); pm.setDate(1); pm.setMonth(pm.getMonth() - 1);
+  const pmDay = (n) => { const d = new Date(pm.getFullYear(), pm.getMonth(), n); if (d.getDay() === 0) d.setDate(d.getDate() + 1); return iso(d); };
+  B({ user: "u1", date: pmDay(6), box: 2, start: 8, end: 12, plan: "total", service: "Dermatología" });
+  B({ user: "u1", date: pmDay(13), box: 2, start: 8, end: 12, plan: "total", service: "Dermatología", machines: ["m1"] });
+  B({ user: "u1", date: pmDay(20), box: 2, start: 8, end: 12, plan: "total", service: "Dermatología" });
+  B({ user: "u2", date: pmDay(7), box: 3, start: 12, end: 16, plan: "total", service: "Limpiezas faciales" });
+  B({ user: "u2", date: pmDay(21), box: 3, start: 12, end: 16, plan: "total", service: "Tratamientos faciales", machines: ["m3"] });
+  B({ user: "u3", date: pmDay(9), box: 3, start: 16, end: 20, plan: "total", service: "Medicina estética" });
+  B({ user: "u4", date: pmDay(15), box: 2, start: 16, end: 20, plan: "total", service: "Tratamientos corporales", machines: ["m2"] });
+  B({ user: "u4", date: pmDay(22), box: 2, start: 16, end: 20, plan: "total", service: "Tratamientos corporales" });
+  // Mails de ejemplo
+  mail("u0", "Nueva solicitud de acceso: Julián Paz", `Julián Paz (Médico flebólogo, categoría Médicas y médicos) pidió acceso para alquilar boxes.\nTeléfono: 11 5555-0166\n\nCoordiná la entrevista y después aprobalo desde el panel.`, now - 3 * 36e5, true);
+  const lb = S.bookings.find(b => b.userId === "u1" && b.status === "confirmada" && b.plan === "sena");
+  if (lb) mail("u1", "Reserva confirmada: " + boxById(lb.boxId).name + ", " + fmtDay(lb.date), confirmBody(lb), now - 5 * 864e5, true);
+  autoUpdate(true);
+  // El mes pasado ya quedó facturado: una factura por profesional
+  const prevYm = ymAdd(ymOf(t), -1);
+  billingRows(prevYm).forEach(r => issueInvoice(r, prevYm, at(t.slice(0, 8) + "01", 10).getTime(), true));
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { S = JSON.parse(raw); if (S && S.v === 4) return; }
+  } catch (e) { /* sin storage: arrancamos con datos de ejemplo */ }
+  seed();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); return true; } catch (e) { return false; /* lleno o bloqueado: la demo sigue en memoria */ } }
+
+/* =========================================================
+   Dominio
+   ========================================================= */
+const me = () => S.users.find(u => u.id === S.session.userId) || null;
+const userById = (id) => S.users.find(u => u.id === id);
+const boxById = (id) => S.boxes.find(b => b.id === id);
+const isAdmin = () => me()?.role === "admin";
+/* Categorías: cada profesional paga el precio por hora de la suya */
+const catById = (id) => S.config.categories.find(k => k.id === id) || S.config.categories[0];
+const catOf = (u) => catById(u && u.category);
+/* El precio por hora sale de la categoría, salvo que el box tenga su propio precio para esa categoría (más grande, mejor equipado) */
+const boxRate = (box, catId) => { const v = box && box.prices ? box.prices[catId] : null; return v == null || v === "" ? null : +v; };
+const rateOf = (u, box = null) => { const k = catOf(u), own = boxRate(box, k.id); return own == null ? k.pricePerHour : own; };
+const priceFor = (hours, u = me(), boxId = null) => rateOf(u, boxId == null ? null : boxById(boxId)) * hours;
+/* Para avisarle a la profesional qué boxes tienen un precio distinto del general de su categoría */
+const ownRates = (u) => {
+  const k = catOf(u), xs = S.boxes.filter(b => boxRate(b, k.id) != null && boxRate(b, k.id) !== k.pricePerHour);
+  return xs.length ? ` Con precio propio: ${xs.map(b => `${esc(b.name)}, ${money(boxRate(b, k.id))} la hora`).join("; ")}.` : "";
+};
+/* Máquinas: se alquilan por hora, aparte del box, y no pueden estar en dos reservas a la vez */
+const machineById = (id) => S.machines.find(m => m.id === id);
+const machinesOf = (b) => b.machines || [];
+const machineLine = (m, hours) => ({ id: m.id, name: m.name, hours, rate: m.pricePerHour, amount: m.pricePerHour * hours });
+const machineBusy = (id, date, start, end) => S.bookings.some(b => b.status !== "cancelada" && b.date === date && b.start < end && b.end > start && machinesOf(b).some(x => x.id === id));
+const boxAmountOf = (b) => b.boxAmount == null ? b.total : b.boxAmount;
+/* Facturación: las horas de cada profesional en el mes, con su precio, en una sola factura */
+const pad4 = (n) => String(n).padStart(4, "0");
+const pad8 = (n) => String(n).padStart(8, "0");
+const ymOf = (dateIso) => dateIso.slice(0, 7);
+const ymLabel = (ym) => { const [y, m] = ym.split("-").map(Number); return `${MESES[m - 1]} de ${y}`; };
+const ymAdd = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+const invoiceOf = (userId, ym) => S.invoices.find(i => i.userId === userId && i.period === ym);
+function billingRow(u, ym) {
+  const bks = S.bookings.filter(b => b.userId === u.id && ymOf(b.date) === ym && ["confirmada", "cumplida"].includes(b.status));
+  const hours = bks.reduce((a, b) => a + (b.end - b.start), 0);
+  const boxAmount = bks.reduce((a, b) => a + boxAmountOf(b), 0);
+  const machAmount = bks.reduce((a, b) => a + machinesOf(b).reduce((x, m) => x + m.amount, 0), 0);
+  return { u, bks, hours, boxAmount, machAmount, total: boxAmount + machAmount, pending: bks.filter(b => b.status === "confirmada").length, invoice: invoiceOf(u.id, ym) };
+}
+const billingRows = (ym) => S.users.filter(u => u.role === "pro").map(u => billingRow(u, ym)).filter(r => r.bks.length || r.invoice);
+function issueInvoice(row, ym, ts = Date.now(), silent = false) {
+  const bl = S.config.billing, lines = [], byRate = {}, byMachine = {};
+  row.bks.forEach(b => {
+    const rate = b.rate || Math.round(boxAmountOf(b) / (b.end - b.start));
+    if (!byRate[rate]) byRate[rate] = { hours: 0, amount: 0 };
+    byRate[rate].hours += b.end - b.start; byRate[rate].amount += boxAmountOf(b);
+    machinesOf(b).forEach(m => { if (!byMachine[m.name]) byMachine[m.name] = { hours: 0, amount: 0 }; byMachine[m.name].hours += m.hours; byMachine[m.name].amount += m.amount; });
+  });
+  Object.keys(byRate).forEach(r => lines.push({ text: `Alquiler de box: ${byRate[r].hours} h a ${money(+r)} la hora`, amount: byRate[r].amount }));
+  Object.keys(byMachine).forEach(n => lines.push({ text: `Alquiler de equipo, ${n}: ${byMachine[n].hours} h`, amount: byMachine[n].amount }));
+  const inv = {
+    id: uid("f"), userId: row.u.id, period: ym, letter: bl.cond === "Monotributo" ? "C" : "B", number: `${pad4(bl.pos)}-${pad8(bl.next++)}`,
+    cae: "7" + Array.from({ length: 13 }, () => Math.floor(Math.random() * 10)).join(""), at: ts, hours: row.hours, total: row.total, lines,
+  };
+  S.invoices.push(inv);
+  if (!silent) mail(row.u.id, `Tu factura de ${ymLabel(ym)}`, `Hola ${row.u.name.split(" ")[0]}:\n\nTe mandamos la factura ${inv.letter} ${inv.number} por ${money(inv.total)}.\nCorresponde a lo que alquilaste en ${ymLabel(ym)}: ${row.hours} horas de box${row.machAmount ? " y los equipos que sumaste" : ""}.\n\nConsultorio Yani`);
+  return inv;
+}
+const senaOf = (total) => Math.round(total * S.config.depositPct / 100);
+const active = (b) => b.status !== "cancelada";
+const paidOf = (b) => b.payments.filter(p => p.status === "aprobado" && p.kind !== "devolucion").reduce((a, p) => a + p.amount, 0);
+const balanceOf = (b) => Math.max(0, b.total - paidOf(b));
+const bookingStart = (b) => at(b.date, b.start);
+const bookingEnd = (b) => at(b.date, b.end);
+
+const STATUS = {
+  pago: { label: "Pendiente de pago", cls: "pill-warning", short: "Falta pagar" },
+  confirmada: { label: "Confirmada", cls: "pill-positive", short: "Confirmada" },
+  cumplida: { label: "Cumplida", cls: "pill-neutral", short: "Cumplida" },
+  cancelada: { label: "Cancelada", cls: "pill-negative", short: "Cancelada" },
+};
+const statusPill = (b) => `<span class="pill ${STATUS[b.status].cls}">${STATUS[b.status].label}</span>`;
+const KIND = { sena: "Seña", total: "Pago total", saldo: "Saldo", devolucion: "Devolución" };
+
+function blocksFor(date, boxId) {
+  const wd = weekday(date);
+  return S.blocks.filter(bl => bl.boxIds.includes(boxId) && (bl.recurring ? bl.weekday === wd : bl.date === date));
+}
+function releasesFor(date, boxId) { return S.releases.filter(r => r.boxId === boxId && r.date === date); }
+
+/* Parte el día de un box en tramos: reserva, rato libre, bloqueo o libre (alineado a la grilla de turnos). */
+function segments(date, boxId) {
+  const c = S.config;
+  if (!c.days.includes(weekday(date))) return [];
+  const T = c.turnHours, open = c.open, close = c.close;
+  const bks = S.bookings.filter(b => b.boxId === boxId && b.date === date && active(b));
+  const bls = blocksFor(date, boxId), rls = releasesFor(date, boxId);
+  const pts = new Set([open, close]);
+  for (let h = open; h < close; h += T) pts.add(h);
+  [...bks, ...bls, ...rls].forEach(e => { [e.start, e.end].forEach(p => { if (p > open && p < close) pts.add(p); }); });
+  const arr = [...pts].sort((a, b) => a - b);
+  const raw = [];
+  for (let i = 0; i < arr.length - 1; i++) {
+    const a = arr[i], b = arr[i + 1], m = (a + b) / 2;
+    const bk = bks.find(e => e.start < m && e.end > m);
+    let kind, ref, key;
+    if (bk) { kind = "booking"; ref = bk; key = "b" + bk.id; }
+    else {
+      const rl = rls.find(e => e.start < m && e.end > m);
+      const bl = bls.find(e => e.start < m && e.end > m);
+      if (rl) { kind = "release"; ref = rl; key = "r" + rl.id; }
+      else if (bl) { kind = "block"; ref = bl; key = "k" + bl.id; }
+      else { const cell = Math.floor((a - open) / T); kind = "free"; ref = null; key = "f" + cell; }
+    }
+    const last = raw[raw.length - 1];
+    if (last && last.key === key) last.end = b; else raw.push({ start: a, end: b, kind, ref, key });
+  }
+  const now = Date.now();
+  return raw.map(s => {
+    s.past = at(date, s.start).getTime() < now;
+    s.bookable = !s.past && ((s.kind === "free" && s.end - s.start === T) || s.kind === "release");
+    if (s.kind === "free" && s.end - s.start !== T) s.kind = "gap";
+    return s;
+  });
+}
+
+function canBook(boxId, date, start, end, ignorePast = false) {
+  const c = S.config;
+  if (!c.days.includes(weekday(date)) || start < c.open || end > c.close || end <= start) return false;
+  if (!ignorePast && at(date, start).getTime() < Date.now()) return false;
+  if (S.bookings.some(b => b.boxId === boxId && b.date === date && active(b) && b.start < end && b.end > start)) return false; // RN02
+  const bls = blocksFor(date, boxId), rls = releasesFor(date, boxId);
+  for (let h = start; h < end; h++) {
+    const blocked = bls.some(e => e.start <= h && e.end > h);
+    const released = rls.some(e => e.start <= h && e.end > h);
+    if (blocked && !released) return false; // RN03
+  }
+  return true;
+}
+
+function mail(userId, subject, body, ts = Date.now(), read = false) {
+  const u = userById(userId);
+  S.mails.unshift({ id: uid("m"), to: userId === "u0" ? "Yani (administradora)" : `${u.name} · ${u.email}`, subject, body, at: ts, read });
+}
+function confirmBody(b) {
+  const box = boxById(b.boxId), paid = paidOf(b), bal = balanceOf(b);
+  return `Hola ${userById(b.userId).name.split(" ")[0]}:\n\nTu reserva está confirmada.\n${box.name} · ${cap(fmtDay(b.date))} · ${fmtRange(b.start, b.end)}${machinesOf(b).length ? "\nEquipos: " + machinesOf(b).map(m => m.name).join(", ") : ""}\n\nPagaste ${money(paid)}${bal ? `. Saldo a pagar antes del turno: ${money(bal)}` : " (total)"}.\n\nRecordá dejar el box limpio y ordenado. Las llaves se retiran en recepción.\n\nConsultorio Yani`;
+}
+
+function refundFor(b, by = "pro") {
+  const paid = paidOf(b), pol = S.config.policy;
+  const days = (bookingStart(b).getTime() - Date.now()) / 864e5;
+  const before = days >= pol.days;
+  const full = paid >= b.total;
+  let pct = full ? (before ? pol.totalBefore : pol.totalAfter) : (before ? pol.senaBefore : pol.senaAfter);
+  if (by === "admin") pct = 100;
+  return { paid, pct, amount: Math.round(paid * pct / 100), days, before, full };
+}
+
+function cancelBooking(b, by = "pro") {
+  const r = refundFor(b, by);
+  b.status = "cancelada"; b.cancelledAt = Date.now(); b.cancelledBy = by;
+  // La devolución vuelve sola por Mercado Pago: no queda nada para hacer a mano
+  b.refund = { amount: r.amount, pct: r.pct, done: true };
+  if (r.amount > 0) b.payments.push({ id: uid("p"), kind: "devolucion", amount: r.amount, status: "aprobado", at: Date.now() });
+  const box = boxById(b.boxId);
+  const how = r.amount === 0 ? "Según la política de cancelación, no corresponde devolución."
+    : `Te devolvemos ${money(r.amount)} a tu cuenta de Mercado Pago (puede tardar unos días).`;
+  mail(b.userId, `Reserva cancelada: ${box.name}, ${fmtDay(b.date)}`, `Hola ${userById(b.userId).name.split(" ")[0]}:\n\n${by === "admin" ? "La administradora canceló" : "Cancelaste"} tu reserva de ${box.name} del ${fmtDay(b.date)} (${fmtRange(b.start, b.end)}).\n\nPagado: ${money(r.paid)}\nDevolución: ${money(r.amount)} (${r.pct} %)\n${how}\n\nConsultorio Yani`);
+  if (by === "pro") mail("u0", `Cancelación: ${userById(b.userId).name}`, `${userById(b.userId).name} canceló ${box.name} del ${fmtDay(b.date)} (${fmtRange(b.start, b.end)}).\nDevolución: ${money(r.amount)}${r.amount ? ", que vuelve sola por Mercado Pago" : ""}.\nEl horario volvió a quedar libre.`);
+  return r;
+}
+
+function approvePayment(b, p) {
+  p.status = "aprobado";
+  const wasPending = b.status === "pago";
+  if (wasPending) { b.status = "confirmada"; b.expiresAt = null; mail(b.userId, `Reserva confirmada: ${boxById(b.boxId).name}, ${fmtDay(b.date)}`, confirmBody(b)); }
+  else mail(b.userId, `Recibimos tu pago de ${KIND[p.kind].toLowerCase()}`, `Hola ${userById(b.userId).name.split(" ")[0]}:\n\nRecibimos ${money(p.amount)} de ${KIND[p.kind].toLowerCase()} para ${boxById(b.boxId).name} del ${fmtDay(b.date)}. ${balanceOf(b) ? `Te queda ${money(balanceOf(b))}.` : "Tu turno está pago completo."}\n\nConsultorio Yani`);
+}
+
+/* Vencimientos (RN10), turnos cumplidos y recordatorios (RF19) */
+function autoUpdate(silent = false) {
+  const now = Date.now();
+  let changed = false;
+  S.bookings.forEach(b => {
+    if (b.status === "pago" && b.expiresAt && now > b.expiresAt) {
+      b.status = "cancelada"; b.cancelledAt = now; b.cancelledBy = "vencida"; b.refund = { amount: 0, pct: 0, done: true };
+      mail(b.userId, "Se liberó tu reserva", `Hola ${userById(b.userId).name.split(" ")[0]}:\n\nNo registramos el pago de ${boxById(b.boxId).name} del ${fmtDay(b.date)} a tiempo, así que el horario volvió a quedar libre. Si todavía lo querés, podés reservarlo de nuevo.\n\nConsultorio Yani`);
+      changed = true;
+    }
+    if ((b.status === "confirmada") && bookingEnd(b).getTime() < now) { b.status = "cumplida"; changed = true; }
+    if (b.status === "confirmada" && !b.reminded) {
+      const h = (bookingStart(b).getTime() - now) / 36e5;
+      if (h > 0 && h <= 24) {
+        b.reminded = true; changed = true;
+        mail(b.userId, `Recordatorio: mañana tenés ${boxById(b.boxId).name}`, `Hola ${userById(b.userId).name.split(" ")[0]}:\n\nTe recordamos tu turno: ${boxById(b.boxId).name} · ${cap(fmtDay(b.date))} · ${fmtRange(b.start, b.end)}.${balanceOf(b) ? `\nTe queda pagar el saldo: ${money(balanceOf(b))}.` : ""}\n\nLas llaves se retiran en recepción. ¡Que tengas una buena jornada!`, now, silent);
+      }
+    }
+  });
+  return changed;
+}
+
+/* =========================================================
+   Render: shell
+   ========================================================= */
+const app = $("#app");
+let toastTimer;
+let fx = "cal"; // qué acompañar con movimiento en el próximo dibujado ("cal": la grilla de la agenda cuando cambia el día)
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3200); }
+
+/* Modo claro u oscuro. Sin elegir nada, la página sigue al sistema;
+   el botón de arriba a la derecha lo cambia y lo recuerda en este navegador. */
+const THEME_KEY = "boxes-demo-theme";
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+const themeNow = () => document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
+function paintTheme() {
+  const dark = themeNow() === "dark";
+  // la barra del navegador del celular acompaña al modo elegido
+  $$('meta[name="theme-color"]').forEach(m => m.setAttribute("content", dark ? "#0E0C0B" : "#1C1917"));
+  const btn = $("#themeBtn"), label = dark ? "Pasar a modo claro" : "Pasar a modo oscuro";
+  btn.setAttribute("aria-label", label); btn.title = label;
+  btn.innerHTML = `${ic(dark ? "sun" : "moon")}<span class="hide-sm">${dark ? "Modo claro" : "Modo oscuro"}</span>`;
+}
+function toggleTheme() {
+  const next = themeNow() === "dark" ? "light" : "dark";
+  const apply = () => { document.documentElement.dataset.theme = next; paintTheme(); };
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* sin storage: vale hasta cerrar la página */ }
+  // un fundido corto entre un modo y el otro, si el navegador lo permite
+  if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply); else apply();
+}
+darkQuery.addEventListener?.("change", paintTheme);
+
+function navFor(u) {
+  if (!u) return [];
+  if (u.role === "admin") {
+    return [
+      { id: "inicio", label: "Inicio", icon: "home" },
+      { id: "agenda", label: "Agenda", icon: "calendar" },
+      { id: "reservas", label: "Reservas", icon: "list" },
+      { id: "pagos", label: "Pagos", icon: "receipt" },
+      { id: "facturacion", label: "Facturación", icon: "file" },
+      { id: "profesionales", label: "Profesionales", icon: "users", badge: accessRequests().length },
+      { id: "config", label: "Configuración", icon: "settings" },
+    ];
+  }
+  if (u.status === "aprobado") return [
+    { id: "reservar", label: "Reservar", icon: "calendar" },
+    { id: "mis", label: "Mis reservas", icon: "list", badge: S.bookings.filter(b => b.userId === u.id && b.status === "pago").length },
+    { id: "boxes", label: "Los boxes", icon: "door" },
+    { id: "maquinas", label: "Máquinas", icon: "device" },
+  ];
+  return [{ id: "estado", label: "Mi solicitud", icon: "home" }, { id: "boxes", label: "Los boxes", icon: "door" }, { id: "maquinas", label: "Máquinas", icon: "device" }];
+}
+
+function renderDemoBar() {
+  const sel = $("#as");
+  const label = (u) => u.role === "admin" ? "Yani · administradora" : `${u.name} · ${u.status === "aprobado" ? "aprobada" : u.status}`;
+  sel.innerHTML = `<option value="">Pantalla de ingreso</option>` + S.users.map(u => `<option value="${u.id}">${esc(label(u))}</option>`).join("");
+  sel.value = S.session.userId || "";
+  const unread = S.mails.filter(m => !m.read).length;
+  $("#mailsBtn").innerHTML = `Mails<span class="hide-sm"> enviados</span>${unread ? `<span class="count">${unread}</span>` : ""}`;
+}
+
+function render() {
+  autoUpdate();
+  save();
+  renderDemoBar();
+  const u = me();
+  if (!u) { app.innerHTML = renderAuth(); fx = ""; return; }
+  const nav = navFor(u);
+  if (!S.ui.view || !nav.some(n => n.id === S.ui.view)) S.ui.view = nav[0].id;
+  const view = S.ui.view;
+  const current = nav.find(n => n.id === view);
+  const navLinks = nav.map(n => `<a href="#${n.id}" data-nav="${n.id}" ${n.id === view ? 'aria-current="page"' : ""}>${ic(n.icon)}<span>${n.label}</span>${n.badge ? `<span class="badge num">${n.badge}</span>` : ""}</a>`).join("");
+  // En el celular la administradora tiene 6 secciones: 4 en la barra y "Más"
+  let bottom = nav;
+  if (nav.length > 5) bottom = [...nav.slice(0, 4), { id: "__more", label: "Más", icon: "more", badge: nav.slice(4).reduce((a, n) => a + (n.badge || 0), 0) }];
+  const moreActive = nav.slice(4).some(n => n.id === view) && nav.length > 5;
+  const bottomLinks = bottom.map(n => `<a href="#${n.id}" data-nav="${n.id}" ${(n.id === view || (n.id === "__more" && moreActive)) ? 'aria-current="page"' : ""}>${ic(n.icon)}<span>${n.label}</span>${n.badge ? `<span class="dot num">${n.badge}</span>` : ""}</a>`).join("");
+
+  app.innerHTML = `
+  <div class="shell">
+    <aside class="sidebar" aria-label="Navegación">
+      <div class="brand">${mono()}<div><div class="brand-name">Consultorio Yani</div><div class="brand-sub">${u.role === "admin" ? "Panel de administración" : "Alquiler de boxes"}</div></div></div>
+      <nav class="nav">${navLinks}</nav>
+      <div class="side-foot"><div class="avatar">${initials(u.name)}</div><div class="who"><b>${esc(u.name)}</b><span>${esc(u.profession)}</span></div>
+        <button class="iconbtn" style="margin-left:auto;width:32px;height:32px" data-action="logout" title="Cerrar sesión" aria-label="Cerrar sesión">${ic("logout")}</button></div>
+    </aside>
+    <header class="topbar">${mono("mono-sm")}<div class="brand-name">${esc(current?.label || "")}</div><span class="sp"></span>
+      <button class="iconbtn" data-action="logout" aria-label="Cerrar sesión" title="Cerrar sesión">${ic("logout")}</button></header>
+    <main id="main">${renderView(view)}</main>
+    <nav class="bottomnav" aria-label="Navegación">${bottomLinks}</nav>
+  </div>`;
+  fx = "";
+}
+
+function renderView(v) {
+  switch (v) {
+    case "reservar": return viewReservar();
+    case "mis": return viewMis();
+    case "boxes": return viewBoxes();
+    case "estado": return viewEstado();
+    case "inicio": return viewInicio();
+    case "agenda": return viewAgenda();
+    case "reservas": return viewReservas();
+    case "pagos": return viewPagos();
+    case "profesionales": return viewProfesionales();
+    case "config": return viewConfig();
+    case "maquinas": return viewMaquinas();
+    case "facturacion": return viewFacturacion();
+  }
+  return "";
+}
+
+/* =========================================================
+   Ingreso / registro
+   ========================================================= */
+let heroDrawn = false; // el plano se dibuja solo la primera vez que aparece el ingreso
+function renderAuth() {
+  const tab = S.ui.authTab || "login";
+  const demo = S.users.filter(u => ["u0", "u1", "u5"].includes(u.id));
+  const draw = heroDrawn ? "" : "is-drawing";
+  heroDrawn = true;
+  return `<div class="auth">
+    <section class="auth-side">
+      <div>
+        <div class="brand">${mono()}<div><div class="brand-name">Consultorio Yani</div><div class="brand-sub">Alquiler de boxes</div></div></div>
+        <h1>Tu box equipado, por turnos</h1>
+        <p>Mirá qué box está libre, reservá y pagá desde el celular. Sin mensajes de ida y vuelta.</p>
+      </div>
+      ${planSvg(0, draw)}
+      <ul>
+        <li>${ic("check")} 3 boxes equipados, turnos de ${S.config.turnHours} h</li>
+        <li>${ic("check")} Equipos para sumar a tu turno, por hora</li>
+        <li>${ic("check")} Pagás seña del ${S.config.depositPct} % o el total</li>
+        <li>${ic("check")} Solo profesionales aprobados por Yani</li>
+      </ul>
+    </section>
+    <section class="auth-main">
+      <div class="auth-card">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="${tab === "login"}" data-action="auth-tab" data-tab="login">Ingresar</button>
+          <button role="tab" aria-selected="${tab === "register"}" data-action="auth-tab" data-tab="register">Pedir acceso</button>
+        </div>
+        ${tab === "login" ? `
+          <h2>Ingresá a tu cuenta</h2>
+          <p class="muted" style="margin-bottom:18px">Con el usuario y la contraseña que te dio Yani.</p>
+          <form data-form="login">
+            <div class="field"><label for="le">Mail</label><input class="input" id="le" name="email" type="email" autocomplete="username" required placeholder="nombre@mail.com"></div>
+            <div class="field"><label for="lp">Contraseña</label><input class="input" id="lp" name="password" type="password" autocomplete="current-password" placeholder="En la demo, cualquiera"></div>
+            <button class="btn btn-primary btn-block" type="submit">Ingresar</button>
+          </form>
+          <div class="divider">o entrá directo con una cuenta de ejemplo</div>
+          <div class="demo-users">${demo.map(u => `<button class="demo-user" data-action="login-as" data-id="${u.id}"><div class="avatar">${initials(u.name)}</div><div class="main"><b>${esc(u.name)}</b><span>${u.role === "admin" ? "Administradora: ve y controla todo" : u.status === "aprobado" ? esc(u.profession) + " · aprobada, puede reservar" : esc(u.profession) + " · solicitud pendiente"}</span></div>${ic("chevR")}</button>`).join("")}</div>
+        ` : `
+          <h2>Pedí acceso</h2>
+          <p class="muted" style="margin-bottom:18px">Completá tus datos. Yani te contacta para una entrevista y, si te aprueba, ya podés reservar.</p>
+          <form data-form="register">
+            <div class="field"><label for="rn">Nombre y apellido</label><input class="input" id="rn" name="name" required autocomplete="name"></div>
+            <div class="field"><label for="rp">Profesión</label><input class="input" id="rp" name="profession" required placeholder="Ej.: Médica dermatóloga"></div>
+            <div class="field"><span class="lab">¿Qué vas a hacer en el consultorio?</span>
+              ${S.config.categories.map(k => `<label class="choice"><input type="radio" name="category" value="${k.id}" required><div><div class="ct">${esc(k.name)}</div>${k.note ? `<div class="cs">${esc(k.note)}</div>` : ""}</div><span class="camt num">${money(k.pricePerHour)}<small> la hora</small></span></label>`).join("")}
+              <span class="hint">De esto depende el precio, que también puede cambiar según el box. Yani lo confirma en la entrevista.</span></div>
+            <div class="row2">
+              <div class="field"><label for="rm">Mail</label><input class="input" id="rm" name="email" type="email" required autocomplete="email"></div>
+              <div class="field"><label for="rt">Teléfono</label><input class="input" id="rt" name="phone" type="tel" autocomplete="tel"></div>
+            </div>
+            <div class="row2">
+              <div class="field"><label for="rc">CUIT, para tu factura</label><input class="input" id="rc" name="cuit" inputmode="numeric" placeholder="27-12345678-9"></div>
+              <div class="field"><label for="rw">Contraseña</label><input class="input" id="rw" name="password" type="password" autocomplete="new-password" minlength="6" required></div>
+            </div>
+            <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
+          </form>
+        `}
+      </div>
+    </section>
+  </div>`;
+}
+
+/* =========================================================
+   Calendario (agenda de los 3 boxes)
+   ========================================================= */
+function calendar(mode) {
+  const c = S.config;
+  const date = S.ui.calDate;
+  const mon = mondayOf(date);
+  const days = [0, 1, 2, 3, 4, 5].map(i => addDays(mon, i));
+  const t = todayIso();
+  const minWeek = mondayOf(t);
+  const maxWeek = addDays(minWeek, 7 * 8);
+  const u = me();
+  const sun = addDays(mon, 5);
+  const wkLabel = fromIso(mon).getMonth() === fromIso(sun).getMonth()
+    ? `${fromIso(mon).getDate()} al ${fromIso(sun).getDate()} de ${MESES[fromIso(sun).getMonth()]}`
+    : `${fromIso(mon).getDate()} de ${MESES[fromIso(mon).getMonth()]} al ${fromIso(sun).getDate()} de ${MESES[fromIso(sun).getMonth()]}`;
+
+  const chips = days.map(d => {
+    const open = c.days.includes(weekday(d));
+    const segs = open ? S.boxes.flatMap(b => segments(d, b.id)) : [];
+    let info;
+    if (!open) info = `<span class="df">cerrado</span>`;
+    else if (mode === "pro") { const n = segs.filter(s => s.bookable).length; info = `<span class="df ${n ? "has" : ""} num">${n ? n + (n === 1 ? " libre" : " libres") : "completo"}</span>`; }
+    else { const n = segs.filter(s => s.kind === "booking").length; info = `<span class="df num">${n} ${n === 1 ? "reserva" : "reservas"}</span>`; }
+    return `<button class="day ${d < t ? "past" : ""} ${open ? "" : "closed"} ${d === t ? "is-today" : ""}" aria-pressed="${d === date}" data-action="cal-day" data-date="${d}">
+      <span class="dn">${DIAS_C[weekday(d)]}</span><span class="dd num">${fromIso(d).getDate()}</span>${info}${d === t ? '<span class="sr-only">hoy</span>' : ""}</button>`;
+  }).join("");
+
+  const open = c.days.includes(weekday(date));
+  const H = c.close - c.open;
+  const axis = Array.from({ length: H + 1 }, (_, i) => c.open + i).filter((h, i) => i % 2 === 0 || i === H)
+    .map(h => `<span class="num" style="top:calc(var(--ph) * ${h - c.open})">${h}</span>`).join("");
+
+  const lanes = S.boxes.map(box => {
+    const segs = segments(date, box.id);
+    const pieces = segs.map(s => segHtml(s, box, date, mode, u)).join("");
+    return `<div class="lane" style="height:calc(var(--ph) * ${H})">${pieces}</div>`;
+  }).join("");
+
+  // La hora actual, solo si se está mirando el día de hoy y el consultorio está abierto
+  const nowH = date === t ? (Date.now() - at(date, 0).getTime()) / 36e5 : -1;
+  const nowLine = nowH > c.open && nowH < c.close
+    ? `<div class="nowline" data-open="${c.open}" data-close="${c.close}" style="top:calc(var(--ph) * ${(nowH - c.open).toFixed(3)})" aria-hidden="true"></div>` : "";
+
+  const legend = mode === "pro"
+    ? `<span><i class="sw sw-free"></i>Libre</span><span><i class="sw sw-rel"></i>Rato libre</span><span><i class="sw sw-mine"></i>Tu reserva</span><span><i class="sw sw-busy"></i>Ocupado</span><span><i class="sw sw-block"></i>No disponible</span>`
+    : `<span><i class="sw sw-free"></i>Libre</span><span><i class="sw sw-rel"></i>Rato libre publicado</span><span><i class="sw sw-busy"></i>Reservado</span><span><i class="sw sw-block"></i>Lo usás vos</span>`;
+
+  return `
+  <div class="cal-head">
+    <span class="wk"><span class="wk-l">Semana del ${wkLabel}</span><span class="wk-s">${fromIso(mon).getDate()} al ${fromIso(sun).getDate()} de ${MESES_C[fromIso(sun).getMonth()]}.</span></span>
+    <button class="btn btn-sm" data-action="cal-today">Hoy</button>
+    <button class="iconbtn" data-action="cal-week" data-dir="-1" aria-label="Semana anterior" ${mode === "pro" && mon <= minWeek ? "disabled" : ""}>${ic("chevL")}</button>
+    <button class="iconbtn" data-action="cal-week" data-dir="1" aria-label="Semana siguiente" ${mode === "pro" && mon >= maxWeek ? "disabled" : ""}>${ic("chevR")}</button>
+  </div>
+  <div class="days" role="group" aria-label="Días de la semana">${chips}</div>
+  <div class="legend" aria-label="Referencias">${legend}</div>
+  <section class="cal ${fx === "cal" ? "fx-in" : ""}" aria-label="Horarios del ${fmtDay(date)}">
+    ${open ? `
+    <div class="cal-cols">
+      <div></div>
+      ${S.boxes.map(b => `<div class="cal-boxh"><span class="plate num" aria-hidden="true">${b.id}</span><div class="bx-txt"><b>${esc(b.name)}</b><span class="sh">${esc(b.short)}</span></div></div>`).join("")}
+    </div>
+    <div class="cal-cols">
+      <div class="axis" style="height:calc(var(--ph) * ${H})">${axis}</div>
+      ${lanes}
+      ${nowLine}
+    </div>` : `<div class="cal-closed"><b style="display:block;color:var(--text)">El consultorio no abre los ${DIAS[weekday(date)]}.</b>Elegí otro día de la semana.</div>`}
+  </section>`;
+}
+
+function segHtml(s, box, date, mode, u) {
+  const h = s.end - s.start;
+  const style = `top:calc(var(--ph) * ${s.start - S.config.open} + 2px);height:calc(var(--ph) * ${h} - 4px)`;
+  const short = h < 2 ? "short" : "";
+  const data = `data-box="${box.id}" data-date="${date}" data-start="${s.start}" data-end="${s.end}"`;
+  const tm = `<span class="tm num">${fmtRange(s.start, s.end)}</span>`;
+  const past = s.past ? "past" : "";
+  if (mode === "pro") {
+    if (s.kind === "free") return s.bookable
+      ? `<button class="seg seg-free ${short}" style="${style}" ${data} data-action="book" aria-label="Reservar ${box.name}, ${fmtRange(s.start, s.end)}"><span class="k">Libre</span>${tm}<span class="pr num">${money(priceFor(h, u, box.id))}</span></button>`
+      : `<div class="seg seg-gone past ${short}" style="${style}"><span class="k">Pasado</span></div>`;
+    if (s.kind === "release") return s.bookable
+      ? `<button class="seg seg-rel ${short}" style="${style}" ${data} data-action="book" aria-label="Reservar rato libre ${box.name}, ${fmtRange(s.start, s.end)}"><span class="k">Rato libre</span>${tm}<span class="pr num">${money(priceFor(h, u, box.id))}</span></button>`
+      : `<div class="seg seg-gone past ${short}" style="${style}"><span class="k">Pasado</span></div>`;
+    if (s.kind === "block") return `<div class="seg seg-block ${past} ${short}" style="${style}"><span class="k">No disponible</span></div>`;
+    if (s.kind === "gap") return `<div class="seg seg-gap" style="${style}"></div>`;
+    const b = s.ref;
+    if (b.userId === u.id) return `<button class="seg seg-mine ${short}" style="${style}" data-action="my-booking" data-id="${b.id}"><span class="k">Tu reserva</span>${tm}<span class="pill ${STATUS[b.status].cls}">${STATUS[b.status].short}</span></button>`;
+    return `<div class="seg seg-busy ${past} ${short}" style="${style}"><span class="k">Ocupado</span></div>`; // RN09: sin nombre ni servicio
+  }
+  // Administradora: ve todo con detalle (RF11) y gestiona bloqueos (RF06, RF07)
+  if (s.kind === "free" || s.kind === "gap") return `<button class="seg seg-free admin ${short} ${s.past ? "past" : ""}" style="${style}" ${data} data-action="adm-free" ${s.past ? "disabled" : ""}><span class="k">Libre</span>${tm}</button>`;
+  if (s.kind === "release") return `<button class="seg seg-rel admin ${short} ${past}" style="${style}" ${data} data-action="adm-release" data-id="${s.ref.id}"><span class="k">Rato libre publicado</span>${tm}</button>`;
+  if (s.kind === "block") return `<button class="seg seg-block admin ${short} ${past}" style="${style}" ${data} data-action="adm-block" data-id="${s.ref.id}"><span class="k">${esc(s.ref.note || "Lo usás vos")}</span>${tm}</button>`;
+  const b = s.ref, who = userById(b.userId);
+  return `<button class="seg seg-busy admin ${short}" style="${style}" data-action="adm-booking" data-id="${b.id}"><span class="k">${esc(who.name)}</span><span class="tm">${esc(b.service || who.profession)}</span><span class="pill ${STATUS[b.status].cls}">${STATUS[b.status].short}</span></button>`;
+}
+
+/* =========================================================
+   Vistas: profesional
+   ========================================================= */
+function firstFreeDay() {
+  let d = todayIso();
+  for (let i = 0; i < 56; i++, d = addDays(d, 1)) if (S.boxes.some(b => segments(d, b.id).some(s => s.bookable))) return d;
+  return todayIso();
+}
+function viewReservar() {
+  const c = S.config;
+  if (!S.ui.calPicked) { S.ui.calDate = firstFreeDay(); S.ui.calPicked = true; }
+  const mon = mondayOf(S.ui.calDate);
+  let free = 0;
+  for (let i = 0; i < 6; i++) { const d = addDays(mon, i); S.boxes.forEach(b => { free += segments(d, b.id).filter(s => s.bookable).length; }); }
+  const rel = S.releases.filter(r => r.date >= todayIso() && canBook(r.boxId, r.date, r.start, r.end)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  return `
+  <div class="title-row"><div>
+    <h1>Reservar un box</h1>
+    <p class="sub">Tocá un horario libre. Turnos de ${c.turnHours} h a ${money(priceFor(c.turnHours))}: tu precio es de ${money(rateOf(me()))} la hora (${esc(catOf(me()).name.toLowerCase())}).${ownRates(me())}</p>
+    <p class="finding">${free ? `Esta semana quedan <b class="num">${free}</b> ${free === 1 ? "turno libre" : "turnos libres"}.` : "Esta semana está completa. Mirá la que viene."}
+      ${rel ? ` Hay un rato libre el <b>${fmtDay(rel.date)}</b> en ${boxById(rel.boxId).name}, de ${fmtRange(rel.start, rel.end)}.` : ""}</p>
+  </div></div>
+  ${calendar("pro")}`;
+}
+
+function myBookings() { return S.bookings.filter(b => b.userId === me().id); }
+
+function viewMis() {
+  const tab = S.ui.tab.mis || "proximas";
+  const all = myBookings();
+  const prox = all.filter(b => ["pago", "confirmada"].includes(b.status)).sort((a, b) => bookingStart(a) - bookingStart(b));
+  const hist = all.filter(b => ["cumplida", "cancelada"].includes(b.status)).sort((a, b) => bookingStart(b) - bookingStart(a));
+  const list = tab === "proximas" ? prox : hist;
+  const toPay = prox.filter(b => b.status === "pago").length;
+  return `
+  <div class="title-row"><div>
+    <h1>Mis reservas</h1>
+    <p class="finding">${toPay ? `Tenés <b>${toPay} ${toPay === 1 ? "reserva" : "reservas"} sin pagar</b>: pagala antes de que se libere el horario.` : prox.length ? `Tu próximo turno es el <b>${fmtDay(prox[0].date)}</b>, ${boxById(prox[0].boxId).name}, de ${fmtRange(prox[0].start, prox[0].end)}.` : "No tenés turnos próximos."}</p>
+  </div><button class="btn btn-primary" data-nav="reservar">Reservar otro turno</button></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="${tab === "proximas"}" data-action="tab" data-k="mis" data-v="proximas">Próximas<span class="n num">${prox.length}</span></button>
+    <button role="tab" aria-selected="${tab === "historial"}" data-action="tab" data-k="mis" data-v="historial">Historial<span class="n num">${hist.length}</span></button>
+  </div>
+  <div class="panel">${list.length ? list.map(bookingCard).join("") : `<div class="empty"><b>${tab === "proximas" ? "No tenés reservas próximas" : "Todavía no hay historial"}</b>${tab === "proximas" ? "Elegí un horario libre en Reservar." : "Acá vas a ver tus turnos cumplidos y cancelados."}</div>`}</div>`;
+}
+
+function bookingCard(b) {
+  const box = boxById(b.boxId), d = fromIso(b.date), paid = paidOf(b), bal = balanceOf(b);
+  let pay = "";
+  if (b.status === "pago") pay = `<span class="timer" data-countdown="${b.expiresAt}"></span> para pagar con Mercado Pago`;
+  else if (b.status === "confirmada") pay = bal ? `Pagaste ${money(paid)} de seña · saldo <b class="num">${money(bal)}</b> antes del turno` : `Pagaste el total: <b class="num">${money(paid)}</b>`;
+  else if (b.status === "cumplida") pay = `Pagado ${money(paid)}`;
+  else if (b.status === "cancelada") pay = b.cancelledBy === "vencida" ? "Se liberó porque no se registró el pago a tiempo." : b.refund?.amount ? `Devolución ${money(b.refund.amount)} (${b.refund.pct} %) por Mercado Pago` : "Sin devolución";
+  const acts = [];
+  if (b.status === "pago") {
+    acts.push(`<button class="btn btn-primary btn-sm" data-action="pay-now" data-id="${b.id}">Pagar ${money(b.plan === "sena" ? senaOf(b.total) : b.total)}</button>`);
+    acts.push(`<button class="btn btn-sm" data-action="cancel" data-id="${b.id}">Cancelar</button>`);
+  }
+  if (b.status === "confirmada" && bal) acts.push(`<button class="btn btn-sm" data-action="pay-balance" data-id="${b.id}">Pagar saldo</button>`);
+  if (b.status === "confirmada") acts.push(`<button class="btn btn-sm btn-danger" data-action="cancel" data-id="${b.id}">Cancelar</button>`);
+  return `<article class="bk">
+    <div class="bk-date"><div class="m">${MESES_C[d.getMonth()]}</div><div class="d num">${d.getDate()}</div><div class="w">${DIAS_C[d.getDay()]}</div></div>
+    <div>
+      <div class="t">${esc(box.name)} <span class="hr num">${fmtRange(b.start, b.end)}</span></div>
+      <div class="s">${cap(fmtDay(b.date))} · ${esc(b.service || "")}${machinesOf(b).length ? ` · con ${machinesOf(b).map(m => esc(m.name)).join(", ")}` : ""}</div>
+      <div style="margin-top:8px">${statusPill(b)}</div>
+      <div class="pay">${pay}</div>
+    </div>
+    <div class="acts">${acts.join("")}</div>
+  </article>`;
+}
+
+function viewBoxes() {
+  return `
+  <div class="title-row"><div>
+    <h1>Los boxes</h1>
+    <p class="sub">Tres espacios equipados. Elegí el que mejor se adapte a lo que atendés.</p>
+  </div></div>
+  <div class="boxes">${S.boxes.map(b => `
+    <article class="boxcard">
+      ${b.photo ? `<img class="foto" src="${b.photo}" alt="Foto de ${esc(b.name)}">` : planSvg(b.id)}
+      <div class="bd">
+        <h3>${esc(b.name)}</h3>
+        ${b.short ? `<p class="sh">${esc(b.short)}</p>` : ""}
+        <p class="rate"><b class="num">${money(rateOf(me(), b))}</b> la hora · ${esc(catOf(me()).name.toLowerCase())}</p>
+        <ul class="eq">${b.equipment.map(e => `<li>${esc(e)}</li>`).join("")}</ul>
+        ${b.photo ? "" : `<p class="photo-note">Ilustración: acá van las fotos reales del box.</p>`}
+        ${me().status === "aprobado" && me().role === "pro" ? `<button class="btn" style="margin-top:auto" data-nav="reservar">Ver horarios libres</button>` : ""}
+      </div>
+    </article>`).join("")}</div>`;
+}
+
+/* Dibujo de un equipo, para cuando la máquina todavía no tiene foto */
+const machineArt = () => `<svg class="plan art" viewBox="0 0 320 200" aria-hidden="true">
+  <rect class="fur" x="118" y="30" width="84" height="56" rx="8"/><rect class="fur" x="128" y="40" width="64" height="30" rx="4"/>
+  <path class="fur" d="M150 86v24M170 86v24"/><rect class="wall" x="104" y="110" width="112" height="52" rx="10"/>
+  <circle class="fur" cx="128" cy="136" r="7"/><path class="fur" d="M146 130h50M146 142h34"/>
+  <circle class="fur" cx="124" cy="172" r="6"/><circle class="fur" cx="196" cy="172" r="6"/>
+  <path class="swing" d="M216 126c34 0 44-18 44-44V68"/><rect class="fur" x="250" y="38" width="20" height="30" rx="6"/>
+</svg>`;
+const machineThumb = (m) => m.photo ? `<img class="thumb" src="${m.photo}" alt="">` : `<div class="thumb">${ic("device")}</div>`;
+
+function viewMaquinas() {
+  const u = me(), list = S.machines.filter(m => m.active);
+  return `
+  <div class="title-row"><div>
+    <h1>Máquinas</h1>
+    <p class="sub">Equipos que se alquilan por hora, aparte del box. Los sumás cuando reservás tu turno.</p>
+  </div></div>
+  ${list.length ? `<div class="boxes">${list.map(m => `
+    <article class="boxcard">
+      ${m.photo ? `<img class="foto" src="${m.photo}" alt="${esc(m.name)}">` : machineArt()}
+      <div class="bd">
+        <h3>${esc(m.name)}</h3>
+        ${m.short ? `<p class="sh">${esc(m.short)}</p>` : ""}
+        <p class="rate"><b class="num">${money(m.pricePerHour)}</b> la hora</p>
+        ${m.photo ? "" : `<p class="photo-note">Ilustración: acá va la foto real del equipo.</p>`}
+        ${u.status === "aprobado" && u.role === "pro" ? `<button class="btn" style="margin-top:auto" data-nav="reservar">Reservar un turno</button>` : ""}
+      </div>
+    </article>`).join("")}</div>` : `<div class="panel"><div class="empty"><b>Todavía no hay máquinas para alquilar</b>Cuando Yani sume un equipo, aparece acá.</div></div>`}`;
+}
+
+function viewEstado() {
+  const u = me();
+  const msg = {
+    pendiente: { h: "Tu solicitud está en revisión", p: "Yani te va a contactar para coordinar una entrevista. Cuando te apruebe, te llega un mail y ya podés reservar." },
+    rechazado: { h: "Tu solicitud no fue aprobada", p: "Por ahora no podés reservar boxes. Si creés que es un error, escribile a Yani." },
+    bloqueado: { h: "Tu cuenta está pausada", p: "La administradora pausó tu acceso a las reservas. Escribile a Yani para más información." },
+  }[u.status] || { h: "", p: "" };
+  return `
+  <div class="title-row"><div><h1>Mi solicitud</h1><p class="sub">Hola, ${esc(u.name.split(" ")[0])}.</p></div></div>
+  <div class="panel pending-card"><div class="panel-b" style="padding:24px">
+    <h2>${msg.h}</h2>
+    <p class="muted" style="margin-top:6px">${msg.p}</p>
+    ${u.status === "pendiente" ? `<ul class="track">
+      <li class="done"><i></i>Enviaste tu solicitud · ${fmtWhen(u.since)}</li>
+      <li class="now"><i></i>Entrevista con Yani</li>
+      <li><i></i>Aprobación y acceso a las reservas</li>
+    </ul>` : ""}
+    <div class="note acc" style="margin-top:18px">Mientras tanto podés conocer los boxes y su equipamiento.</div>
+    <button class="btn" data-nav="boxes">Ver los boxes</button>
+  </div></div>`;
+}
+
+/* =========================================================
+   Vistas: administradora
+   ========================================================= */
+/* Lo único que espera a Yani son los pedidos de acceso: los pagos y las devoluciones los resuelve Mercado Pago */
+const accessRequests = () => S.users.filter(u => u.role === "pro" && u.status === "pendiente");
+
+function weekStats() {
+  const t = todayIso();
+  let rentable = 0, booked = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(t, i);
+    S.boxes.forEach(b => segments(d, b.id).forEach(s => {
+      const h = s.end - s.start;
+      if (s.past) return;
+      if (s.kind === "booking") { booked += h; rentable += h; }
+      else if (s.kind === "free" || s.kind === "release") rentable += h;
+    }));
+  }
+  return { rentable, booked, pct: rentable ? Math.round(booked / rentable * 100) : 0 };
+}
+function monthMoney() {
+  const now = new Date(), m = now.getMonth(), y = now.getFullYear();
+  let cobrado = 0, devuelto = 0;
+  S.bookings.forEach(b => b.payments.forEach(p => {
+    const d = new Date(p.at); if (d.getMonth() !== m || d.getFullYear() !== y || p.status !== "aprobado") return;
+    if (p.kind === "devolucion") devuelto += p.amount; else cobrado += p.amount;
+  }));
+  const porCobrar = S.bookings.filter(b => b.status === "confirmada").reduce((a, b) => a + balanceOf(b), 0);
+  return { cobrado, devuelto, porCobrar };
+}
+
+function viewInicio() {
+  const reqs = accessRequests(), ws = weekStats(), mm = monthMoney(), t = todayIso();
+  const finding = reqs.length ? `${reqs.length} ${reqs.length === 1 ? "profesional pidió" : "profesionales pidieron"} acceso.` : "No tenés nada pendiente. Todo al día.";
+
+  const todo = `
+  <section class="panel">
+    <div class="panel-h"><h2>Para resolver</h2><span class="muted num">${reqs.length || ""}</span></div>
+    <div class="panel-b">
+      ${reqs.length === 0 ? `<div class="empty"><b>Nada pendiente</b>Cuando alguien pida acceso, aparece acá.</div>` : `<div class="queue-kind">Solicitudes de acceso</div><ul class="list">${reqs.map(u => `
+        <li class="li"><div class="avatar">${initials(u.name)}</div><div class="main"><div class="t">${esc(u.name)}</div><div class="s">${esc(u.profession)} · ${esc(catOf(u).name)} · ${esc(u.phone)} · pidió acceso ${fmtWhen(u.since)}</div></div>
+          <div class="acts"><button class="btn btn-sm" data-action="user-status" data-id="${u.id}" data-s="rechazado">Rechazar</button><button class="btn btn-sm btn-primary" data-action="user-status" data-id="${u.id}" data-s="aprobado">Aprobar</button></div></li>`).join("")}</ul>`}
+    </div>
+  </section>`;
+
+  const kpis = `
+  <section class="panel kpis" aria-label="Resumen">
+    <div class="kpi"><div class="lab">Ocupación de los próximos 7 días</div><div class="val num">${ws.pct} %</div><div class="sub num">${ws.booked} de ${ws.rentable} h alquilables reservadas</div><div class="meter"><i style="width:${ws.pct}%"></i></div></div>
+    <div class="kpi"><div class="lab">Cobrado en ${MESES[new Date().getMonth()]}</div><div class="val num">${money(mm.cobrado - mm.devuelto)}</div><div class="sub num">${mm.devuelto ? `${money(mm.cobrado)} cobrado − ${money(mm.devuelto)} devuelto` : "Señas, totales y saldos aprobados"}</div></div>
+    <div class="kpi"><div class="lab">Saldos por cobrar</div><div class="val num">${money(mm.porCobrar)}</div><div class="sub">De reservas confirmadas con seña</div></div>
+  </section>`;
+
+  const todayOpen = S.config.days.includes(weekday(t));
+  const agendaHoy = `
+  <section class="panel">
+    <div class="panel-h"><h2>Hoy en los boxes</h2><button class="btn btn-text btn-sm" data-action="go-agenda-today">Ver agenda</button></div>
+    <div class="panel-b">
+      ${!todayOpen ? `<div class="empty"><b>Hoy el consultorio está cerrado</b></div>` : `<div class="today-cols">
+        ${S.boxes.map(box => `<div><div class="cal-boxh"><span class="plate num" aria-hidden="true">${box.id}</span><div class="bx-txt"><b>${esc(box.name)}</b></div></div><ul class="slots">${segments(t, box.id).filter(s => s.kind !== "gap").map(s => {
+          const who = s.kind === "booking" ? `${esc(userById(s.ref.userId).name)}` : s.kind === "block" ? "Vos" : s.kind === "release" ? "Rato libre publicado" : s.past ? "Sin alquilar" : "Libre";
+          const kind = s.kind === "booking" ? "busy" : s.kind === "block" ? "block" : s.kind === "release" ? "rel" : s.past ? "gone" : "free";
+          return `<li class="slot slot-${kind}"><span class="hr num">${fmtRange(s.start, s.end)}</span><span class="who">${who}</span></li>`;
+        }).join("")}</ul></div>`).join("")}
+      </div>`}
+    </div>
+  </section>`;
+
+  return `
+  <div class="title-row"><div>
+    <h1>Hoy en el consultorio</h1>
+    <p class="sub">${cap(fmtDay(t))}</p>
+    <p class="finding">${finding}</p>
+  </div></div>
+  <div class="grid-home">
+    <div class="stack">${todo}${agendaHoy}</div>
+    ${kpis}
+  </div>`;
+}
+
+/* La agenda se puede ver por día (la grilla de horas), por semana, por mes o por la cantidad de días que se elija.
+   Lo elegido queda guardado con el resto de la demo. */
+const AG_VIEWS = [["dia", "Día"], ["semana", "Semana"], ["mes", "Mes"], ["dias", "Días"]];
+const agView = () => S.ui.agView || "dia";
+const agDays = () => S.ui.agDays || 10;
+function agendaSwitch() {
+  const v = agView();
+  return `<div class="viewsw" role="group" aria-label="Cómo ver la agenda">
+    ${AG_VIEWS.map(([k, l]) => `<button class="vs" aria-pressed="${v === k}" data-action="ag-view" data-v="${k}">${l}</button>`).join("")}
+    ${v === "dias" ? `<label class="vs-n">¿Cuántos? <input class="input num" type="number" min="1" max="31" value="${agDays()}" data-input="agDays" aria-label="Cantidad de días"></label>` : ""}
+  </div>`;
+}
+const agHead = (label, prev, next) => `<div class="cal-head"><span class="wk">${label}</span>
+    <button class="btn btn-sm" data-action="cal-today">Hoy</button>
+    <button class="iconbtn" data-action="ag-move" data-dir="-1" aria-label="${prev}">${ic("chevL")}</button>
+    <button class="iconbtn" data-action="ag-move" data-dir="1" aria-label="${next}">${ic("chevR")}</button></div>`;
+
+/* Varios días seguidos, uno debajo del otro, cada uno con sus tres boxes */
+function agendaList(start, n) {
+  const t = todayIso(), end = addDays(start, n - 1), a = fromIso(start), b = fromIso(end);
+  const label = n === 1 ? cap(fmtDay(start)) : a.getMonth() === b.getMonth()
+    ? `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]}` : `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]}`;
+  const slot = (s, box, d) => {
+    const who = s.kind === "booking" ? esc(userById(s.ref.userId).name) : s.kind === "block" ? esc(s.ref.note || "Lo usás vos") : s.kind === "release" ? "Rato libre publicado" : s.past ? "Sin alquilar" : "Libre";
+    const kind = s.kind === "booking" ? "busy" : s.kind === "block" ? "block" : s.kind === "release" ? "rel" : s.past ? "gone" : "free";
+    const data = `data-box="${box.id}" data-date="${d}" data-start="${s.start}" data-end="${s.end}"`;
+    const act = s.kind === "booking" ? `data-action="adm-booking" data-id="${s.ref.id}"` : s.kind === "block" ? `data-action="adm-block" data-id="${s.ref.id}" ${data}`
+      : s.kind === "release" ? `data-action="adm-release" data-id="${s.ref.id}" ${data}` : s.past ? "" : `data-action="adm-free" ${data}`;
+    return `<li class="slot slot-${kind} ${act ? "click" : ""}" ${act} ${act ? 'tabindex="0" role="button"' : ""}><span class="hr num">${fmtRange(s.start, s.end)}</span><span class="who">${who}</span></li>`;
+  };
+  const days = Array.from({ length: n }, (_, i) => addDays(start, i));
+  return `${agHead(label, "Días anteriores", "Días siguientes")}
+  <div class="aglist ${fx === "cal" ? "fx-in" : ""}">${days.map(d => {
+    const open = S.config.days.includes(weekday(d));
+    const nb = S.bookings.filter(x => x.date === d && active(x)).length;
+    return `<section class="panel agday ${d < t ? "past" : ""}">
+      <div class="panel-h"><h2>${cap(fmtDay(d))}${d === t ? ' <span class="pill pill-neutral">Hoy</span>' : ""}</h2>
+        ${open ? `<button class="btn btn-text btn-sm" data-action="ag-day" data-date="${d}">${nb} ${nb === 1 ? "reserva" : "reservas"} · ver el día</button>` : `<span class="muted small">Cerrado</span>`}</div>
+      <div class="panel-b">${open ? `<div class="today-cols">${S.boxes.map(box => `<div><div class="cal-boxh"><span class="plate num" aria-hidden="true">${box.id}</span><div class="bx-txt"><b>${esc(box.name)}</b></div></div><ul class="slots">${segments(d, box.id).filter(s => s.kind !== "gap").map(s => slot(s, box, d)).join("")}</ul></div>`).join("")}</div>` : `<p class="muted small" style="margin:0">El consultorio no abre los ${DIAS[weekday(d)]}.</p>`}</div>
+    </section>`; }).join("")}</div>`;
+}
+
+/* El mes entero: cada día con sus reservas y cuánto está alquilado. Tocar un día lo abre. */
+function agendaMonth() {
+  const t = todayIso(), ym = ymOf(S.ui.calDate), [y, m] = ym.split("-").map(Number);
+  const nDays = new Date(y, m, 0).getDate(), lead = (weekday(ym + "-01") + 6) % 7; // la semana empieza el lunes
+  const cells = Array.from({ length: lead }, () => `<div class="mday out"></div>`);
+  for (let n = 1; n <= nDays; n++) {
+    const d = `${ym}-${pad(n)}`, open = S.config.days.includes(weekday(d));
+    let booked = 0, rentable = 0;
+    if (open) S.boxes.forEach(b => segments(d, b.id).forEach(s => { const h = s.end - s.start; if (s.kind === "booking") { booked += h; rentable += h; } else if (s.kind === "free" || s.kind === "release") rentable += h; }));
+    const nb = S.bookings.filter(x => x.date === d && active(x)).length, pct = rentable ? Math.round(booked / rentable * 100) : 0;
+    cells.push(`<button class="mday ${open ? "" : "closed"} ${d < t ? "past" : ""} ${d === t ? "is-today" : ""}" data-action="ag-day" data-date="${d}" aria-label="${cap(fmtDay(d))}: ${open ? nb + (nb === 1 ? " reserva" : " reservas") : "cerrado"}">
+      <span class="dn num">${n}</span>
+      ${open ? `<span class="mr num">${nb ? nb + (nb === 1 ? " reserva" : " reservas") : "Sin reservas"}</span><span class="meter"><i style="width:${pct}%"></i></span><span class="mp num">${pct} % alquilado</span>` : `<span class="mr">Cerrado</span>`}
+    </button>`);
+  }
+  return `${agHead(cap(ymLabel(ym)), "Mes anterior", "Mes siguiente")}
+  <section class="panel month ${fx === "cal" ? "fx-in" : ""}"><div class="mhead">${["lun", "mar", "mié", "jue", "vie", "sáb", "dom"].map(x => `<span>${x}</span>`).join("")}</div><div class="mgrid">${cells.join("")}</div></section>`;
+}
+
+function viewAgenda() {
+  const v = agView();
+  const body = v === "mes" ? agendaMonth() : v === "semana" ? agendaList(mondayOf(S.ui.calDate), 7) : v === "dias" ? agendaList(S.ui.calDate, agDays()) : calendar("admin");
+  return `
+  <div class="title-row"><div>
+    <h1>Agenda</h1>
+    <p class="sub">${v === "dia" ? "Tocá un horario para bloquearlo, liberar un rato o ver una reserva." : "Vela como te quede cómodo: por día, por semana, por mes o la cantidad de días que elijas."}</p>
+  </div><button class="btn" data-action="adm-new-block">Bloquear horarios</button></div>
+  ${agendaSwitch()}
+  ${body}`;
+}
+
+function viewReservas() {
+  const st = S.ui.tab.res || "todas";
+  const boxF = S.ui.resBox || "";
+  const qx = (S.ui.resQ || "").toLowerCase();
+  const tabs = [["todas", "Todas"], ["pago", "Por pagar"],["confirmada", "Confirmadas"], ["cumplida", "Cumplidas"], ["cancelada", "Canceladas"]];
+  const base = S.bookings.filter(b => (!boxF || String(b.boxId) === boxF) && (!qx || userById(b.userId).name.toLowerCase().includes(qx)));
+  const rows = base.filter(b => st === "todas" || b.status === st).sort((a, b) => bookingStart(a) - bookingStart(b));
+  const total = rows.reduce((a, b) => a + (b.status === "cancelada" ? 0 : paidOf(b)), 0);
+  return `
+  <div class="title-row"><div><h1>Reservas</h1><p class="sub">Todas las reservas con su detalle y su pago.</p></div></div>
+  <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${st === k}" data-action="tab" data-k="res" data-v="${k}">${l}<span class="n num">${base.filter(b => k === "todas" || b.status === k).length}</span></button>`).join("")}</div>
+  <div class="toolbar">
+    <input class="input" type="search" placeholder="Buscar profesional" value="${esc(S.ui.resQ || "")}" data-input="resQ" aria-label="Buscar profesional">
+    <select class="input" data-input="resBox" aria-label="Filtrar por box"><option value="">Todos los boxes</option>${S.boxes.map(b => `<option value="${b.id}" ${String(b.id) === boxF ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>
+    <span class="count num">${rows.length} ${rows.length === 1 ? "reserva" : "reservas"} · ${money(total)} cobrado</span>
+  </div>
+  ${rows.length ? `
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Profesional</th><th>Turno</th><th>Box</th><th>Estado</th><th>Pago</th><th class="num">Cobrado</th><th class="num">Total</th></tr></thead>
+    <tbody>${rows.map(b => { const u = userById(b.userId); return `<tr class="click" data-action="adm-booking" data-id="${b.id}" tabindex="0">
+      <td><div class="t">${esc(u.name)}</div><div class="s">${esc(b.service || u.profession)}</div></td>
+      <td class="num">${fmtDayShort(b.date)}<div class="s">${fmtRange(b.start, b.end)}</div></td>
+      <td>${esc(boxById(b.boxId).name)}${machinesOf(b).length ? `<div class="s">con ${machinesOf(b).map(m => esc(m.name)).join(", ")}</div>` : ""}</td>
+      <td>${statusPill(b)}</td>
+      <td>${b.plan === "sena" ? "Seña" : "Total"}</td>
+      <td class="num">${money(paidOf(b))}</td><td class="num">${money(b.total)}</td></tr>`; }).join("")}</tbody>
+  </table></div>
+  <div class="mrows">${rows.map(b => { const u = userById(b.userId); return `<button class="mrow" data-action="adm-booking" data-id="${b.id}">
+    <div class="main"><div class="l1"><span>${esc(u.name)}</span><span class="num">${money(paidOf(b))} / ${money(b.total)}</span></div>
+    <div class="l2 num">${fmtDayShort(b.date)} · ${fmtRange(b.start, b.end)} · ${esc(boxById(b.boxId).name)}${machinesOf(b).length ? " con " + machinesOf(b).map(m => esc(m.name)).join(", ") : ""}</div><div style="margin-top:6px">${statusPill(b)}</div></div>${ic("chevR")}</button>`; }).join("")}</div>
+  ` : `<div class="panel"><div class="empty"><b>No hay reservas con estos filtros</b>Probá con otra pestaña o borrá la búsqueda.</div></div>`}`;
+}
+
+function viewPagos() {
+  const hist = [];
+  S.bookings.forEach(b => b.payments.forEach(p => hist.push({ b, p })));
+  hist.sort((x, y) => y.p.at - x.p.at);
+  const amt = (p) => `${p.kind === "devolucion" ? "− " : ""}${money(p.amount)}`;
+  return `
+  <div class="title-row"><div><h1>Pagos</h1><p class="sub">Los cobros y las devoluciones pasan por Mercado Pago y se registran solos.</p></div></div>
+  <div class="panel"><div class="panel-b" style="padding-top:8px">${hist.length ? `
+    <div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Profesional</th><th>Concepto</th><th class="num">Monto</th></tr></thead><tbody>
+    ${hist.map(({ b, p }) => `<tr><td class="num">${fmtWhen(p.at)}</td><td>${esc(userById(b.userId).name)}</td><td>${KIND[p.kind]}<div class="s">${esc(boxById(b.boxId).name)}, ${fmtDayShort(b.date)}</div></td><td class="num">${amt(p)}</td></tr>`).join("")}</tbody></table></div>
+    <div class="mrows">${hist.map(({ b, p }) => `<div class="mrow" style="cursor:default"><div class="main"><div class="l1"><span>${esc(userById(b.userId).name)}</span><span class="num">${amt(p)}</span></div><div class="l2">${KIND[p.kind]} · ${esc(boxById(b.boxId).name)}, ${fmtDayShort(b.date)} · ${fmtWhen(p.at)}</div></div></div>`).join("")}</div>`
+    : `<div class="empty"><b>Todavía no hay pagos</b>Cuando alguien reserve y pague, aparece acá.</div>`}</div></div>`;
+}
+
+function viewFacturacion() {
+  const nowYm = ymOf(todayIso()), ym = S.ui.invYm || nowYm, bl = S.config.billing;
+  const rows = billingRows(ym);
+  const pend = rows.filter(r => !r.invoice && r.total > 0), done = rows.filter(r => r.invoice);
+  const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
+  const unused = pend.reduce((a, r) => a + r.pending, 0);
+  const finding = !rows.length ? "No hubo alquileres en este mes."
+    : pend.length ? `Hay <b>${pend.length} ${pend.length === 1 ? "profesional" : "profesionales"} para facturar</b> por ${money(pend.reduce((a, r) => a + r.total, 0))}.${ym === nowYm && unused ? ` El mes no terminó: ${unused} ${unused === 1 ? "turno todavía no se usó" : "turnos todavía no se usaron"}.` : ""}`
+    : `Todo facturado: ${done.length} ${done.length === 1 ? "factura" : "facturas"} por ${money(done.reduce((a, r) => a + r.invoice.total, 0))}.`;
+  const act = (r) => r.invoice ? `<button class="btn btn-sm" data-action="inv-open" data-id="${r.invoice.id}">Ver</button>` : `<button class="btn btn-sm" data-action="inv-one" data-id="${r.u.id}">Facturar</button>`;
+  return `
+  <div class="title-row"><div>
+    <h1>Facturación</h1>
+    <p class="sub">Las horas que alquiló cada profesional en el mes, con su precio. Se factura todo junto: una factura por profesional.</p>
+    <p class="finding">${finding}</p>
+  </div><button class="btn btn-primary" data-action="inv-all" ${pend.length ? "" : "disabled"}>Facturar todo el mes</button></div>
+  <div class="cal-head"><span class="wk">${cap(ymLabel(ym))}</span>
+    <button class="btn btn-sm" data-action="inv-month" data-go="now">Este mes</button>
+    <button class="iconbtn" data-action="inv-month" data-go="-1" aria-label="Mes anterior">${ic("chevL")}</button>
+    <button class="iconbtn" data-action="inv-month" data-go="1" aria-label="Mes siguiente" ${ym >= nowYm ? "disabled" : ""}>${ic("chevR")}</button></div>
+  ${rows.length ? `
+  <div class="panel"><div class="panel-b" style="padding-top:8px">
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Profesional</th><th class="num">Horas</th><th class="num">Boxes</th><th class="num">Máquinas</th><th class="num">Total</th><th>Factura</th><th></th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td><div class="t">${esc(r.u.name)}</div><div class="s">${esc(catOf(r.u).name)} · CUIT ${esc(r.u.cuit || "sin cargar")}</div></td>
+        <td class="num">${r.hours} h</td><td class="num">${money(r.boxAmount)}</td><td class="num">${r.machAmount ? money(r.machAmount) : "—"}</td><td class="num"><b>${money(r.total)}</b></td>
+        <td>${r.invoice ? `<span class="pill pill-positive">Facturada</span><div class="s num">${r.invoice.letter} ${r.invoice.number}</div>` : `<span class="pill pill-warning">Sin facturar</span>`}</td><td class="num">${act(r)}</td></tr>`).join("")}
+        <tr class="tot"><td>Total del mes</td><td class="num">${sum("hours")} h</td><td class="num">${money(sum("boxAmount"))}</td><td class="num">${sum("machAmount") ? money(sum("machAmount")) : "—"}</td><td class="num">${money(sum("total"))}</td><td></td><td></td></tr></tbody>
+    </table></div>
+    <div class="mrows">${rows.map(r => `<div class="mrow" style="cursor:default"><div class="main"><div class="l1"><span>${esc(r.u.name)}</span><span class="num">${money(r.total)}</span></div>
+      <div class="l2">${r.hours} h de box${r.machAmount ? " · máquinas " + money(r.machAmount) : ""}</div>
+      <div class="inv-line">${r.invoice ? `<span class="pill pill-positive">Facturada · ${r.invoice.letter} ${r.invoice.number}</span>` : `<span class="pill pill-warning">Sin facturar</span>`}${act(r)}</div></div></div>`).join("")}</div>
+  </div></div>` : `<div class="panel"><div class="empty"><b>No hay nada para facturar en ${ymLabel(ym)}</b>Cuando haya alquileres en el mes, aparecen acá.</div></div>`}
+  <div class="note" style="margin-top:16px">Demostración: las facturas de esta pantalla son de muestra. En la versión real, cada una se autoriza en ARCA con los datos de ${esc(bl.name)} (CUIT ${esc(bl.cuit)}, ${esc(bl.cond)}) y queda guardada con su número de autorización.</div>`;
+}
+
+function viewProfesionales() {
+  const tab = S.ui.tab.prof || "solicitudes";
+  const pros = S.users.filter(u => u.role === "pro");
+  const groups = { solicitudes: pros.filter(u => u.status === "pendiente"), aprobadas: pros.filter(u => u.status === "aprobado"), pausadas: pros.filter(u => u.status === "bloqueado" || u.status === "rechazado") };
+  const list = groups[tab];
+  const row = (u) => {
+    const nb = S.bookings.filter(b => b.userId === u.id && active(b) && b.status !== "cumplida").length;
+    let acts = "";
+    if (u.status === "pendiente") acts = `<button class="btn btn-sm" data-action="user-status" data-id="${u.id}" data-s="rechazado">Rechazar</button><button class="btn btn-sm btn-primary" data-action="user-status" data-id="${u.id}" data-s="aprobado">Aprobar</button>`;
+    else if (u.status === "aprobado") acts = `<button class="btn btn-sm" data-action="user-status" data-id="${u.id}" data-s="bloqueado">Pausar acceso</button>`;
+    else acts = `<button class="btn btn-sm" data-action="user-status" data-id="${u.id}" data-s="aprobado">Habilitar</button>`;
+    return `<li class="li"><div class="avatar">${initials(u.name)}</div>
+      <div class="main"><div class="t">${esc(u.name)} ${u.status === "rechazado" ? '<span class="pill pill-negative">Rechazada</span>' : u.status === "bloqueado" ? '<span class="pill pill-neutral">Pausada</span>' : ""}</div>
+      <div class="s">${esc(u.profession)} · ${esc(u.email)} · ${esc(u.phone)}</div>
+      <div class="s catline"><label>Categoría <select class="input input-sm" data-input="userCat" data-id="${u.id}">${S.config.categories.map(k => `<option value="${k.id}" ${k.id === catOf(u).id ? "selected" : ""}>${esc(k.name)} · ${money(k.pricePerHour)} la hora</option>`).join("")}</select></label></div>
+      <div class="s">${u.status === "pendiente" ? "Pidió acceso " + fmtWhen(u.since) : u.status === "aprobado" ? `${nb} ${nb === 1 ? "reserva activa" : "reservas activas"}` : ""}</div></div>
+      <div class="acts">${acts}</div></li>`;
+  };
+  return `
+  <div class="title-row"><div><h1>Profesionales</h1><p class="sub">Solo reservan las que aprobás después de la entrevista.</p></div><button class="btn btn-dark" data-action="add-pro">Crear cuenta</button></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="${tab === "solicitudes"}" data-action="tab" data-k="prof" data-v="solicitudes">Solicitudes<span class="n num">${groups.solicitudes.length}</span></button>
+    <button role="tab" aria-selected="${tab === "aprobadas"}" data-action="tab" data-k="prof" data-v="aprobadas">Aprobadas<span class="n num">${groups.aprobadas.length}</span></button>
+    <button role="tab" aria-selected="${tab === "pausadas"}" data-action="tab" data-k="prof" data-v="pausadas">Pausadas y rechazadas<span class="n num">${groups.pausadas.length}</span></button>
+  </div>
+  <div class="panel"><div class="panel-b" style="padding-top:8px">${list.length ? `<ul class="list">${list.map(row).join("")}</ul>` : `<div class="empty"><b>No hay nadie acá</b>${tab === "solicitudes" ? "Las nuevas solicitudes de acceso aparecen en esta pestaña." : ""}</div>`}</div></div>`;
+}
+
+function viewConfig() {
+  const c = S.config, p = c.policy, bl = c.billing;
+  const tag = `<span class="tag-example">Ejemplo, a definir con vos</span>`;
+  const hours = Array.from({ length: 17 }, (_, i) => i + 6);
+  const opt = (arr, v, f = (x) => x) => arr.map(x => `<option value="${x}" ${x === v ? "selected" : ""}>${f(x)}</option>`).join("");
+  const inUse = (k) => S.users.filter(u => u.role === "pro" && catOf(u).id === k.id).length;
+  return `
+  <div class="title-row"><div><h1>Configuración</h1><p class="sub">Los valores son de ejemplo. Cambialos y mirá cómo se actualiza la agenda.</p></div></div>
+  <div style="max-width:1100px">
+    <section class="set-sec">
+      <div><h2>Turnos y horarios ${tag}</h2><p class="desc">Duración de cada turno y cuándo se puede alquilar. Tus horarios fijos se cargan desde la Agenda.</p></div>
+      <form class="set-panel" data-form="cfg-turnos">
+        <div class="row2">
+          <div class="field"><label for="ct">Duración del turno</label><select class="input" id="ct" name="turnHours">${opt([2, 3, 4, 6], c.turnHours, x => x + " horas")}</select></div>
+          <div class="field"><span class="lab">Horario</span><div class="row2" style="gap:8px">
+            <select class="input" name="open" aria-label="Abre">${opt(hours, c.open, x => x + " h")}</select>
+            <select class="input" name="close" aria-label="Cierra">${opt(hours, c.close, x => x + " h")}</select></div></div>
+        </div>
+        <div class="field"><span class="lab">Días que se alquila</span><div class="days-check">${[1, 2, 3, 4, 5, 6, 0].map(d => `<label><input type="checkbox" name="days" value="${d}" ${c.days.includes(d) ? "checked" : ""}>${cap(DIAS[d])}</label>`).join("")}</div></div>
+        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>
+    <section class="set-sec">
+      <div><h2>Categorías y precios ${tag}</h2><p class="desc">Cada profesional elige su categoría cuando pide acceso y paga el precio por hora de esa categoría. Vos la podés cambiar desde Profesionales. Si un box vale distinto, su precio se carga más abajo, en «Los boxes».</p></div>
+      <div class="set-panel">
+        <ul class="list">${c.categories.map(k => `<li class="li"><div class="main"><div class="t">${esc(k.name)}</div><div class="s">${k.note ? esc(k.note) + " · " : ""}${inUse(k)} ${inUse(k) === 1 ? "profesional" : "profesionales"}</div></div>
+          <div class="price num">${money(k.pricePerHour)}<small> la hora</small></div>
+          <div class="acts"><button class="btn btn-sm" data-action="cat-edit" data-id="${k.id}">Editar</button></div></li>`).join("")}</ul>
+        <div class="acts"><button class="btn" data-action="cat-add">Agregar categoría</button></div>
+      </div>
+    </section>
+    <section class="set-sec">
+      <div><h2>Seña y pago ${tag}</h2><p class="desc">Cuánto se paga al reservar y cuánto tiempo queda guardado el turno mientras se paga.</p></div>
+      <form class="set-panel" data-form="cfg-precio">
+        <div class="row2">
+          <div class="field"><label for="dp">Seña</label><select class="input" id="dp" name="depositPct">${opt([30, 40, 50, 60], c.depositPct, x => x + " % del turno")}</select></div>
+          <div class="field"><label for="mpm">Plazo para pagar con Mercado Pago</label><select class="input" id="mpm" name="mpMinutes">${opt([10, 15, 30, 60], c.mpMinutes, x => x + " minutos")}</select></div>
+        </div>
+        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>
+    <section class="set-sec">
+      <div><h2>Política de cancelación ${tag}</h2><p class="desc">El sistema calcula solo cuánto se devuelve y se lo muestra a la profesional antes de cancelar.</p></div>
+      <form class="set-panel" data-form="cfg-politica">
+        <div class="field"><label for="pd">Anticipación mínima para devolución completa</label><select class="input" id="pd" name="days" style="max-width:220px">${opt([2, 3, 5, 7, 10, 14], p.days, x => x + " días")}</select></div>
+        <table class="policy">
+          <thead><tr><th>Si cancela…</th><th>Pagó seña</th><th>Pagó el total</th></tr></thead>
+          <tbody>
+            <tr><td>Con ${p.days} días o más</td><td><select class="input" name="senaBefore">${opt([0, 50, 100], p.senaBefore, x => x + " %")}</select></td><td><select class="input" name="totalBefore">${opt([0, 50, 100], p.totalBefore, x => x + " %")}</select></td></tr>
+            <tr><td>Con menos de ${p.days} días</td><td><select class="input" name="senaAfter">${opt([0, 50, 100], p.senaAfter, x => x + " %")}</select></td><td><select class="input" name="totalAfter">${opt([0, 25, 50, 75, 100], p.totalAfter, x => x + " %")}</select></td></tr>
+          </tbody>
+        </table>
+        <p class="hint muted small" style="margin:10px 0 12px">Porcentaje de lo pagado que se devuelve.</p>
+        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>
+    <section class="set-sec">
+      <div><h2>Reglamento de uso ${tag}</h2><p class="desc">Se acepta en cada reserva. Si lo cambiás, sube la versión y cada reserva guarda la que aceptó. Versión actual: ${c.terms.version}.</p></div>
+      <form class="set-panel" data-form="cfg-terms">
+        <div class="field"><label for="tt">Una regla por línea</label><textarea class="input" id="tt" name="text" rows="8">${esc(c.terms.text)}</textarea></div>
+        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>
+    <section class="set-sec">
+      <div><h2>Los boxes ${tag}</h2><p class="desc">Nombre, equipamiento, foto y precio de cada box. Si uno es más grande o está mejor equipado, ponele su propio precio por hora: las profesionales lo ven al reservar.</p></div>
+      <form class="set-panel" data-form="cfg-boxes">
+        ${S.boxes.map(b => `<div class="set-item">
+          <div class="photo-edit">${b.photo ? `<img class="thumb thumb-lg" src="${b.photo}" alt="Foto de ${esc(b.name)}">` : `<div class="thumb thumb-lg">${ic("image")}</div>`}
+            <div class="photo-acts"><label class="btn btn-sm">${b.photo ? "Cambiar foto" : "Subir foto"}<input type="file" accept="image/*" data-upload="box" data-id="${b.id}" hidden></label>${b.photo ? `<button class="btn btn-sm btn-text" type="button" data-action="box-photo-del" data-id="${b.id}">Quitar</button>` : ""}</div></div>
+          <div class="grow"><div class="row2"><div class="field"><label for="bn${b.id}">Nombre</label><input class="input" id="bn${b.id}" name="name${b.id}" value="${esc(b.name)}"></div>
+            <div class="field"><label for="bs${b.id}">Resumen</label><input class="input" id="bs${b.id}" name="short${b.id}" value="${esc(b.short)}"></div></div>
+            <div class="field"><label for="be${b.id}">Equipamiento que viene con el box (separado por comas)</label><input class="input" id="be${b.id}" name="eq${b.id}" value="${esc(b.equipment.join(", "))}"></div>
+            <div class="field"><span class="lab">Precio por hora de este box</span><div class="row2">${c.categories.map(k => `<label class="pricein"><span>${esc(k.name)}</span><input class="input num" name="price_${b.id}_${k.id}" type="number" min="0" step="500" value="${boxRate(b, k.id) == null ? "" : boxRate(b, k.id)}" placeholder="${k.pricePerHour}"></label>`).join("")}</div>
+              <span class="hint">Vacío usa el precio general de la categoría, que es el que se ve en gris.</span></div></div>
+        </div>`).join("")}
+        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>
+    <section class="set-sec">
+      <div><h2>Máquinas ${tag}</h2><p class="desc">Los equipos que se alquilan aparte del box, cada uno con su precio por hora y su foto. La profesional los suma al reservar; si un equipo ya está tomado en ese horario, no se lo ofrece.</p></div>
+      <div class="set-panel">
+        ${S.machines.length ? `<ul class="list">${S.machines.map(m => `<li class="li">${machineThumb(m)}<div class="main"><div class="t">${esc(m.name)} ${m.active ? "" : '<span class="pill pill-neutral">Pausada</span>'}</div><div class="s">${esc(m.short || "")}</div></div>
+          <div class="price num">${money(m.pricePerHour)}<small> la hora</small></div>
+          <div class="acts"><button class="btn btn-sm" data-action="machine-edit" data-id="${m.id}">Editar</button></div></li>`).join("")}</ul>` : `<div class="empty"><b>Todavía no cargaste máquinas</b>Agregá la primera con su precio por hora.</div>`}
+        <div class="acts"><button class="btn" data-action="machine-add">Agregar máquina</button></div>
+      </div>
+    </section>
+    <section class="set-sec">
+      <div><h2>Facturación ${tag}</h2><p class="desc">Los datos con los que se emiten las facturas del mes. En la versión real, la conexión con ARCA se hace una sola vez.</p></div>
+      <form class="set-panel" data-form="cfg-billing">
+        <div class="row2">
+          <div class="field"><label for="fn">Nombre o razón social</label><input class="input" id="fn" name="name" value="${esc(bl.name)}"></div>
+          <div class="field"><label for="fc">CUIT</label><input class="input" id="fc" name="cuit" inputmode="numeric" value="${esc(bl.cuit)}"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="fi">Condición frente al IVA</label><select class="input" id="fi" name="cond">${opt(["Monotributo", "Responsable inscripta"], bl.cond)}</select></div>
+          <div class="field"><label for="fp">Punto de venta</label><input class="input num" id="fp" name="pos" type="number" min="1" max="9998" value="${bl.pos}"></div>
+        </div>
+        <div class="note">ARCA: sin conectar. En esta demostración las facturas son de muestra.</div>
+        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>
+  </div>`;
+}
+
+/* =========================================================
+   Hojas (bottom sheet / diálogo)
+   ========================================================= */
+let overlayEl = null, lastFocus = null;
+function openSheet(html, { wide = false } = {}) {
+  if (overlayEl) { // ya hay una hoja abierta: reemplazamos el contenido sin animar
+    const sh = overlayEl.querySelector(".sheet");
+    sh.className = "sheet" + (wide ? " wide" : "");
+    sh.innerHTML = html; sh.scrollTop = 0;
+    return;
+  }
+  lastFocus = document.activeElement;
+  overlayEl = document.createElement("div");
+  overlayEl.className = "overlay";
+  overlayEl.innerHTML = `<div class="sheet ${wide ? "wide" : ""}" role="dialog" aria-modal="true">${html}</div>`;
+  document.body.appendChild(overlayEl);
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => overlayEl && overlayEl.classList.add("open"));
+  const f = overlayEl.querySelector("[autofocus], .sheet-b input, .sheet-b button, .sheet-f .btn-primary");
+  setTimeout(() => (f || overlayEl.querySelector(".sheet")).focus?.(), 60);
+  overlayEl.addEventListener("mousedown", (e) => { if (e.target === overlayEl) closeSheet(); });
+}
+function closeSheet(instant = false) {
+  if (!overlayEl) return;
+  const el = overlayEl; overlayEl = null;
+  document.body.style.overflow = "";
+  if (instant) el.remove(); else { el.classList.remove("open"); setTimeout(() => el.remove(), 260); } // 260 ms: lo que tarda la hoja en bajar en el celular
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus?.();
+}
+const sheetHead = (title, sub = "") => `<div class="sheet-h"><div><h2>${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ""}</div><button class="iconbtn x" data-action="close-sheet" aria-label="Cerrar">${ic("x")}</button></div>`;
+
+/* ---------- Flujo de reserva (3 pasos) ---------- */
+let draft = null;
+function startBooking(boxId, date, start, end) {
+  const u = me();
+  if (u.status !== "aprobado") { toast("Solo las profesionales aprobadas pueden reservar."); return; } // RN01
+  if (!canBook(boxId, date, start, end)) { toast("Ese horario ya no está disponible."); render(); return; }
+  draft = { boxId, date, start, end, step: 1, service: "", plan: "sena", accepted: false, machines: [] };
+  renderBookingSheet();
+}
+function draftBox() { return priceFor(draft.end - draft.start, me(), draft.boxId); }
+function draftMachines() { const h = draft.end - draft.start; return draft.machines.map(machineById).filter(Boolean).map(m => machineLine(m, h)); }
+function draftTotal() { return draftBox() + draftMachines().reduce((a, m) => a + m.amount, 0); }
+function draftAmount() { return draft.plan === "sena" ? senaOf(draftTotal()) : draftTotal(); }
+function renderBookingSheet(keepScroll = false) {
+  const d = draft, box = boxById(d.boxId), total = draftTotal(), c = S.config, p = c.policy, hrs = d.end - d.start, ml = draftMachines();
+  const isRel = releasesFor(d.date, d.boxId).some(r => r.start <= d.start && r.end >= d.end);
+  const steps = ["Turno", "Pago", "Reglamento"].map((s, i) => `<span class="${i + 1 === d.step ? "on" : i + 1 < d.step ? "done" : ""}">${s}</span>`).join("");
+  const summary = `<div class="summary"><b>${esc(box.name)}${isRel ? " · rato libre" : ""}</b><b class="r num">${money(total)}</b><span class="muted">${cap(fmtDay(d.date))}</span><span class="muted r num">${fmtRange(d.start, d.end)}</span>
+    <span class="muted">Box: ${hrs} h a ${money(rateOf(me(), box))}</span><span class="muted r num">${money(draftBox())}</span>${ml.map(m => `<span class="muted">${esc(m.name)}: ${m.hours} h a ${money(m.rate)}</span><span class="muted r num">${money(m.amount)}</span>`).join("")}</div>`;
+  const avail = S.machines.filter(m => m.active);
+  const mach = !avail.length ? "" : `<div class="group-l">¿Sumás una máquina?</div>
+      ${avail.map(m => { const busy = machineBusy(m.id, d.date, d.start, d.end);
+        return `<label class="choice ${busy ? "is-off" : ""}"><input type="checkbox" data-draft-machine="${m.id}" ${d.machines.includes(m.id) ? "checked" : ""} ${busy ? "disabled" : ""}><div><div class="ct">${esc(m.name)}</div><div class="cs">${busy ? "Ya está reservada en este horario" : esc(m.short || "")}</div></div><span class="camt num">${busy ? "" : "+ " + money(m.pricePerHour * hrs)}</span></label>`; }).join("")}
+      <p class="muted small">Las máquinas se cobran por hora, por las ${hrs} h del turno.</p>`;
+  let body = "", foot = "";
+  if (d.step === 1) {
+    body = `
+      <div class="group-l">Qué tiene el box</div>
+      <ul class="eq" style="margin-bottom:6px">${box.equipment.map(e => `<li>${esc(e)}</li>`).join("")}</ul>
+      ${mach}
+      <div class="field" style="margin-top:18px"><label for="svc">¿Qué vas a atender?</label><input class="input" id="svc" data-draft="service" value="${esc(d.service)}" placeholder="Ej.: Dermatología"><span class="hint">Solo lo ve Yani. Las demás profesionales ven este horario como “Ocupado”.</span></div>`;
+    foot = `<button class="btn" data-action="close-sheet">Cancelar</button><button class="btn btn-primary" data-action="draft-next">Continuar</button>`;
+  } else if (d.step === 2) {
+    const sena = senaOf(total);
+    body = `
+      <div class="group-l">¿Cuánto pagás ahora?</div>
+      <label class="choice"><input type="radio" name="plan" value="sena" data-draft="plan" ${d.plan === "sena" ? "checked" : ""}><div><div class="ct">Seña del ${c.depositPct} %</div><div class="cs">El resto (${money(total - sena)}) lo pagás antes del turno</div></div><span class="camt num">${money(sena)}</span></label>
+      <label class="choice"><input type="radio" name="plan" value="total" data-draft="plan" ${d.plan === "total" ? "checked" : ""}><div><div class="ct">Total</div><div class="cs">Y te olvidás del saldo</div></div><span class="camt num">${money(total)}</span></label>
+      <div class="group-l">Pagás con Mercado Pago</div>
+      <div class="mp-head is-line"><div class="mp-logo">MP</div><div><b>Tarjeta o dinero en cuenta</b><div class="muted small">Se confirma al instante.</div></div></div>
+      <div class="note">Si cancelás con ${p.days} días o más, te devolvemos el ${d.plan === "sena" ? p.senaBefore : p.totalBefore} %. Con menos, ${d.plan === "sena" ? (p.senaAfter ? `el ${p.senaAfter} %` : "la seña no se devuelve") : `el ${p.totalAfter} %`}.</div>`;
+    foot = `<button class="btn" data-action="draft-back">Atrás</button><button class="btn btn-primary" data-action="draft-next">Continuar</button>`;
+  } else {
+    body = `
+      <div class="group-l">Reglamento de uso del consultorio <span class="muted" style="font-weight:400">· versión ${c.terms.version}</span></div>
+      <div class="terms"><ol>${c.terms.text.split("\n").filter(Boolean).map(l => `<li>${esc(l)}</li>`).join("")}</ol></div>
+      <label class="check" style="margin-top:14px"><input type="checkbox" data-draft="accepted" ${d.accepted ? "checked" : ""}><span>Leí y acepto el reglamento de uso y la política de cancelación.</span></label>
+      <div class="note acc">Vas a pagar <b class="num">${money(draftAmount())}</b> ${d.plan === "sena" ? "de seña" : ""} con Mercado Pago. Tenés ${c.mpMinutes} minutos para completar el pago.</div>`;
+    foot = `<button class="btn" data-action="draft-back">Atrás</button><button class="btn btn-primary" data-action="draft-confirm" ${d.accepted ? "" : "disabled"} id="confirmBtn">Ir a pagar ${money(draftAmount())}</button>`;
+  }
+  openSheet(`${sheetHead("Reservar " + esc(box.name), "Paso " + d.step + " de 3")}<div class="sheet-b"><div class="steps">${steps}</div>${summary}${body}</div><div class="sheet-f">${foot}</div>`);
+}
+
+function confirmDraft() {
+  const d = draft, u = me();
+  if (!d.accepted) { toast("Tenés que aceptar el reglamento para reservar."); return; } // RN05
+  if (!canBook(d.boxId, d.date, d.start, d.end)) { closeSheet(); toast("Alguien reservó ese horario recién. Elegí otro."); render(); return; } // RN02
+  const taken = d.machines.find(id => !machineById(id) || machineBusy(id, d.date, d.start, d.end));
+  if (taken) { // alguien se llevó la máquina mientras se completaba la reserva
+    d.machines = d.machines.filter(id => id !== taken); d.step = 1; renderBookingSheet();
+    toast("Esa máquina se reservó recién en ese horario. La sacamos de tu reserva: revisá el total."); return;
+  }
+  const now = Date.now();
+  const b = {
+    id: uid("r"), userId: u.id, boxId: d.boxId, date: d.date, start: d.start, end: d.end, service: d.service.trim(),
+    category: u.category, rate: rateOf(u, boxById(d.boxId)), boxAmount: draftBox(), machines: draftMachines(),
+    total: draftTotal(), plan: d.plan, status: "pago", payments: [], termsVersion: S.config.terms.version,
+    createdAt: now, expiresAt: now + S.config.mpMinutes * 6e4, refund: null,
+  };
+  S.bookings.push(b);
+  draft = null;
+  save(); render();
+  openMp(b, b.plan);
+}
+
+/* ---------- Mercado Pago simulado (RF13, RN08) ---------- */
+function openMp(b, kind) {
+  const amount = kind === "saldo" ? balanceOf(b) : kind === "sena" ? senaOf(b.total) : b.total;
+  openSheet(`${sheetHead("Pagar con Mercado Pago", "Simulación: en la app real se abre Mercado Pago")}
+  <div class="sheet-b">
+    <div class="mp-head"><div class="mp-logo">MP</div><div><b>Consultorio Yani</b><div class="muted small">${KIND[kind]} · ${esc(boxById(b.boxId).name)}, ${fmtDayShort(b.date)} ${fmtRange(b.start, b.end)}</div></div></div>
+    <div class="amount num">${money(amount)}</div>
+    ${b.status === "pago" ? `<p class="muted" style="margin-top:6px">Tu turno queda guardado <span class="timer" data-countdown="${b.expiresAt}"></span>. Si no se paga, se libera solo.</p>` : ""}
+  </div>
+  <div class="sheet-f"><button class="btn" data-action="mp-reject" data-id="${b.id}">Simular rechazo</button><button class="btn btn-primary" data-action="mp-approve" data-id="${b.id}" data-kind="${kind}">Pagar ${money(amount)}</button></div>`);
+  tick();
+}
+function mpApprove(b, kind) {
+  const amount = kind === "saldo" ? balanceOf(b) : kind === "sena" ? senaOf(b.total) : b.total;
+  const p = { id: uid("p"), kind, amount, status: "pendiente", at: Date.now() };
+  b.payments.push(p);
+  approvePayment(b, p);
+  save(); render();
+  showSuccess(b, kind === "saldo" ? "¡Listo! Pagaste el saldo" : "¡Reserva confirmada!", kind === "saldo" ? "Tu turno está pago completo." : "Te mandamos un mail con los datos. Te vamos a recordar el turno el día anterior.");
+}
+
+function showSuccess(b, title, text) {
+  openSheet(`${sheetHead("")}
+  <div class="sheet-b"><div class="success"><div class="ok-ic">${ic("check")}</div><h3>${title}</h3><p>${text}</p></div>
+    <div class="summary" style="margin-top:18px"><b>${esc(boxById(b.boxId).name)}</b><span class="r">${statusPill(b)}</span><span class="muted">${cap(fmtDay(b.date))}</span><span class="muted r num">${fmtRange(b.start, b.end)}</span></div>
+    <ul class="track">
+      <li class="done"><i></i>Reservaste el horario</li>
+      <li class="done"><i></i>Pago aprobado en Mercado Pago</li>
+      <li class="done"><i></i>Reserva confirmada y mail enviado</li>
+    </ul></div>
+  <div class="sheet-f"><button class="btn" data-action="close-sheet">Seguir mirando</button><button class="btn btn-primary" data-action="go-mis">Ver mis reservas</button></div>`);
+}
+
+/* ---------- Cancelación con devolución calculada (RF16, RF17) ---------- */
+function openCancel(b, by = "pro") {
+  const r = refundFor(b, by), p = S.config.policy, box = boxById(b.boxId);
+  const daysTxt = r.days >= 1 ? `Faltan ${Math.floor(r.days)} ${Math.floor(r.days) === 1 ? "día" : "días"}` : `Faltan menos de 24 h`;
+  const unpaid = r.paid === 0;
+  const hitBefore = r.before, hitFull = r.full;
+  openSheet(`${sheetHead(by === "admin" ? "Cancelar esta reserva" : "¿Cancelar tu reserva?", `${esc(box.name)} · ${cap(fmtDay(b.date))} · ${fmtRange(b.start, b.end)}`)}
+  <div class="sheet-b">
+    ${unpaid ? `<div class="note">Todavía no hay pagos aprobados en esta reserva, así que no hay nada para devolver. El horario se libera para otra persona.</div>`
+      : `<div class="summary"><span class="muted">Pagado</span><span class="r num">${money(r.paid)}</span><span class="muted">${by === "admin" ? "Cancelás vos: se devuelve todo" : daysTxt + " para el turno"}</span><span class="r num">${r.pct} %</span><b>${by === "admin" ? "Se le devuelve" : "Te devolvemos"}</b><b class="r num">${money(r.amount)}</b></div>
+      ${by === "pro" ? `<table class="policy">
+        <thead><tr><th>Si cancelás…</th><th class="num">Pagaste seña</th><th class="num">Pagaste el total</th></tr></thead>
+        <tbody>
+          <tr class="${hitBefore ? "hit" : ""}"><td>Con ${p.days} días o más</td><td class="num">${p.senaBefore} %</td><td class="num">${p.totalBefore} %</td></tr>
+          <tr class="${!hitBefore ? "hit" : ""}"><td>Con menos de ${p.days} días</td><td class="num">${p.senaAfter} %</td><td class="num">${p.totalAfter} %</td></tr>
+        </tbody></table>
+      <p class="muted small" style="margin-top:8px">Tu caso: ${daysTxt.toLowerCase()} y ${hitFull ? "pagaste el total" : "pagaste la seña"}.</p>` : ""}
+      <div class="note ${r.amount ? "acc" : "warn"}">${r.amount === 0 ? "Según la política de cancelación, no corresponde devolución." : "La devolución vuelve sola a la cuenta de Mercado Pago."}</div>`}
+  </div>
+  <div class="sheet-f"><button class="btn" data-action="close-sheet">Volver</button><button class="btn btn-dark" data-action="confirm-cancel" data-id="${b.id}" data-by="${by}">Sí, cancelar</button></div>`);
+}
+
+/* ---------- Detalle de reserva para la administradora ---------- */
+function openAdminBooking(b) {
+  const u = userById(b.userId), box = boxById(b.boxId);
+  const canCancel = ["pago", "confirmada"].includes(b.status);
+  openSheet(`${sheetHead(esc(u.name), `${esc(u.profession)} · ${esc(u.phone)} · ${esc(u.email)}`)}
+  <div class="sheet-b">
+    <div class="summary"><b>${esc(box.name)}</b><span class="r">${statusPill(b)}</span><span class="muted">${cap(fmtDay(b.date))}</span><span class="muted r num">${fmtRange(b.start, b.end)}</span></div>
+    <dl class="kv" style="grid-template-columns:auto 1fr">
+      <dt>Atiende</dt><dd>${esc(b.service || "—")}</dd>
+      <dt>Categoría</dt><dd>${esc(catById(b.category || u.category).name)} · ${money(b.rate || rateOf(u, box))} la hora</dd>
+      ${machinesOf(b).length ? `<dt>Equipos</dt><dd>${machinesOf(b).map(m => `${esc(m.name)} (${money(m.amount)})`).join(", ")}</dd>` : ""}
+      <dt>Total</dt><dd class="num">${money(b.total)} · ${b.plan === "sena" ? "eligió seña" : "eligió pago total"}</dd>
+      <dt>Cobrado</dt><dd class="num">${money(paidOf(b))}${balanceOf(b) && b.status !== "cancelada" ? ` · saldo ${money(balanceOf(b))}` : ""}</dd>
+      <dt>Reglamento</dt><dd>Aceptó la versión ${b.termsVersion}</dd>
+      ${b.status === "cancelada" ? `<dt>Cancelación</dt><dd>${b.cancelledBy === "vencida" ? "Se venció el plazo de pago" : b.cancelledBy === "admin" ? "La cancelaste vos" : "La canceló la profesional"}${b.refund?.amount ? ` · devolución ${money(b.refund.amount)} por Mercado Pago` : ""}</dd>` : ""}
+    </dl>
+    <div class="group-l" style="margin-top:16px">Pagos por Mercado Pago</div>
+    ${b.payments.length ? `<ul class="list">${b.payments.map(p => `<li class="li">
+      <div class="main"><div class="t">${KIND[p.kind]} · <span class="num">${money(p.amount)}</span></div><div class="s">${fmtWhen(p.at)}</div></div>
+      <span class="pill ${p.status === "aprobado" ? "pill-positive" : "pill-neutral"}">${cap(p.status)}</span></li>`).join("")}</ul>`
+      : `<p class="muted">Todavía no pagó. ${b.status === "pago" && b.expiresAt ? `Se libera sola el ${fmtWhen(b.expiresAt)}.` : ""}</p>`}
+  </div>
+  <div class="sheet-f">${canCancel ? `<button class="btn btn-danger" data-action="admin-cancel" data-id="${b.id}">Cancelar reserva</button>` : ""}<button class="btn" data-action="close-sheet">Cerrar</button></div>`);
+}
+
+/* ---------- Bloqueos y ratos libres (RF06, RF07) ---------- */
+function hourOpts(from, to, sel) { let o = ""; for (let h = from; h <= to; h++) o += `<option value="${h}" ${h === sel ? "selected" : ""}>${h} h</option>`; return o; }
+function openBlockSheet(boxId, date, start, end) {
+  const c = S.config;
+  const wd = date ? weekday(date) : 2;
+  openSheet(`${sheetHead("Bloquear horario", "Los horarios bloqueados no se pueden reservar")}
+  <form data-form="new-block"><div class="sheet-b">
+    <div class="field"><span class="lab">Boxes</span><div class="days-check">${S.boxes.map(b => `<label><input type="checkbox" name="boxes" value="${b.id}" ${!boxId || b.id === boxId ? "checked" : ""}>${esc(b.name)}</label>`).join("")}</div></div>
+    <div class="field"><label for="bd">Día</label><input class="input" type="date" id="bd" name="date" value="${date || todayIso()}" required></div>
+    <div class="row2">
+      <div class="field"><label for="bs">Desde</label><select class="input" id="bs" name="start">${hourOpts(c.open, c.close - 1, start ?? c.open)}</select></div>
+      <div class="field"><label for="be">Hasta</label><select class="input" id="be" name="end">${hourOpts(c.open + 1, c.close, end ?? c.open + c.turnHours)}</select></div>
+    </div>
+    <div class="group-l">¿Se repite?</div>
+    <label class="choice"><input type="radio" name="rep" value="once" checked><div><div class="ct">Solo ese día</div><div class="cs">Por ejemplo, un trámite o una consulta puntual</div></div></label>
+    <label class="choice"><input type="radio" name="rep" value="weekly"><div><div class="ct">Todas las semanas</div><div class="cs">Tus días fijos de atención, el mismo día y horario</div></div></label>
+    <div class="field" style="margin-top:12px"><label for="bn">Nota (solo la ves vos)</label><input class="input" id="bn" name="note" value="Atiendo yo"></div>
+  </div>
+  <div class="sheet-f"><button class="btn" type="button" data-action="close-sheet">Cancelar</button><button class="btn btn-dark" type="submit">Bloquear</button></div></form>`);
+}
+function openBlockedSheet(block, boxId, date) {
+  const c = S.config;
+  const defEnd = Math.min(block.start + 2, block.end);
+  openSheet(`${sheetHead(esc(block.note || "Horario bloqueado"), `${esc(boxById(boxId).name)} · ${cap(fmtDay(date))} · ${fmtRange(block.start, block.end)}${block.recurring ? " · todas las semanas" : ""}`)}
+  <form data-form="release" data-box="${boxId}" data-date="${date}" data-block="${block.id}"><div class="sheet-b">
+    <div class="group-l">¿Te queda un rato libre ese día?</div>
+    <p class="muted" style="margin-bottom:12px">Publicalo y cualquier profesional aprobada lo puede reservar. Se cobra por hora, al precio que le corresponde en este box a quien lo reserve.</p>
+    <div class="row2">
+      <div class="field"><label for="rs">Desde</label><select class="input" id="rs" name="start">${hourOpts(block.start, block.end - 1, block.start)}</select></div>
+      <div class="field"><label for="re">Hasta</label><select class="input" id="re" name="end">${hourOpts(block.start + 1, block.end, defEnd)}</select></div>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Publicar rato libre</button>
+    <div class="divider">otras opciones</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${block.recurring ? `<button class="btn" type="button" data-action="unblock-day" data-box="${boxId}" data-date="${date}" data-block="${block.id}">Liberar solo este ${DIAS[weekday(date)]}</button>` : ""}
+      <button class="btn btn-danger" type="button" data-action="delete-block" data-block="${block.id}">${block.recurring ? "Quitar este bloqueo fijo" : "Quitar bloqueo"}</button>
+    </div>
+  </div></form>`);
+}
+
+function openMails() {
+  const list = S.mails;
+  openSheet(`${sheetHead("Mails enviados", "Lo que el sistema le manda a cada persona (RF18–RF20)")}
+  <div class="sheet-b">${list.length ? list.map(m => `<details class="mail ${m.read ? "" : "unread"}"><summary><span class="to">Para: ${esc(m.to)}</span><span class="at">${fmtWhen(m.at)}</span><span class="sj">${esc(m.subject)}</span></summary><div class="body">${esc(m.body)}</div></details>`).join("") : `<div class="empty"><b>Todavía no se envió nada</b>Hacé una reserva y mirá qué llega.</div>`}</div>`, { wide: true });
+  S.mails.forEach(m => m.read = true); save(); renderDemoBar();
+}
+
+function openAddPro() {
+  openSheet(`${sheetHead("Crear cuenta de profesional", "Para cuando preferís darle vos el usuario después de la entrevista")}
+  <form data-form="add-pro"><div class="sheet-b">
+    <div class="field"><label for="an">Nombre y apellido</label><input class="input" id="an" name="name" required></div>
+    <div class="field"><label for="ap">Profesión</label><input class="input" id="ap" name="profession" required></div>
+    <div class="row2"><div class="field"><label for="ak">Categoría</label><select class="input" id="ak" name="category">${S.config.categories.map(k => `<option value="${k.id}">${esc(k.name)} · ${money(k.pricePerHour)} la hora</option>`).join("")}</select></div>
+    <div class="field"><label for="ac">CUIT, para su factura</label><input class="input" id="ac" name="cuit" inputmode="numeric" placeholder="27-12345678-9"></div></div>
+    <div class="row2"><div class="field"><label for="am">Mail</label><input class="input" id="am" name="email" type="email" required></div>
+    <div class="field"><label for="at">Teléfono</label><input class="input" id="at" name="phone" type="tel"></div></div>
+    <p class="muted small">Le llega un mail con su usuario y una contraseña temporal. Queda aprobada.</p>
+  </div><div class="sheet-f"><button class="btn" type="button" data-action="close-sheet">Cancelar</button><button class="btn btn-dark" type="submit">Crear cuenta</button></div></form>`);
+}
+
+/* ---------- Categorías, máquinas y fotos (ajustes de la administradora) ---------- */
+function openCatSheet(k) {
+  const used = k ? S.users.filter(u => u.role === "pro" && catOf(u).id === k.id).length : 0;
+  const canDelete = k && !used && S.config.categories.length > 1;
+  openSheet(`${sheetHead(k ? "Editar categoría" : "Agregar categoría", "El precio vale para las reservas nuevas")}
+  <form data-form="cat-save" data-id="${k ? k.id : ""}"><div class="sheet-b">
+    <div class="field"><label for="kn">Nombre</label><input class="input" id="kn" name="name" required value="${esc(k ? k.name : "")}" placeholder="Ej.: Esteticistas"></div>
+    <div class="field"><label for="kd">Qué incluye o a quién corresponde</label><input class="input" id="kd" name="note" value="${esc(k ? k.note || "" : "")}" placeholder="Ej.: Incluye el servicio de emergencias"></div>
+    <div class="field"><label for="kp">Precio por hora</label><input class="input num" id="kp" name="pricePerHour" type="number" min="0" step="500" required value="${k ? k.pricePerHour : ""}"><span class="hint">Un turno de ${S.config.turnHours} h cuesta ${S.config.turnHours} veces este valor.</span></div>
+    ${used ? `<p class="muted small">La ${used === 1 ? "usa 1 profesional" : "usan " + used + " profesionales"}. Para quitarla, pasalas antes a otra categoría.</p>` : ""}
+  </div><div class="sheet-f">${canDelete ? `<button class="btn btn-danger" type="button" data-action="cat-del" data-id="${k.id}" style="margin-right:auto">Quitar</button>` : ""}<button class="btn" type="button" data-action="close-sheet">Cancelar</button><button class="btn btn-dark" type="submit">Guardar</button></div></form>`);
+}
+
+let machinePhoto = null; // la foto elegida en la hoja de la máquina, hasta que se guarda
+const machinePhotoHtml = () => `${machinePhoto ? `<img class="thumb thumb-lg" src="${machinePhoto}" alt="">` : `<div class="thumb thumb-lg">${ic("image")}</div>`}
+  <div class="photo-acts"><label class="btn btn-sm">${machinePhoto ? "Cambiar foto" : "Subir foto"}<input type="file" accept="image/*" data-upload="machine" hidden></label>${machinePhoto ? `<button class="btn btn-sm btn-text" type="button" data-action="machine-photo-del">Quitar</button>` : ""}<span class="hint">La foto se achica sola para que cargue rápido.</span></div>`;
+function openMachineSheet(m) {
+  machinePhoto = m ? m.photo || null : null;
+  openSheet(`${sheetHead(m ? "Editar máquina" : "Agregar máquina", "Se alquila por hora, aparte del box")}
+  <form data-form="machine-save" data-id="${m ? m.id : ""}"><div class="sheet-b">
+    <div class="photo-edit" id="mPhoto">${machinePhotoHtml()}</div>
+    <div class="field" style="margin-top:18px"><label for="mn">Nombre</label><input class="input" id="mn" name="name" required value="${esc(m ? m.name : "")}" placeholder="Ej.: Láser de depilación"></div>
+    <div class="field"><label for="md">Descripción</label><input class="input" id="md" name="short" value="${esc(m ? m.short || "" : "")}" placeholder="Para qué sirve o qué trae"></div>
+    <div class="field"><label for="mp">Precio por hora</label><input class="input num" id="mp" name="pricePerHour" type="number" min="0" step="500" required value="${m ? m.pricePerHour : ""}"></div>
+    <label class="check"><input type="checkbox" name="active" ${!m || m.active ? "checked" : ""}><span>Disponible para alquilar</span></label>
+  </div><div class="sheet-f">${m ? `<button class="btn btn-danger" type="button" data-action="machine-del" data-id="${m.id}" style="margin-right:auto">Quitar</button>` : ""}<button class="btn" type="button" data-action="close-sheet">Cancelar</button><button class="btn btn-dark" type="submit">Guardar</button></div></form>`);
+}
+
+/* Achica la foto elegida (lado mayor de 1100 px) y la devuelve lista para guardar */
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) { reject(new Error("no es una imagen")); return; }
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1100 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(img.naturalWidth * k)); cv.height = Math.max(1, Math.round(img.naturalHeight * k));
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      resolve(cv.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("no se pudo leer")); };
+    img.src = url;
+  });
+}
+const FULL = "La foto se ve, pero no entró en la memoria de este navegador. En la versión real se guarda en el servidor.";
+function applyBoxesForm(fd) {
+  S.boxes.forEach(b => {
+    if (fd.get("name" + b.id) == null) return;
+    b.name = String(fd.get("name" + b.id)).trim() || b.name; b.short = String(fd.get("short" + b.id)).trim();
+    b.equipment = String(fd.get("eq" + b.id)).split(",").map(s => s.trim()).filter(Boolean);
+    S.config.categories.forEach(k => { // precio propio del box para cada categoría: vacío = el general de la categoría
+      const v = fd.get(`price_${b.id}_${k.id}`);
+      if (v == null) return;
+      if (!b.prices) b.prices = {};
+      if (String(v).trim() === "") delete b.prices[k.id]; else b.prices[k.id] = Math.max(0, +v || 0);
+    });
+  });
+}
+
+/* ---------- Factura del mes (de muestra) ---------- */
+function openInvoice(inv) {
+  const u = userById(inv.userId), bl = S.config.billing;
+  openSheet(`${sheetHead(`Factura ${inv.letter} ${inv.number}`, `${cap(ymLabel(inv.period))} · emitida el ${fmtWhen(inv.at)}`)}
+  <div class="sheet-b">
+    <div class="summary"><b>${esc(bl.name)}</b><span class="r muted">CUIT ${esc(bl.cuit)}</span><span class="muted">${esc(bl.cond)}</span><span class="r muted">Punto de venta ${pad4(bl.pos)}</span></div>
+    <dl class="kv" style="grid-template-columns:auto 1fr"><dt>Para</dt><dd>${esc(u.name)}</dd><dt>CUIT</dt><dd>${esc(u.cuit || "sin cargar")}</dd><dt>Período</dt><dd>${cap(ymLabel(inv.period))}</dd></dl>
+    <div class="group-l" style="margin-top:16px">Detalle</div>
+    <ul class="list">${inv.lines.map(l => `<li class="li"><div class="main"><div class="s" style="color:var(--text);font-size:14.5px">${esc(l.text)}</div></div><span class="num">${money(l.amount)}</span></li>`).join("")}
+      <li class="li"><div class="main"><div class="t">Total</div></div><b class="num">${money(inv.total)}</b></li></ul>
+    <div class="note">Número de autorización de muestra: ${inv.cae}. En la versión real lo entrega ARCA al emitir.</div>
+  </div><div class="sheet-f"><button class="btn" data-action="close-sheet">Cerrar</button></div>`);
+}
+
+/* =========================================================
+   Eventos
+   ========================================================= */
+function go(view) { closeSheet(true); S.ui.view = view; render(); window.scrollTo(0, 0); }
+/* Al pasar de paso en la reserva, el contenido entra desde el lado hacia donde se avanza */
+function stepFx(dir) {
+  const el = overlayEl?.querySelector(".sheet-b");
+  if (!el || !el.animate) return;
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.animate([{ opacity: 0, transform: calm ? "none" : `translateX(${dir * 10}px)` }, { opacity: 1, transform: "none" }], { duration: 220, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
+}
+const findB = (id) => S.bookings.find(b => b.id === id);
+const findP = (b, id) => b.payments.find(p => p.id === id);
+
+document.addEventListener("click", (e) => {
+  const navEl = e.target.closest("[data-nav]");
+  if (navEl) {
+    e.preventDefault();
+    const v = navEl.dataset.nav;
+    if (v === "__more") {
+      openSheet(`${sheetHead("Más opciones")}<div class="sheet-b"><nav class="nav">${navFor(me()).slice(4).map(n => `<a href="#${n.id}" data-nav="${n.id}" style="height:48px">${ic(n.icon)}<span>${n.label}</span>${n.badge ? `<span class="badge num">${n.badge}</span>` : ""}</a>`).join("")}</nav></div>`);
+      return;
+    }
+    go(v); return;
+  }
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const a = el.dataset.action, ds = el.dataset;
+  switch (a) {
+    case "close-sheet": closeSheet(); break;
+    case "reset-demo":
+      try { localStorage.removeItem(KEY); } catch (err) { }
+      closeSheet(true); seed(); render(); toast("Demo reiniciada con los datos de ejemplo."); break;
+    case "open-mails": openMails(); break;
+    case "toggle-theme": toggleTheme(); break;
+    case "logout": S.session.userId = null; S.ui.view = null; closeSheet(true); render(); break;
+    case "auth-tab": S.ui.authTab = ds.tab; render(); break;
+    case "login-as": S.session.userId = ds.id; S.ui.view = null; S.ui.calPicked = false; render(); break;
+    case "tab": S.ui.tab[ds.k] = ds.v; render(); break;
+    case "cal-day": S.ui.calDate = ds.date; S.ui.calPicked = true; fx = "cal"; render(); break;
+    case "cal-today": S.ui.calDate = todayIso(); fx = "cal"; render(); break;
+    case "cal-week": S.ui.calDate = addDays(mondayOf(S.ui.calDate), 7 * Number(ds.dir)); fx = "cal"; render(); break;
+    case "go-agenda-today": S.ui.calDate = todayIso(); go("agenda"); break;
+    case "ag-view": S.ui.agView = ds.v; fx = "cal"; render(); break;
+    case "ag-day": S.ui.calDate = ds.date; S.ui.agView = "dia"; S.ui.calPicked = true; fx = "cal"; render(); window.scrollTo(0, 0); break;
+    case "ag-move": {
+      const v = agView(), dir = +ds.dir;
+      if (v === "mes") S.ui.calDate = ymAdd(ymOf(S.ui.calDate), dir) + "-01";
+      else S.ui.calDate = addDays(v === "semana" ? mondayOf(S.ui.calDate) : S.ui.calDate, dir * (v === "semana" ? 7 : agDays()));
+      fx = "cal"; render(); break;
+    }
+    case "go-mis": S.ui.tab.mis = "proximas"; go("mis"); break;
+    case "book": startBooking(+ds.box, ds.date, +ds.start, +ds.end); break;
+    case "draft-next":
+      if (draft.step === 1) draft.service = ($("#svc")?.value || "").trim();
+      draft.step++; renderBookingSheet(); stepFx(1); break;
+    case "draft-back": draft.step--; renderBookingSheet(); stepFx(-1); break;
+    case "draft-confirm": confirmDraft(); break;
+    case "my-booking": { const b = findB(ds.id); S.ui.tab.mis = ["cumplida", "cancelada"].includes(b.status) ? "historial" : "proximas"; go("mis"); break; }
+    case "pay-now": openMp(findB(ds.id), findB(ds.id).plan); break;
+    case "pay-balance": openMp(findB(ds.id), "saldo"); break;
+    case "mp-approve": mpApprove(findB(ds.id), ds.kind); break;
+    case "mp-reject": { const b = findB(ds.id); closeSheet(); toast(b.status === "pago" ? `El pago fue rechazado. Tu turno queda guardado hasta las ${fmtWhen(b.expiresAt).split("· ")[1]} para reintentar.` : "El pago fue rechazado. Probá de nuevo."); render(); break; }
+    case "cancel": openCancel(findB(ds.id), "pro"); break;
+    case "admin-cancel": openCancel(findB(ds.id), "admin"); break;
+    case "confirm-cancel": {
+      const b = findB(ds.id); const r = cancelBooking(b, ds.by);
+      closeSheet(); save(); render();
+      toast(r.amount ? `Reserva cancelada. Devolución: ${money(r.amount)}.` : "Reserva cancelada. El horario quedó libre.");
+      break;
+    }
+    // Administradora
+    case "adm-free": openBlockSheet(+ds.box, ds.date, +ds.start, +ds.end); break;
+    case "adm-new-block": openBlockSheet(null, S.ui.calDate < todayIso() ? todayIso() : S.ui.calDate); break;
+    case "adm-block": { const bl = S.blocks.find(x => x.id === ds.id); openBlockedSheet(bl, +ds.box, ds.date); break; }
+    case "adm-release": {
+      const rl = S.releases.find(x => x.id === ds.id);
+      openSheet(`${sheetHead("Rato libre publicado", `${esc(boxById(rl.boxId).name)} · ${cap(fmtDay(rl.date))} · ${fmtRange(rl.start, rl.end)}`)}
+        <div class="sheet-b"><p>Las profesionales aprobadas lo ven como “Rato libre” y lo pueden reservar, cada una al precio por hora que le corresponde.</p></div>
+        <div class="sheet-f"><button class="btn" data-action="close-sheet">Cerrar</button><button class="btn btn-dark" data-action="delete-release" data-id="${rl.id}">Volver a bloquearlo</button></div>`);
+      break;
+    }
+    case "delete-release": S.releases = S.releases.filter(r => r.id !== ds.id); closeSheet(); render(); toast("El horario volvió a quedar bloqueado."); break;
+    case "unblock-day": { const bl = S.blocks.find(x => x.id === ds.block); S.releases.push({ id: uid("rl"), boxId: +ds.box, date: ds.date, start: bl.start, end: bl.end }); closeSheet(); render(); toast("Liberaste ese día completo para alquilar."); break; }
+    case "delete-block": S.blocks = S.blocks.filter(b => b.id !== ds.block); closeSheet(); render(); toast("Bloqueo quitado."); break;
+    case "adm-booking": openAdminBooking(findB(ds.id)); break;
+    case "user-status": {
+      const u = userById(ds.id); u.status = ds.s;
+      if (ds.s === "aprobado") mail(u.id, "¡Ya podés reservar!", `Hola ${u.name.split(" ")[0]}:\n\nYani aprobó tu cuenta. Ya podés entrar, ver los horarios libres de los boxes y reservar.\n\nConsultorio Yani`);
+      if (ds.s === "rechazado") mail(u.id, "Sobre tu solicitud", `Hola ${u.name.split(" ")[0]}:\n\nGracias por tu interés. Por ahora no podemos habilitarte para alquilar boxes.\n\nConsultorio Yani`);
+      if (ds.s === "bloqueado") mail(u.id, "Tu acceso está pausado", `Hola ${u.name.split(" ")[0]}:\n\nTu acceso a las reservas quedó pausado. Tus reservas ya confirmadas se mantienen.\n\nConsultorio Yani`);
+      render(); toast({ aprobado: `${u.name} ya puede reservar.`, rechazado: "Solicitud rechazada.", bloqueado: `Pausaste el acceso de ${u.name}.` }[ds.s]);
+      break;
+    }
+    case "add-pro": openAddPro(); break;
+    // Ajustes: categorías, máquinas y fotos
+    case "cat-add": openCatSheet(null); break;
+    case "cat-edit": openCatSheet(S.config.categories.find(k => k.id === ds.id)); break;
+    case "cat-del": {
+      const c = S.config;
+      if (c.categories.length > 1 && !S.users.some(u => u.role === "pro" && catOf(u).id === ds.id)) c.categories = c.categories.filter(k => k.id !== ds.id);
+      closeSheet(); render(); toast("Categoría quitada."); break;
+    }
+    case "machine-add": openMachineSheet(null); break;
+    case "machine-edit": openMachineSheet(machineById(ds.id)); break;
+    case "machine-del": S.machines = S.machines.filter(m => m.id !== ds.id); closeSheet(); render(); toast("Máquina quitada. Las reservas que ya la tenían no cambian."); break;
+    case "machine-photo-del": { machinePhoto = null; const ph = $("#mPhoto"); if (ph) ph.innerHTML = machinePhotoHtml(); break; }
+    case "box-photo-del": { const f = el.closest("form"); if (f) applyBoxesForm(new FormData(f)); boxById(+ds.id).photo = null; render(); toast("Foto quitada."); break; }
+    // Facturación del mes
+    case "inv-month": {
+      const now = ymOf(todayIso()), cur = S.ui.invYm || now;
+      S.ui.invYm = ds.go === "now" ? now : ymAdd(cur, +ds.go);
+      if (S.ui.invYm > now) S.ui.invYm = now;
+      render(); break;
+    }
+    case "inv-one": {
+      const ym = S.ui.invYm || ymOf(todayIso()), r = billingRow(userById(ds.id), ym);
+      if (!r.total || r.invoice) break;
+      const inv = issueInvoice(r, ym);
+      render(); toast(`Factura ${inv.letter} ${inv.number} emitida por ${money(inv.total)}.`); break;
+    }
+    case "inv-all": {
+      const ym = S.ui.invYm || ymOf(todayIso()), rs = billingRows(ym).filter(r => !r.invoice && r.total > 0);
+      rs.forEach(r => issueInvoice(r, ym));
+      render(); toast(rs.length ? `Listo: ${rs.length} ${rs.length === 1 ? "factura emitida" : "facturas emitidas"} por ${money(rs.reduce((a, r) => a + r.total, 0))}.` : "No había nada para facturar."); break;
+    }
+    case "inv-open": openInvoice(S.invoices.find(i => i.id === ds.id)); break;
+  }
+});
+
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.id === "as") { S.session.userId = t.value || null; S.ui.view = null; S.ui.calPicked = false; closeSheet(true); render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.upload) { // fotos de boxes y de máquinas
+    const kind = t.dataset.upload, boxId = +t.dataset.id, form = t.closest("form");
+    readImage(t.files && t.files[0]).then((data) => {
+      if (kind === "box") { if (form) applyBoxesForm(new FormData(form)); boxById(boxId).photo = data; render(); toast(save() ? "Foto guardada." : FULL); }
+      else { machinePhoto = data; const ph = $("#mPhoto"); if (ph) ph.innerHTML = machinePhotoHtml(); }
+    }).catch(() => toast("No pudimos leer esa imagen. Probá con una foto JPG o PNG."));
+    return;
+  }
+  if (t.dataset.input === "agDays") { S.ui.agDays = Math.min(31, Math.max(1, Math.round(+t.value) || 1)); fx = "cal"; render(); return; }
+  if (t.dataset.input === "userCat") {
+    const u = userById(t.dataset.id); u.category = t.value; render();
+    toast(`${u.name} pasó a ${catOf(u).name}: ${money(rateOf(u))} la hora en sus reservas nuevas.`); return;
+  }
+  if (t.dataset.draftMachine && draft) {
+    const id = t.dataset.draftMachine;
+    draft.machines = t.checked ? [...draft.machines.filter(x => x !== id), id] : draft.machines.filter(x => x !== id);
+    const sh = overlayEl?.querySelector(".sheet"), st = sh ? sh.scrollTop : 0;
+    renderBookingSheet(); if (overlayEl) overlayEl.querySelector(".sheet").scrollTop = st;
+    return;
+  }
+  if (t.dataset.draft && draft) {
+    const k = t.dataset.draft;
+    if (k === "accepted") { draft.accepted = t.checked; const btn = $("#confirmBtn"); if (btn) btn.disabled = !t.checked; return; }
+    draft[k] = t.value;
+    if (k === "plan") { const sh = overlayEl?.querySelector(".sheet"); const st = sh ? sh.scrollTop : 0; renderBookingSheet(); if (overlayEl) overlayEl.querySelector(".sheet").scrollTop = st; }
+    return;
+  }
+  if (t.dataset.input === "resBox") { S.ui.resBox = t.value; render(); }
+});
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.input === "resQ") { S.ui.resQ = t.value; const pos = t.selectionStart; render(); const n = $('[data-input="resQ"]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }
+  if (t.dataset.draft === "service" && draft) draft.service = t.value;
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && overlayEl) closeSheet();
+  if (e.key === "Enter" && e.target.matches("tr.click, .slot.click")) e.target.click();
+});
+
+document.addEventListener("submit", (e) => {
+  const f = e.target, kind = f.dataset.form;
+  if (!kind) return;
+  e.preventDefault();
+  const fd = new FormData(f);
+  const c = S.config;
+  switch (kind) {
+    case "login": {
+      const email = String(fd.get("email")).trim().toLowerCase();
+      const u = S.users.find(x => x.email.toLowerCase() === email);
+      if (!u) { toast("No encontramos ese mail. Probá con una cuenta de ejemplo."); return; }
+      S.session.userId = u.id; S.ui.view = null; render(); break;
+    }
+    case "register": {
+      const email = String(fd.get("email")).trim();
+      if (S.users.some(x => x.email.toLowerCase() === email.toLowerCase())) { toast("Ya hay una cuenta con ese mail."); return; }
+      const u = { id: uid("u"), role: "pro", name: String(fd.get("name")).trim(), profession: String(fd.get("profession")).trim(), category: String(fd.get("category") || S.config.categories[0].id), cuit: String(fd.get("cuit") || "").trim(), email, phone: String(fd.get("phone") || "").trim() || "—", status: "pendiente", since: Date.now() };
+      S.users.push(u);
+      mail(u.id, "Recibimos tu solicitud", `Hola ${u.name.split(" ")[0]}:\n\nRecibimos tu solicitud para alquilar boxes. Yani te va a contactar para coordinar una entrevista.\n\nConsultorio Yani`);
+      mail("u0", `Nueva solicitud de acceso: ${u.name}`, `${u.name} (${u.profession}, categoría ${catOf(u).name}) pidió acceso para alquilar boxes.\nTeléfono: ${u.phone}\nMail: ${u.email}\n\nCoordiná la entrevista y después aprobala desde el panel.`);
+      S.session.userId = u.id; S.ui.view = null; S.ui.authTab = "login"; render(); toast("Solicitud enviada."); break;
+    }
+    case "add-pro": {
+      const u = { id: uid("u"), role: "pro", name: String(fd.get("name")).trim(), profession: String(fd.get("profession")).trim(), category: String(fd.get("category") || S.config.categories[0].id), cuit: String(fd.get("cuit") || "").trim(), email: String(fd.get("email")).trim(), phone: String(fd.get("phone") || "").trim() || "—", status: "aprobado", since: Date.now() };
+      S.users.push(u);
+      mail(u.id, "Tu cuenta para reservar boxes", `Hola ${u.name.split(" ")[0]}:\n\nYani te creó una cuenta para alquilar boxes.\nUsuario: ${u.email}\nContraseña temporal: (se genera en la app real)\n\nConsultorio Yani`);
+      closeSheet(); S.ui.tab.prof = "aprobadas"; render(); toast(`Cuenta creada para ${u.name}.`); break;
+    }
+    case "new-block": {
+      const boxes = fd.getAll("boxes").map(Number);
+      const date = String(fd.get("date")), start = +fd.get("start"), end = +fd.get("end");
+      if (!boxes.length) { toast("Elegí al menos un box."); return; }
+      if (end <= start) { toast("La hora de fin tiene que ser posterior al inicio."); return; }
+      const weekly = fd.get("rep") === "weekly";
+      const clash = S.bookings.filter(b => active(b) && boxes.includes(b.boxId) && b.start < end && b.end > start && (weekly ? weekday(b.date) === weekday(date) && b.date >= todayIso() : b.date === date));
+      const bl = { id: uid("bl"), boxIds: boxes, recurring: weekly, start, end, note: String(fd.get("note") || "").trim() || "Lo uso yo" };
+      if (weekly) bl.weekday = weekday(date); else bl.date = date;
+      S.blocks.push(bl);
+      closeSheet(); S.ui.calDate = date; render();
+      toast(clash.length ? `Bloqueado. Ojo: ${clash.length} ${clash.length === 1 ? "reserva ya tomada sigue" : "reservas ya tomadas siguen"} en pie en ese horario.` : weekly ? `Bloqueado todos los ${DIAS[weekday(date)]}.` : "Horario bloqueado.");
+      break;
+    }
+    case "release": {
+      const start = +fd.get("start"), end = +fd.get("end");
+      if (end <= start) { toast("La hora de fin tiene que ser posterior al inicio."); return; }
+      S.releases.push({ id: uid("rl"), boxId: +f.dataset.box, date: f.dataset.date, start, end });
+      closeSheet(); render(); toast(`Publicaste un rato libre de ${end - start} h.`); break;
+    }
+    case "cfg-turnos": {
+      const open = +fd.get("open"), close = +fd.get("close"), th = +fd.get("turnHours");
+      if (close <= open) { toast("El cierre tiene que ser después de la apertura."); return; }
+      if ((close - open) % th !== 0) { toast(`Con turnos de ${th} h, el horario de ${open} a ${close} no cierra justo. Probá otro.`); return; }
+      c.turnHours = th; c.open = open; c.close = close; c.days = fd.getAll("days").map(Number);
+      render(); toast("Guardado. La agenda ya usa los nuevos turnos."); break;
+    }
+    case "cfg-precio": c.depositPct = +fd.get("depositPct"); c.mpMinutes = +fd.get("mpMinutes"); render(); toast("Seña y plazo guardados."); break;
+    case "cfg-politica": ["days", "senaBefore", "senaAfter", "totalBefore", "totalAfter"].forEach(k => c.policy[k] = +fd.get(k)); render(); toast("Política de cancelación guardada."); break;
+    case "cfg-terms": { const txt = String(fd.get("text")).trim(); if (txt !== c.terms.text) { c.terms.text = txt; c.terms.version++; } render(); toast(`Reglamento guardado (versión ${c.terms.version}).`); break; }
+    case "cfg-boxes": applyBoxesForm(fd); render(); toast("Boxes guardados."); break;
+    case "cat-save": {
+      const name = String(fd.get("name")).trim(), price = Math.max(0, +fd.get("pricePerHour") || 0);
+      if (!name) { toast("Poné un nombre para la categoría."); return; }
+      let k = c.categories.find(x => x.id === f.dataset.id);
+      if (!k) { k = { id: uid("c") }; c.categories.push(k); }
+      k.name = name; k.note = String(fd.get("note") || "").trim(); k.pricePerHour = price;
+      closeSheet(); render(); toast(`Guardado: ${name}, ${money(price)} la hora.`); break;
+    }
+    case "machine-save": {
+      const name = String(fd.get("name")).trim();
+      if (!name) { toast("Poné el nombre de la máquina."); return; }
+      let m = machineById(f.dataset.id);
+      if (!m) { m = { id: uid("m") }; S.machines.push(m); }
+      m.name = name; m.short = String(fd.get("short") || "").trim(); m.pricePerHour = Math.max(0, +fd.get("pricePerHour") || 0);
+      m.active = fd.get("active") === "on"; m.photo = machinePhoto;
+      closeSheet(); render(); toast(save() ? `Guardado: ${name}, ${money(m.pricePerHour)} la hora.` : FULL); break;
+    }
+    case "cfg-billing": {
+      const b = c.billing;
+      b.name = String(fd.get("name")).trim() || b.name; b.cuit = String(fd.get("cuit")).trim(); b.cond = String(fd.get("cond")); b.pos = Math.min(9998, Math.max(1, +fd.get("pos") || 1));
+      render(); toast("Datos de facturación guardados."); break;
+    }
+  }
+});
+
+/* Contadores de pago (RN10) */
+function tick() {
+  const now = Date.now();
+  const nl = $(".nowline"); // la línea de la hora actual acompaña al reloj
+  if (nl) { const d = new Date(now), h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; nl.style.top = `calc(var(--ph) * ${(h - +nl.dataset.open).toFixed(3)})`; nl.hidden = h >= +nl.dataset.close; }
+  $$("[data-countdown]").forEach(el => {
+    const left = Math.max(0, +el.dataset.countdown - now);
+    const m = Math.floor(left / 6e4), s = Math.floor(left % 6e4 / 1e3);
+    el.textContent = left > 36e5 ? `Quedan ${Math.floor(left / 36e5)} h ${pad(m % 60)} min` : `Quedan ${m}:${pad(s)}`;
+  });
+}
+setInterval(() => {
+  tick();
+  if (autoUpdate()) { save(); if (!overlayEl) render(); else renderDemoBar(); }
+}, 1000);
+
+load();
+paintTheme();
+render();
+tick();
+</script>
+</body>
+</html>

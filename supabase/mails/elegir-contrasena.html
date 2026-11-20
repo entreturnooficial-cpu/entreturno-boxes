@@ -1,0 +1,9 @@
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#1C1917;max-width:520px">
+  <h2 style="font-size:22px;margin:0 0 12px">Elegí una contraseña nueva</h2>
+  <p style="margin:0 0 18px">Recibimos un pedido para cambiar la contraseña de la cuenta de {{ .Email }}. Tocá este botón para elegir una nueva:</p>
+  <p style="margin:0 0 22px"><a href="{{ .RedirectTo }}#token_hash={{ .TokenHash }}&amp;type=recovery" style="display:inline-block;padding:12px 22px;background:#1C1917;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">Elegir contraseña nueva</a></p>
+  <p style="margin:0 0 14px;font-size:14px;color:#57534E">El enlace sirve una sola vez y vence en 1 hora.</p>
+  <p style="margin:0 0 14px;font-size:14px;color:#57534E">Si no pediste el cambio, no hagas nada: tu contraseña sigue siendo la misma.</p>
+  <p style="margin:0 0 14px;font-size:14px;color:#57534E">Si el botón no anda, copiá esta dirección y pegala en el navegador:<br>{{ .RedirectTo }}#token_hash={{ .TokenHash }}&amp;type=recovery</p>
+  <p style="margin:18px 0 0;font-size:13px;color:#78716C">Mail automático de Entreturno, el sistema de reservas de {{ .RedirectTo }}</p>
+</div>

@@ -1,0 +1,9 @@
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#1C1917;max-width:520px">
+  <h2 style="font-size:22px;margin:0 0 12px">Confirmá tu mail</h2>
+  <p style="margin:0 0 18px">Hola. Para terminar de pedir acceso al alquiler de boxes, tocá este botón:</p>
+  <p style="margin:0 0 22px"><a href="{{ .RedirectTo }}#token_hash={{ .TokenHash }}&amp;type=email" style="display:inline-block;padding:12px 22px;background:#1C1917;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">Confirmar mi mail</a></p>
+  <p style="margin:0 0 14px;font-size:14px;color:#57534E">El enlace sirve una sola vez y vence en 1 hora. Si se venció, entrá a la página con tu mail y tu contraseña y pedí que te lo mandemos de nuevo.</p>
+  <p style="margin:0 0 14px;font-size:14px;color:#57534E">Si no fuiste vos quien pidió la cuenta, no hagas nada: sin confirmar, la cuenta no se activa.</p>
+  <p style="margin:0 0 14px;font-size:14px;color:#57534E">Si el botón no anda, copiá esta dirección y pegala en el navegador:<br>{{ .RedirectTo }}#token_hash={{ .TokenHash }}&amp;type=email</p>
+  <p style="margin:18px 0 0;font-size:13px;color:#78716C">Mail automático de Entreturno, el sistema de reservas de {{ .RedirectTo }}</p>
+</div>

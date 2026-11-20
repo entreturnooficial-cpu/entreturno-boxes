@@ -1,0 +1,7 @@
+# Lo que no va a GitHub: lo que se baja solo con npm install y cualquier archivo de claves
+node_modules/
+__pycache__/
+*.pyc
+.env*
+# Los zip son paquetes ya armados para subir a Cloudflare: se rearman con los programas
+*.zip
