@@ -20,7 +20,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('yanina', '<su mail>', 'Yani')` |
 | Cobro real con Mercado Pago | Falta (etapa 2). Hoy el pago es «de prueba»: no mueve plata |
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
-| Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **Falta la prueba real** con una cuenta nueva y con «Olvidé mi contraseña» (la hace una persona: hay que poner una contraseña) |
+| Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
 | Facturas con ARCA | Falta (etapa 3). La pantalla muestra cuánto hay que facturar; los botones están apagados |
 | Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
@@ -201,7 +201,8 @@ Cómo trabaja la página:
 1. Hecho el 20/11: proyecto en Supabase, migraciones cargadas, `web\config.js` armado, consultorio de Yani cargado
    ($ 25.000 médicos y $ 20.000 esteticistas) y página real publicada en `yanina.entreturno.com.ar`.
 2. Hecho el 20/11: avisos por mail andando y mails de registro (confirmar cuenta, olvidé mi contraseña) publicados,
-   con «Confirm email» prendido. **Falta la prueba real** de esos dos caminos.
+   con «Confirm email» prendido. «Olvidé mi contraseña» ya se probó de verdad. **Falta la prueba real de «Pedir acceso»**
+   con una cuenta nueva (lo ideal: que la haga Santiago con otro mail antes de que se anote Yani).
 3. Yani: que cree su cuenta desde la página y dejarla como dueña (`interno.alta_admin`).
 4. Datos reales de Yani: horarios, reglamento, descripción de los boxes, máquinas y fotos (depósito de archivos + subir
    desde Configuración).
@@ -227,6 +228,8 @@ Cómo trabaja la página:
 - Dos personas reservando el mismo turno en el mismo instante, y reservar mientras la dueña bloquea (dos conexiones a la vez).
 - Que el reloj (`pg_cron`) corra cada 5 minutos.
 - Mails de registro: crear una cuenta nueva desde «Pedir acceso» (que llegue el mail, que el botón deje adentro y que el pedido
-  aparezca solo), y «Olvidé mi contraseña» (que llegue, que deje elegir la nueva y que la vieja deje de servir). Mirar también
-  cómo se ve el mail en el celular y si cae en Recibidos.
+  aparezca solo). «Olvidé mi contraseña» ya se probó el 20/11 hasta la pantalla de contraseña nueva; falta guardar una distinta
+  y ver que la vieja deja de servir. Mirar también cómo se ve el mail en el celular.
+- Para ver qué pasó con un intento: panel de Supabase → Logs → «API Gateway» (cada pedido con su resultado) y «Auth» (el motivo).
+  Si un pedido no aparece ahí, no salió del navegador (ver «Publicar»).
 - Que la página, servida desde otro dominio que el de Supabase, pueda llamar a la API (permisos entre dominios).
