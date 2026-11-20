@@ -12,6 +12,7 @@
 //   POST /auth/v1/recover                        «olvidé mi contraseña»: manda el enlace para elegir otra
 //   POST /auth/v1/resend                         volver a mandar el mail de confirmación
 //   PUT  /auth/v1/user                           cambiar la contraseña o los datos anotados en la cuenta
+//   GET  /auth/v1/user                           quién es el dueño de un pase
 //   POST /auth/v1/verify                         canjear el código del enlace de un mail por la sesión (nuestras plantillas)
 //   GET  /auth/v1/verify                         el enlace de los mails de fábrica: vuelve a la página con la sesión después del #
 //   GET  /__prueba/mails                         (solo acá) los mails que se «mandaron», para poder abrir sus enlaces
@@ -172,6 +173,12 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
       }
       if (req.method === 'GET') {
         if (url.pathname === '/__prueba/mails') return responder(res, 200, mails);
+        if (url.pathname === '/auth/v1/user') {          // quién es el dueño de un pase
+          const datos = leerPase(String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''));
+          const cuenta = datos && datos.exp > Date.now() / 1000 && [...cuentas.values()].find((x) => x.id === datos.sub);
+          if (req.headers.apikey !== CLAVE_PUBLICA || !cuenta) return responder(res, 403, { code: 403, error_code: 'bad_jwt', msg: 'invalid JWT: unable to parse or verify signature' });
+          return responder(res, 200, { id: cuenta.id, email: cuenta.email, user_metadata: cuenta.datos ?? {} });
+        }
         if (url.pathname === '/auth/v1/verify') {        // el enlace que llega por mail: confirma la cuenta (o deja elegir otra clave) y vuelve a la página
           const codigo = url.searchParams.get('token'), dato = enlaces.get(codigo);
           const volver = url.searchParams.get('redirect_to') || `http://${req.headers.host}/`;

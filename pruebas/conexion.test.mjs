@@ -257,8 +257,8 @@ test('con confirmación de mail: la cuenta se crea, pero no entra hasta abrir el
     await c.reenviar('eva@lavanda.prueba', 'http://pagina.prueba/boxes/');
     await c.reenviar('nadie@lavanda.prueba', 'http://pagina.prueba/boxes/');             // sin cuenta: contesta igual y no manda nada
     assert.equal(s.mails.length, antes + 3);
-    // Un mail que ya tiene cuenta confirmada: se avisa que ya existe y no sale ningún mail
-    await falla(c.crearCuenta(LUCIA.email, 'clave-larga-1', 'http://pagina.prueba/boxes/'), 'user_already_exists');
+    // Un mail que ya tiene cuenta confirmada: contesta lo mismo (no cuenta quién tiene cuenta) y no sale ningún mail
+    await falla(c.crearCuenta(LUCIA.email, 'clave-larga-1', 'http://pagina.prueba/boxes/'), 'confirmar_mail');
     assert.equal(s.mails.length, antes + 3);
 
     // La página canjea el código del enlace por la sesión
@@ -286,6 +286,12 @@ test('con confirmación de mail: la cuenta se crea, pero no entra hasta abrir el
     assert.equal(await c.entrarPorEnlace(vuelta.hash), 'signup');
     assert.equal(c.sesion.user.email, 'ines@lavanda.prueba');
     assert.equal((await c.rpc('foto')).me, null);
+    // Un pase armado a mano con el mail de otra persona, junto con un código de renovación propio: no entra y no queda nada guardado
+    const armado = `x.${Buffer.from(JSON.stringify({ sub: 'otra-persona', email: LUCIA.email, exp: 4102444800 })).toString('base64url')}.y`;
+    const almTrampa = almacen();
+    const trampa = conexion(almTrampa);
+    assert.equal(await trampa.entrarPorEnlace(`#access_token=${armado}&refresh_token=${c.sesion.refresh_token}&expires_in=3600&type=signup`), 'error');
+    assert.deepEqual([trampa.sesion, almTrampa.getItem('et-sesion')], [null, null]);
     await c.salir();
     await c.entrar('eva@lavanda.prueba', 'clave-larga-1');
     // Lo anotado en la cuenta se puede borrar; el pase que ya estaba emitido lo sigue trayendo hasta renovarse
@@ -310,7 +316,7 @@ test('olvidé mi contraseña: el enlace del mail deja elegir una nueva', async (
   assert.deepEqual([s.mails.length, mail.para, mail.asunto], [antes + 1, 'olga@lavanda.prueba', 'Elegí una contraseña nueva']);
   await falla(c.cambiarClave('clave-nueva-2'), 'bad_jwt');                                // sin haber vuelto del mail no se puede
   assert.match(mail.enlace, /^http:\/\/pagina\.prueba\/#token_hash=[0-9a-f]{56}&type=recovery$/);
-  assert.equal(await c.entrarPorEnlace(new URL(mail.enlace).hash), 'recovery');
+  assert.equal(await c.entrarPorEnlace('#otra-cosa' + new URL(mail.enlace).hash), 'recovery');      // vale lo que viene después del último #
   assert.equal(c.sesion.user.email, 'olga@lavanda.prueba');
   await falla(c.cambiarClave('123'), 'weak_password');
   await falla(c.cambiarClave('clave-vieja-1'), 'same_password');

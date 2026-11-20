@@ -46,6 +46,8 @@
     }
   }
   const conVuelta = (ruta, volverA) => ruta + (volverA ? "?redirect_to=" + encodeURIComponent(volverA) : "");
+  // Lo que trae la dirección después del (último) #, como pares nombre=valor
+  const despuesDelNumeral = (fragmento) => { const t = String(fragmento || ""); return new URLSearchParams(t.slice(t.lastIndexOf("#") + 1)); };
 
   g.crearConexion = function ({ url, key, slug, almacen, fetch: pedirWeb, ahora }) {
     const pedirHttp = pedirWeb || g.fetch.bind(g);
@@ -81,11 +83,9 @@
     async function pedir(ruta, cuerpo, pase, metodo) {
       let r;
       try {
-        r = await pedirHttp(url + ruta, {
-          method: metodo || "POST",
-          headers: { apikey: key, Authorization: "Bearer " + (pase || key), "Content-Type": "application/json" },
-          body: JSON.stringify(cuerpo === undefined ? {} : cuerpo),
-        });
+        const opciones = { method: metodo || "POST", headers: { apikey: key, Authorization: "Bearer " + (pase || key), "Content-Type": "application/json" } };
+        if (opciones.method !== "GET") opciones.body = JSON.stringify(cuerpo === undefined ? {} : cuerpo);
+        r = await pedirHttp(url + ruta, opciones);
       } catch (e) {
         throw new ErrorDeServidor("sin_conexion", 0);
       }
@@ -169,9 +169,8 @@
           guardar(deRespuesta(j));
           return sesion;
         }
-        // El proyecto pide confirmar el mail antes de entrar. Si ese mail ya tenía una cuenta confirmada, el servidor
-        // contesta con una cuenta de mentira, sin identidades, y no manda nada: se avisa como «ya existe».
-        if (j && Array.isArray(j.identities) && !j.identities.length) throw new ErrorDeServidor("user_already_exists", 200);
+        // El proyecto pide confirmar el mail antes de entrar. Si ese mail ya tenía una cuenta confirmada, el servidor contesta
+        // igual y no manda nada, para no contarle a cualquiera quién tiene cuenta: acá tampoco se distingue.
         throw new ErrorDeServidor("confirmar_mail", 200);
       },
       /** Vuelve a mandar el mail para confirmar la cuenta. */
@@ -196,7 +195,7 @@
       },
       /** ¿La dirección trae, después del #, algo del enlace de un mail? (un código para canjear, la sesión ya armada o un aviso de error) */
       hayEnlace(fragmento) {
-        const d = new URLSearchParams(String(fragmento || "").replace(/^#/, ""));
+        const d = despuesDelNumeral(fragmento);
         return !!(d.get("token_hash") || (d.get("access_token") && d.get("refresh_token")) || d.get("error") || d.get("error_code"));
       },
       /** Entra con lo que trae el enlace de un mail después del #: un código de un solo uso, que se canjea acá por la sesión
@@ -204,7 +203,7 @@
           confirmar la cuenta; «recovery»: elegir otra contraseña; «invite»…), «error» si el enlace ya no sirve, o null si no
           traía nada. Sin conexión corta con «sin_conexion», y se puede volver a probar con el mismo enlace. */
       async entrarPorEnlace(fragmento) {
-        const d = new URLSearchParams(String(fragmento || "").replace(/^#/, ""));
+        const d = despuesDelNumeral(fragmento);
         if (d.get("error") || d.get("error_code")) return "error";
         const tipo = d.get("type") || "email", codigo = d.get("token_hash");
         if (codigo) {
@@ -218,8 +217,13 @@
         }
         const a = d.get("access_token"), r = d.get("refresh_token");
         if (!a || !r) return null;
+        // Quién es no se saca del pase que vino en la dirección (cualquiera puede armar uno): se le pregunta al servidor.
+        let quien;
+        try { quien = await pedir("/auth/v1/user", undefined, a, "GET"); }
+        catch (e) { if (e.code === "sin_conexion") throw e; return "error"; }
+        if (!quien || !quien.id) return "error";
         generacion++;
-        guardar(deRespuesta({ access_token: a, refresh_token: r, expires_at: d.get("expires_at"), expires_in: d.get("expires_in") }));
+        guardar(deRespuesta({ access_token: a, refresh_token: r, expires_at: d.get("expires_at"), expires_in: d.get("expires_in"), user: quien }));
         return tipo;
       },
       async salir() {

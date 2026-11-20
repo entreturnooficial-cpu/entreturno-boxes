@@ -821,6 +821,8 @@ const FOTOS = !!CFG.fotos; // subir fotos necesita el depósito de archivos del 
    ni en el historial; el código se canjea por la sesión al iniciar. */
 const VOLVER = location.origin + location.pathname;
 let enlaceDeLlegada = null; // lo que trajo la dirección al llegar desde un mail, hasta que se canjea
+let enlaceEnEspera = null;  // ídem, cuando ya había una cuenta adentro: no se usa hasta que la persona lo confirme
+let usarEnlaceIgual = false;
 let llegoPor = null;        // qué enlace era, ya canjeado: email o signup (confirmar la cuenta) · recovery · invite · error
 function mirarDireccion() {
   try {
@@ -982,21 +984,27 @@ async function intentar(hacer) {
 /* Si esta persona ya había completado el pedido de acceso antes de confirmar su mail, se manda solo.
    Devuelve "enviado", "fallo" (va a tener que completarlo de nuevo) o null (no había nada para mandar). */
 async function mandarPedidoGuardado() {
-  if (ocupada || fase !== "lista" || !servidor.sesion || me()) return null;
-  const yo = servidor.sesion.user || {}, local = pedidoGuardado(), anotado = servidor.datosDeLaCuenta().pedido;
-  let d = null;
-  if (local && local.mail === String(yo.email || "").toLowerCase()) d = local.datos;
-  else if (anotado && anotado.slug === SLUG && yo.id && almacen.getItem(VISTO_KEY) !== yo.id) d = anotado;
+  if (ocupada || fase !== "lista" || !servidor.sesion) return null;
+  // Acá ya se trajeron los datos con esta sesión, así que quién es lo confirmó el servidor (no sale de un pase sin revisar)
+  const yo = servidor.sesion.user || {}, miMail = String(yo.email || "").toLowerCase();
+  const local = pedidoGuardado(), anotado = servidor.datosDeLaCuenta().pedido;
+  const elLocalEsMio = !!(local && miMail && local.mail === miMail);
+  const elAnotadoSirve = !!(anotado && anotado.slug === SLUG && yo.id && almacen.getItem(VISTO_KEY) !== yo.id);
+  const limpiar = () => {
+    try { if (elLocalEsMio) almacen.removeItem(PEDIDO_KEY); if (yo.id) almacen.setItem(VISTO_KEY, yo.id); } catch (e) { /* sin almacén: nada que anotar */ }
+    if (anotado) servidor.guardarDatos({ pedido: null }).catch(() => {});   // ya no hace falta que siga anotado en la cuenta
+  };
+  if (me()) { if (elLocalEsMio || elAnotadoSirve) limpiar(); return null; }   // ya es parte del consultorio: lo guardado sobra
+  const d = elLocalEsMio ? local.datos : elAnotadoSirve ? anotado : null;
   if (!d) return null;
   ocupada = true;
   document.body.classList.add("is-busy");
-  let motivo = "";
+  let motivo = "", estado = 0;
   try { await servidor.rpc("pedir_acceso", { p_nombre: d.p_nombre, p_profesion: d.p_profesion, p_categoria: d.p_categoria, p_telefono: d.p_telefono, p_cuit: d.p_cuit }); }
-  catch (e) { motivo = (e && e.code) || "error"; }
+  catch (e) { motivo = (e && e.code) || "error"; estado = (e && e.status) || 0; }
   finally { ocupada = false; document.body.classList.remove("is-busy"); }
-  if (motivo === "sin_conexion") return null;                // se prueba de nuevo la próxima vez que entre
-  try { almacen.removeItem(PEDIDO_KEY); if (yo.id) almacen.setItem(VISTO_KEY, yo.id); } catch (e) { /* sin almacén: nada que anotar */ }
-  servidor.guardarDatos({ pedido: null }).catch(() => {});   // ya no hace falta que siga anotado en la cuenta
+  if (motivo === "sin_conexion" || estado >= 500 || estado === 429) return null;   // falla pasajera: se prueba de nuevo la próxima vez que entre
+  limpiar();
   try { await cargar(); } catch (e) { ultimaCarga = 0; }
   return me() ? "enviado" : "fallo";                         // si lo mandó otra pestaña un instante antes, también vale
 }
@@ -1243,7 +1251,8 @@ function render() {
   guardarUi();
   pendienteDeDibujar = false;
   const u = me();
-  if (servidor.sesion) pasoDeIngreso = null; else eligiendoClave = false;
+  if (servidor.sesion) pasoDeIngreso = null; else { eligiendoClave = false; enlaceEnEspera = null; }
+  if (enlaceEnEspera) { app.innerHTML = renderCambioDeCuenta(); fx = ""; paintTheme(); return; }
   if (eligiendoClave) { app.innerHTML = renderClaveNueva(); fx = ""; paintTheme(); return; }
   if (!servidor.sesion || !u) { app.innerHTML = servidor.sesion ? renderPedido() : renderAuth(); fx = ""; paintTheme(); return; }
   const nav = navFor(u);
@@ -1348,7 +1357,8 @@ function pasoDelIngreso() {
           <button class="btn btn-text btn-block" style="margin-top:10px" data-action="auth-paso" data-tipo="olvide">Pedir un enlace nuevo</button>`;
   return `
           <h2>Confirmá tu mail</h2>
-          <p class="muted" style="margin-bottom:18px">Te mandamos un mail a <b>${mail}</b>. Abrilo y tocá el enlace para terminar de pedir acceso. ${demora}</p>
+          <p class="muted" style="margin-bottom:12px">Te mandamos un mail a <b>${mail}</b>. Abrilo y tocá el enlace para terminar de pedir acceso. ${demora}</p>
+          <p class="muted small" style="margin-bottom:18px">Si ya tenías una cuenta con ese mail, no te va a llegar nada: volvé a ingresar con tu contraseña, o tocá «Olvidé mi contraseña».</p>
           <button class="btn btn-block" data-action="reenviar-mail">Mandarlo de nuevo</button>
           ${volver}`;
 }
@@ -1391,6 +1401,23 @@ function renderAuth() {
             <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
           </form>
         `}`}
+      </div>
+    </section>
+  </div>`;
+}
+
+/* Se abrió el enlace de un mail en un navegador donde ya hay una cuenta adentro: antes de cambiar de cuenta, se pregunta */
+function renderCambioDeCuenta() {
+  const mail = esc((servidor.sesion.user || {}).email || "");
+  return `<div class="auth">
+    <button class="iconbtn auth-theme" data-action="toggle-theme"></button>
+    ${lateralDeIngreso()}
+    <section class="auth-main">
+      <div class="auth-card">
+        <h2>Abriste un enlace de mail</h2>
+        <p class="muted" style="margin-bottom:18px">En este navegador ya hay una cuenta abierta${mail ? `: <b>${mail}</b>` : ""}. Si el enlace es de otra cuenta, al usarlo vas a pasar a esa. Si no esperabas ningún mail, no lo uses.</p>
+        <button class="btn btn-primary btn-block" data-action="enlace-descartar">Seguir con esta cuenta</button>
+        <button class="btn btn-text btn-block" style="margin-top:10px" data-action="enlace-usar">Usar el enlace</button>
       </div>
     </section>
   </div>`;
@@ -2413,6 +2440,8 @@ document.addEventListener("click", async (e) => {
       if (pasoDeIngreso && pasoDeIngreso.mail && await intentar(() => servidor.reenviar(pasoDeIngreso.mail, VOLVER))) toast("Listo, te lo mandamos de nuevo.");
       break;
     case "clave-despues": eligiendoClave = false; render(); window.scrollTo(0, 0); await despuesDeEntrar(false); break;
+    case "enlace-usar": enlaceDeLlegada = enlaceEnEspera; enlaceEnEspera = null; usarEnlaceIgual = true; await iniciar(); break;
+    case "enlace-descartar": enlaceEnEspera = null; render(); window.scrollTo(0, 0); break;
     case "tab": S.ui.tab[ds.k] = ds.v; render(); break;
     case "cal-day": S.ui.calDate = ds.date; S.ui.calPicked = true; fx = "cal"; render(); break;
     case "cal-today": S.ui.calDate = todayIso(); fx = "cal"; render(); break;
@@ -2546,14 +2575,13 @@ document.addEventListener("submit", async (e) => {
       let faltaConfirmar = false;
       const hecho = await entrarCon(async () => {
         try { await servidor.crearCuenta(mail, String(fd.get("password") ?? ""), VOLVER, { pedido: Object.assign({ slug: SLUG }, datos) }); }
-        catch (err) { if (err.code !== "confirmar_mail") throw err; faltaConfirmar = true; }
+        catch (err) { if (err.code !== "confirmar_mail") throw err; faltaConfirmar = true; guardarPedido(mail, datos); }
       });
-      if (!hecho) break;
       if (faltaConfirmar) {                                // la cuenta quedó creada, pero no entra hasta abrir el enlace del mail
-        guardarPedido(mail, datos);
         S.ui.authTab = "login"; pasoDeIngreso = { tipo: "confirmar", mail }; render(); window.scrollTo(0, 0);
-        break;
+        break;                                             // (vale aunque después no se hayan podido traer los datos de nuevo)
       }
+      if (!hecho) break;
       const r = await accion("pedir_acceso", datos);       // si esto falla, queda adentro y puede completar el pedido desde ahí
       S.ui.view = null; S.ui.authTab = "login"; render(); window.scrollTo(0, 0);
       if (r) { toast("Solicitud enviada."); servidor.guardarDatos({ pedido: null }).catch(() => {}); }   // ya llegó: no hace falta que siga anotado en la cuenta
@@ -2682,18 +2710,38 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && fa
 /* Si en otra pestaña se entra o se sale, esta se pone al día */
 window.addEventListener("storage", (e) => { if (e.key === "et-sesion") { servidor.releer(); iniciar(); } });
 
+/* Arranca (o vuelve a arrancar) la página. Si se la llama mientras ya está arrancando, espera su turno: nunca corren dos a la vez. */
+let iniciando = false, iniciarDeNuevo = false;
 async function iniciar() {
+  if (iniciando) { iniciarDeNuevo = true; return; }
+  iniciando = true;
+  try { await iniciarUnaVez(); }
+  finally { iniciando = false; if (iniciarDeNuevo) { iniciarDeNuevo = false; iniciar(); } }
+}
+async function iniciarUnaVez() {
   closeSheet(true);
   fase = "cargando"; render();
   if (!CFG.url || !CFG.key || !SLUG || typeof crearConexion !== "function") { fase = "error"; errorDeArranque = "Falta configurar la página (config.js)."; render(); return; }
+  // ¿Se llegó desde el enlace de un mail? Se toma una sola vez. Si ya hay una cuenta adentro no se usa sin preguntar
+  // (un enlace ajeno no cambia de cuenta por su cuenta); si no hay nadie, se canjea su código por la sesión.
+  const enlace = enlaceDeLlegada, sinPreguntar = usarEnlaceIgual;
+  enlaceDeLlegada = null; usarEnlaceIgual = false;
+  const preguntar = !!(enlace && servidor.sesion && !sinPreguntar && !/(^|[#&])error(_code)?=/.test(enlace));
   try {
-    // Si se llegó desde el enlace de un mail, primero se canjea su código. Sin conexión queda guardado para «Probar de nuevo».
-    if (enlaceDeLlegada) { llegoPor = await servidor.entrarPorEnlace(enlaceDeLlegada); enlaceDeLlegada = null; }
+    if (enlace && !preguntar) {
+      try { llegoPor = await servidor.entrarPorEnlace(enlace); }
+      catch (e) { if (!enlaceDeLlegada) enlaceDeLlegada = enlace; usarEnlaceIgual = sinPreguntar; throw e; }   // sin conexión: queda para «Probar de nuevo»
+    }
     try { await cargar(); }
     catch (e) { if (servidor.sesion || e.code === "sin_conexion" || e.code === "consultorio_inexistente") throw e; await cargar(); }   // la sesión guardada ya no servía: se abre como visitante
   } catch (e) {
     fase = "error";
     errorDeArranque = e.code === "consultorio_inexistente" ? "No encontramos este consultorio. Revisá la dirección." : mensajeDe(e);
+    if (preguntar && !enlaceDeLlegada) enlaceDeLlegada = enlace;
+  }
+  if (preguntar && fase === "lista") {
+    if (!servidor.sesion) { enlaceDeLlegada = enlace; return iniciarUnaVez(); }   // la cuenta guardada ya no servía: no hay nada que cuidar, se usa el enlace
+    enlaceEnEspera = enlace;
   }
   render();
   if (fase !== "lista") return;

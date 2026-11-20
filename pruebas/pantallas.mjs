@@ -347,6 +347,8 @@ try {
     (v) => v[0].includes('Tu solicitud está en revisión') && v[1] === 'Tu mail quedó confirmado y tu solicitud ya está enviada.' && !v[2].barra.includes('#') && !v[2].barra.includes('token') && v[2].guardado === null && v[2].nombre === 'Eva Ñandú');
   await foto('mail-confirmado');
   await abrirEnlace(enlaceDeEva);
+  ver('con una cuenta adentro, pregunta antes', [await texto('.auth-card'), await js(`location.href`)], (v) => v[0].includes('Abriste un enlace de mail') && v[0].includes('eva@lavanda.prueba') && v[0].includes('Seguir con esta cuenta') && !v[1].includes('token'));
+  await boton('Usar el enlace');
   ver('el enlace ya usado, estando adentro', [await aviso(), await js(`!!me() && !location.href.includes('error')`)], (v) => v[0].includes('Ese enlace ya se usó o venció') && v[1] === true);
   await salir();
   await abrirEnlace(enlaceDeEva);
@@ -365,7 +367,8 @@ try {
   // Un mail que ya tiene cuenta: se avisa y lo escrito no se pierde
   const mailsHastaAca = s.mails.length;
   await pedirAcceso('Lucía Otra', LUCIA.email, 'otra-clave-larga');
-  ver('mail que ya tiene cuenta', [await aviso(), await js(`document.querySelector('#rn')?.value`), s.mails.length - mailsHastaAca], (v) => v[0].includes('Ya hay una cuenta con ese mail') && v[1] === 'Lucía Otra' && v[2] === 0);
+  ver('mail que ya tiene cuenta: dice lo mismo', [await texto('.auth-card'), s.mails.length - mailsHastaAca, await js(`!!servidor.sesion`)], (v) => v[0].includes('Confirmá tu mail') && v[0].includes('Si ya tenías una cuenta con ese mail') && v[1] === 0 && v[2] === false);
+  await boton('Volver a ingresar');
   // Olvidé mi contraseña
   await clic('[data-action="auth-tab"][data-tab="login"]');
   await boton('Olvidé mi contraseña');
@@ -388,6 +391,19 @@ try {
   ver('la contraseña vieja ya no sirve', (await entrar({ email: 'eva@lavanda.prueba' }, 'clave-de-eva-1'), await aviso()), 'El mail o la contraseña no coinciden.');
   await entrar({ email: 'eva@lavanda.prueba' }, 'clave-de-eva-2');
   ver('entra con la nueva', await texto('main'), 'Tu solicitud está en revisión');
+  await salir();
+  // Compu compartida: Eva dejó su cuenta abierta y Gabi abre ahí el mail de su propia cuenta. No cambia de cuenta sin preguntar.
+  await pedirAcceso('Gabi Sol', 'gabi@lavanda.prueba', 'clave-de-gabi-1');
+  const enlaceDeGabi = s.mails.at(-1).enlace;
+  await boton('Volver a ingresar');
+  await entrar({ email: 'eva@lavanda.prueba' }, 'clave-de-eva-2');
+  await abrirEnlace(enlaceDeGabi);
+  ver('enlace de otra cuenta: pregunta', await texto('.auth-card'), (v) => v.includes('Abriste un enlace de mail') && v.includes('eva@lavanda.prueba') && v.includes('Usar el enlace'));
+  await foto('enlace-con-otra-cuenta-adentro');
+  await boton('Seguir con esta cuenta');
+  ver('sigue con la cuenta que tenía', await js(`me() && me().name`), (v) => v === 'Eva Ñandú');
+  await abrirEnlace(enlaceDeGabi); await boton('Usar el enlace'); await enRevision();
+  ver('si elige usarlo, pasa a la otra', [await js(`me() && me().name`), await aviso(), await texto('main')], (v) => v[0] === 'Gabi Sol' && v[1].includes('tu solicitud ya está enviada') && v[2].includes('Tu solicitud está en revisión'));
   await salir();
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }); await dormir(300);
   await boton('Olvidé mi contraseña');
