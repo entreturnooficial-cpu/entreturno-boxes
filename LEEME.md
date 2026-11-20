@@ -47,12 +47,29 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
   `supabase\datos\` — el alta del consultorio de Yani. `supabase\control.sql` — control de permisos para el proyecto real.
   `supabase\mails\` — los textos de los mails de registro, que se cargan a mano en el panel de Supabase (tiene su LEEME).
 - `publicar\armar_para_publicar.py` — arma `publicar\yanina\` y el zip que se sube a Cloudflare Pages (proyecto `yanina-entreturno`).
+  `publicar\comprobar_publicado.py` — después de subir: baja la página como un navegador y avisa si algo no coincide.
 - `web\index.html` — la página entera (estilos y lógica). `web\conexion.js` — lo único que habla con el servidor.
   `web\config.js` tiene la dirección y la clave pública del proyecto real (el servidor de prueba arma el suyo y no lo usa).
 - `pruebas\sql\` — pruebas de la base. `pruebas\conexion.test.mjs` — de punta a punta por la red.
   `pruebas\pantallas.mjs` — la página en un navegador. `pruebas\servidor-local.mjs` — imita lo que se usa de Supabase.
 - `referencia\` — la demo de la que se partió y `como-se-paso-la-demo.py` (qué se le cambió; se corrió una sola vez).
 - `revisiones\` — los pedidos a Codex y sus respuestas.
+
+## Publicar (y por qué los archivos llevan una marca)
+
+```
+python -X utf8 publicar\armar_para_publicar.py     (arma la carpeta y el zip)
+   … subir el zip a Cloudflare Pages: proyecto yanina-entreturno → Create deployment → Production → Save and deploy
+python -X utf8 publicar\comprobar_publicado.py     (tiene que terminar en TODO BIEN)
+```
+
+En la dirección propia (`yanina.entreturno.com.ar`), Cloudflare le dice al navegador que guarde **4 horas** los `.js`, aunque
+el `_headers` del sitio pida lo contrario (en `…pages.dev` sí lo respeta). El 20/11/2026 eso rompió la primera prueba real:
+Santiago tenía guardado un `conexion.js` de antes de los mails, la página nueva lo usó y «Olvidé mi contraseña» falló sin
+llegar a salir de su compu. Por eso el index publicado pide `config.js?v=…` y `conexion.js?v=…` con una marca del contenido:
+si el archivo cambia, cambia la dirección y el navegador lo baja de nuevo. El index mismo no se guarda nunca.
+**Si se suma otro archivo a la página (estilos, imágenes que cambien), tiene que llevar la misma marca.**
+Además, un error que no viene del servidor ahora se muestra como «Algo falló en la página. Recargala y probá de nuevo.»
 
 ## Seguridad, en corto
 

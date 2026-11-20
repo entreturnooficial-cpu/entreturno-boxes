@@ -926,7 +926,11 @@ const MENSAJES = {
   session_not_found: "Tu sesión se cerró. Entrá de nuevo.",
   sin_sesion: "Tu sesión se cerró. Entrá de nuevo.",
 };
-const mensajeDe = (e) => MENSAJES[e && e.code] || "No se pudo hacer. Probá de nuevo en un momento.";
+const mensajeDe = (e) => {
+  // Si el error no lo mandó el servidor, es de la página misma (por ejemplo, una parte vieja guardada en el navegador): se dice así
+  if (e && typeof ErrorDeServidor === "function" && !(e instanceof ErrorDeServidor)) { console.error(e); return "Algo falló en la página. Recargala y probá de nuevo."; }
+  return MENSAJES[e && e.code] || "No se pudo hacer. Probá de nuevo en un momento.";
+};
 
 /* Le pide algo al servidor y después vuelve a traer los datos.
    Devuelve lo que contestó el servidor; si no se pudo, avisa por qué y devuelve null (el motivo queda en ultimoError). */

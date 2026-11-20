@@ -25,6 +25,18 @@ config, n = re.subn(r'(\n\s*key: "[^"]+",)', lambda m: m.group(1) + f'\n  slug: 
 assert n == 1
 (DESTINO / 'config.js').write_text(config, encoding='utf-8', newline='\n')
 
+# En la dirección propia, Cloudflare le dice al navegador que guarde 4 horas los .js aunque acá se pida lo contrario
+# (comprobado el 20/11/2026: «max-age=14400»). Si la página cambia, alguien que ya la había abierto quedaba hasta 4 horas con
+# la página nueva y un conexion.js viejo. Por eso el index publicado pide cada archivo con una marca de su contenido
+# (conexion.js?v=…): cuando el archivo cambia, cambia la dirección y el navegador lo baja de nuevo. El index no se guarda nunca.
+pagina = (DESTINO / 'index.html').read_text(encoding='utf-8')
+for nombre in ('config.js', 'conexion.js'):
+    marca = hashlib.sha256((DESTINO / nombre).read_bytes()).hexdigest()[:12]
+    referencia = f'<script src="{nombre}"></script>'
+    assert pagina.count(referencia) == 1, f'el index tiene que cargar {nombre} una sola vez, así: {referencia}'
+    pagina = pagina.replace(referencia, f'<script src="{nombre}?v={marca}"></script>')
+(DESTINO / 'index.html').write_text(pagina, encoding='utf-8', newline='\n')
+
 # Que los buscadores no la muestren, y que el navegador no se quede con una versión vieja de la página
 (DESTINO / '_headers').write_text('/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-cache\n', encoding='utf-8', newline='\n')
 (DESTINO / '404.html').write_text(
