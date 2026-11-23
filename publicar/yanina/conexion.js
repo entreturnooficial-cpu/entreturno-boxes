@@ -143,6 +143,20 @@
       }
     }
 
+    // Una función de Supabase (por ahora «facturar», que habla con ARCA): con el pase de quien está adentro y el consultorio.
+    async function funcion(nombre, args) {
+      const cuerpo = Object.assign({ slug }, args || {});
+      const p = await pase();
+      if (!p) throw new ErrorDeServidor("sin_sesion", 401);
+      try {
+        return await pedir("/functions/v1/" + nombre, cuerpo, p);
+      } catch (e) {
+        // El pase venció justo en el camino: la función corta antes de hacer nada, así que se renueva y se repite
+        if (e.status === 401 && sesion) return pedir("/functions/v1/" + nombre, cuerpo, await renovar());
+        throw e;
+      }
+    }
+
     leer();
     return {
       slug,
@@ -152,6 +166,7 @@
       /** Vuelve a leer la sesión guardada (por si otra pestaña entró o salió). */
       releer: leer,
       rpc,
+      funcion,
       async entrar(email, clave) {
         const j = await pedir("/auth/v1/token?grant_type=password", { email, password: clave });
         generacion++;

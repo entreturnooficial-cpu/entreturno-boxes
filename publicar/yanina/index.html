@@ -711,7 +711,7 @@ body.is-busy .btn{pointer-events:none;opacity:.62}
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js?v=9d36902f2dfa"></script>
-<script src="conexion.js?v=b502e8ac2ed5"></script>
+<script src="conexion.js?v=649368ce584b"></script>
 <script>
 "use strict";
 /* =========================================================
@@ -907,7 +907,25 @@ const MENSAJES = {
   ultima_categoria: "Tiene que quedar al menos una categoría.",
   categoria_inexistente: "Esa categoría ya no existe. Elegí otra.",
   dato_invalido: "Revisá los datos: hay algo vacío, demasiado largo o fuera de rango.",
-  cuit_invalido: "El CUIT lleva solo números y guiones.",
+  cuit_invalido: "Revisá el CUIT: son 11 números y el último tiene que coincidir (está en la constancia de ARCA).",
+  condicion_invalida: "Elegí la condición frente al IVA.",
+  profesional_inexistente: "No encontramos a esa profesional.",
+  facturacion_apagada: "La facturación con ARCA todavía no está prendida para este consultorio.",
+  solo_monotributo: "Por ahora se puede facturar solo como monotributista (Factura C).",
+  faltan_datos_facturacion: "Faltan los datos de facturación: completá la CUIT en Configuración.",
+  periodo_futuro: "Ese mes todavía no empezó.",
+  factura_inexistente: "Esa factura ya cambió. Actualizamos la pantalla.",
+  falta_configurar: "Falta configurar el certificado de ARCA en el servidor. Avisale a Entreturno.",
+  certificado_invalido: "El certificado de ARCA guardado en el servidor no sirve. Avisale a Entreturno.",
+  clave_no_corresponde: "El certificado de ARCA guardado en el servidor no sirve. Avisale a Entreturno.",
+  certificado_vencido: "El certificado de ARCA venció. Avisale a Entreturno.",
+  ticket_perdido: "ARCA dio un permiso de acceso que no quedó guardado: se puede volver a facturar en unas horas.",
+  ocupado: "Ya se está facturando: probá de nuevo en un par de minutos.",
+  sin_respuesta: "ARCA no respondió. Probá de nuevo en un rato: lo que ya salió quedó guardado.",
+  falla: "Algo falló al hablar con ARCA. Probá de nuevo en un rato: lo que ya salió quedó guardado.",
+  mes_en_curso: "El mes todavía no terminó: se factura desde el primer día del mes que viene.",
+  factura_cambio: "Cambió lo que había que facturar mientras se facturaba. Volvé a apretar «Facturar todo el mes».",
+  candado_perdido: "Ya se está facturando: probá de nuevo en un par de minutos.",
   cambio_invalido: "Ese cambio no se puede hacer.",
   ya_sos_miembro: "Ya pediste acceso a este consultorio.",
   invalid_credentials: "El mail o la contraseña no coinciden.",
@@ -936,13 +954,16 @@ const mensajeDe = (e) => {
    Devuelve lo que contestó el servidor; si no se pudo, avisa por qué y devuelve null (el motivo queda en ultimoError). */
 let ocupada = false;
 let ultimoError = "";
-async function accion(funcion, args) {
+/* Una función de la base (accion) o una función de Supabase (accionFuncion: por ahora «facturar», que habla con ARCA) */
+async function accion(funcion, args) { return ejecutar(() => servidor.rpc(funcion, args)); }
+async function accionFuncion(nombre, cuerpo) { return ejecutar(() => servidor.funcion(nombre, cuerpo)); }
+async function ejecutar(llamada) {
   if (ocupada) return null;
   ocupada = true; ultimoError = "";
   document.body.classList.add("is-busy");
   try {
     let r;
-    try { r = await servidor.rpc(funcion, args); }
+    try { r = await llamada(); }
     catch (e) {
       ultimoError = (e && e.code) || "error";
       toast(mensajeDe(e));
@@ -1004,7 +1025,7 @@ async function mandarPedidoGuardado() {
   ocupada = true;
   document.body.classList.add("is-busy");
   let motivo = "", estado = 0;
-  try { await servidor.rpc("pedir_acceso", { p_nombre: d.p_nombre, p_profesion: d.p_profesion, p_categoria: d.p_categoria, p_telefono: d.p_telefono, p_cuit: d.p_cuit }); }
+  try { await servidor.rpc("pedir_acceso", { p_nombre: d.p_nombre, p_profesion: d.p_profesion, p_categoria: d.p_categoria, p_telefono: d.p_telefono, p_cuit: d.p_cuit, p_condicion_iva: d.p_condicion_iva ?? null }); }
   catch (e) { motivo = (e && e.code) || "error"; estado = (e && e.status) || 0; }
   finally { ocupada = false; document.body.classList.remove("is-busy"); }
   if (motivo === "sin_conexion" || estado >= 500 || estado === 429) return null;   // falla pasajera: se prueba de nuevo la próxima vez que entre
@@ -1083,6 +1104,24 @@ function billingRow(u, ym) {
   return { u, bks, hours, boxAmount, machAmount, total: boxAmount + machAmount, pending: bks.filter(b => b.status === "confirmada").length, invoice: invoiceOf(u.id, ym) };
 }
 const billingRows = (ym) => S.users.filter(u => u.role === "pro").map(u => billingRow(u, ym)).filter(r => r.bks.length || r.invoice);
+/* Condición frente al IVA (los números son los códigos de ARCA) y CUIT (11 números; el último tiene que coincidir, como lo controla la base) */
+const CONDICIONES_IVA = [[6, "Monotributista"], [1, "Responsable inscripta"], [4, "Exenta"], [5, "Consumidora final"]];
+const condIvaTxt = (n) => (CONDICIONES_IVA.find(([k]) => k === n) || [0, "condición de IVA sin cargar"])[1];
+function cuitOk(texto) {
+  const s = String(texto || "").trim();
+  if (!/^\d{2}-?\d{8}-?\d$/.test(s)) return false;
+  const d = s.replace(/-/g, ""), f = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let v = 11 - (f.reduce((a, x, i) => a + x * +d[i], 0) % 11);
+  if (v === 11) v = 0;
+  return v === +d[10];
+}
+const datosFiscalesOk = (u) => cuitOk(u.cuit) && !!u.ivaCond;
+const emitida = (r) => !!(r.invoice && r.invoice.status === "emitida");
+const enDuda = (r) => !!(r.invoice && r.invoice.status === "incierta");
+const paraFacturar = (r) => !emitida(r) && !enDuda(r) && r.total > 0 && datosFiscalesOk(r.u) && !(r.invoice && r.invoice.status === "revisar");
+/* Lo alquilado hoy contra lo que ya se facturó (turnos que se agregaron o cancelaron después) */
+const diferencia = (r) => (emitida(r) ? r.total - r.invoice.total : 0);
+const cuitConGuiones = (d) => /^\d{11}$/.test(String(d || "")) ? `${d.slice(0, 2)}-${d.slice(2, 10)}-${d.slice(10)}` : String(d || "");
 const senaOf = (total) => Math.round(total * S.config.depositPct / 100);
 /* La seña de una reserva ya hecha es la que se le informó al reservar, aunque después cambie el porcentaje */
 const depositOf = (b) => b.deposit == null ? senaOf(b.total) : b.deposit;
@@ -1337,6 +1376,13 @@ const camposDelPedido = () => `
               ${S.config.categories.map(k => `<label class="choice"><input type="radio" name="category" value="${k.id}" required><div><div class="ct">${esc(k.name)}</div>${k.note ? `<div class="cs">${esc(k.note)}</div>` : ""}</div><span class="camt num">${money(k.pricePerHour)}<small> la hora</small></span></label>`).join("")}
               <span class="hint">De esto depende el precio, que también puede cambiar según el box. ${OW()} lo confirma en la entrevista.</span></div>`;
 
+/* CUIT y condición frente al IVA: van en la factura del mes (ARCA no emite sin la condición) */
+const camposFiscales = () => `
+            <div class="row2">
+              <div class="field"><label for="rc">CUIT, para tu factura</label><input class="input" id="rc" name="cuit" inputmode="numeric" maxlength="13" placeholder="27-12345678-9" required></div>
+              <div class="field"><label for="ri">Condición frente al IVA</label><select class="input" id="ri" name="ivaCond" required><option value="">Elegí una</option>${CONDICIONES_IVA.map(([v, n]) => `<option value="${v}">${n}</option>`).join("")}</select></div>
+            </div>`;
+
 /* Lo que muestra el ingreso cuando hay un mail de por medio: pedir el enlace, esperar el mail, o un enlace que ya no sirve */
 function pasoDelIngreso() {
   const p = pasoDeIngreso, mail = esc(p.mail || "");
@@ -1398,10 +1444,8 @@ function renderAuth() {
               <div class="field"><label for="rm">Mail</label><input class="input" id="rm" name="email" type="email" required autocomplete="email"></div>
               <div class="field"><label for="rt">Teléfono</label><input class="input" id="rt" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
             </div>
-            <div class="row2">
-              <div class="field"><label for="rc">CUIT, para tu factura</label><input class="input" id="rc" name="cuit" inputmode="numeric" maxlength="13" placeholder="27-12345678-9"></div>
-              <div class="field"><label for="rw">Contraseña</label><input class="input" id="rw" name="password" type="password" autocomplete="new-password" minlength="6" required></div>
-            </div>
+            ${camposFiscales()}
+            <div class="field"><label for="rw">Contraseña</label><input class="input" id="rw" name="password" type="password" autocomplete="new-password" minlength="6" required></div>
             <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
           </form>
         `}`}
@@ -1459,10 +1503,8 @@ function renderPedido() {
         <p class="muted" style="margin-bottom:18px">Entraste como ${esc(servidor.sesion.user.email || "")}. Completá tus datos: ${OW()} te contacta para una entrevista y, si te aprueba, ya podés reservar.</p>
         <form data-form="pedido">
           ${camposDelPedido()}
-          <div class="row2">
-            <div class="field"><label for="rt">Teléfono</label><input class="input" id="rt" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
-            <div class="field"><label for="rc">CUIT, para tu factura</label><input class="input" id="rc" name="cuit" inputmode="numeric" maxlength="13" placeholder="27-12345678-9"></div>
-          </div>
+          <div class="field"><label for="rt">Teléfono</label><input class="input" id="rt" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
+          ${camposFiscales()}
           <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
         </form>
         <button class="btn btn-text btn-block" style="margin-top:10px" data-action="logout">Salir de esta cuenta</button>
@@ -1924,22 +1966,44 @@ function viewPagos() {
     : `<div class="empty"><b>Todavía no hay pagos</b>Cuando alguien reserve y pague, aparece acá.</div>`}</div></div>`;
 }
 
+function estadoFactura(r, corto) {
+  const inv = r.invoice;
+  if (emitida(r)) {
+    const d = diferencia(r), aviso = d ? `<div class="s">Cambió después: ${d > 0 ? "falta facturar" : "se facturó de más"} ${money(Math.abs(d))}</div>` : "";
+    return corto ? `<span class="pill pill-positive">Facturada · ${inv.letter} ${inv.number}</span>${aviso}` : `<span class="pill pill-positive">Facturada</span><div class="s num">${inv.letter} ${inv.number}</div>${aviso}`;
+  }
+  if (inv && inv.status === "incierta") return `<span class="pill pill-warning">En duda</span>${corto ? "" : `<div class="s">Facturá de nuevo en unos minutos</div>`}`;
+  if (inv && inv.status === "rechazada") return `<span class="pill pill-negative">Rechazada</span>`;
+  if (inv && inv.status === "revisar") return `<span class="pill pill-negative">Revisar</span>`;
+  if (!datosFiscalesOk(r.u)) return `<span class="pill pill-warning">Faltan datos</span>${corto ? "" : `<div class="s">${cuitOk(r.u.cuit) ? "Condición de IVA" : "CUIT"}</div>`}`;
+  return `<span class="pill pill-warning">Sin facturar</span>`;
+}
+
 function viewFacturacion() {
-  const nowYm = ymOf(todayIso()), ym = S.ui.invYm || nowYm, bl = S.config.billing;
+  const nowYm = ymOf(todayIso()), ym = S.ui.invYm || nowYm, bl = S.config.billing || {};
+  const env = bl.env || "apagado", cerrado = ym < nowYm;
   const rows = billingRows(ym);
-  const pend = rows.filter(r => !r.invoice && r.total > 0), done = rows.filter(r => r.invoice);
+  const pend = rows.filter(r => !emitida(r) && r.total > 0), done = rows.filter(emitida);
+  const listas = pend.filter(paraFacturar), sinDatos = pend.filter(r => !datosFiscalesOk(r.u) && !enDuda(r)), dudas = rows.filter(enDuda);
+  const cambiadas = done.filter(r => diferencia(r) !== 0);
   const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
   const unused = pend.reduce((a, r) => a + r.pending, 0);
   const finding = !rows.length ? "No hubo alquileres en este mes."
-    : pend.length ? `Hay <b>${pend.length} ${pend.length === 1 ? "profesional" : "profesionales"} para facturar</b> por ${money(pend.reduce((a, r) => a + r.total, 0))}.${ym === nowYm && unused ? ` El mes no terminó: ${unused} ${unused === 1 ? "turno todavía no se usó" : "turnos todavía no se usaron"}.` : ""}`
+    : pend.length ? `Hay <b>${pend.length} ${pend.length === 1 ? "profesional" : "profesionales"} para facturar</b> por ${money(pend.reduce((a, r) => a + r.total, 0))}.${sinDatos.length ? ` ${sinDatos.length === 1 ? "A una le falta" : `A ${sinDatos.length} les falta`} la CUIT o la condición de IVA.` : ""}${ym === nowYm && unused ? ` El mes no terminó: ${unused} ${unused === 1 ? "turno todavía no se usó" : "turnos todavía no se usaron"}.` : ""}`
+    : cambiadas.length ? `Facturado, pero ${cambiadas.length === 1 ? "una cambió" : `${cambiadas.length} cambiaron`} después: hay turnos que se agregaron o se cancelaron. Consultalo con tu contador antes de hacer otra factura.`
     : `Todo facturado: ${done.length} ${done.length === 1 ? "factura" : "facturas"} por ${money(done.reduce((a, r) => a + r.invoice.total, 0))}.`;
-  const act = (r) => r.invoice ? `<button class="btn btn-sm" data-action="inv-open" data-id="${r.invoice.id}">Ver</button>` : `<span class="muted small">Falta conectar ARCA</span>`;
+  const porQue = env === "apagado" ? "Se activa cuando Entreturno conecte ARCA" : !cerrado ? "Se factura cuando termina el mes" : !listas.length && !dudas.length ? "No hay nada listo para facturar" : "";
+  const act = (r) => r.invoice && r.invoice.status !== "pendiente" ? `<button class="btn btn-sm" data-action="inv-open" data-id="${r.invoice.id}">Ver</button>`
+    : !datosFiscalesOk(r.u) ? `<button class="btn btn-sm" data-action="user-fiscal" data-id="${r.u.id}">Completar</button>` : "";
+  const nota = env === "apagado" ? `La facturación con ARCA todavía no está prendida para tu consultorio: Entreturno la prende cuando quede conectada. Mientras tanto, esta pantalla te muestra cuánto hay que facturarle a cada profesional.`
+    : env === "prueba" ? `<b>Modo prueba.</b> Las facturas salen en el ambiente de prueba de ARCA, con datos de prueba de Entreturno: no valen como facturas y no les llegan a las profesionales.`
+    : `Las facturas salen con tu CUIT${bl.cuit ? ` (${esc(bl.cuit)})` : ""} y el punto de venta ${pad4(bl.pos)}: una Factura C por profesional, por todas sus horas del mes. A cada una le llega por mail.`;
   return `
   <div class="title-row"><div>
     <h1>Facturación</h1>
     <p class="sub">Las horas que alquiló cada profesional en el mes, con su precio. Se factura todo junto: una factura por profesional.</p>
     <p class="finding">${finding}</p>
-  </div><button class="btn btn-primary" disabled title="Se activa cuando se conecte ARCA">Facturar todo el mes</button></div>
+  </div><button class="btn btn-primary" data-action="inv-facturar" data-ym="${ym}" ${porQue ? `disabled title="${porQue}"` : ""}>Facturar todo el mes</button></div>
   <div class="cal-head"><span class="wk">${cap(ymLabel(ym))}</span>
     <button class="btn btn-sm" data-action="inv-month" data-go="now">Este mes</button>
     <button class="iconbtn" data-action="inv-month" data-go="-1" aria-label="Mes anterior">${ic("chevL")}</button>
@@ -1950,14 +2014,14 @@ function viewFacturacion() {
       <thead><tr><th>Profesional</th><th class="num">Horas</th><th class="num">Boxes</th><th class="num">Máquinas</th><th class="num">Total</th><th>Factura</th><th></th></tr></thead>
       <tbody>${rows.map(r => `<tr><td><div class="t">${esc(r.u.name)}</div><div class="s">${esc(catOf(r.u).name)} · CUIT ${esc(r.u.cuit || "sin cargar")}</div></td>
         <td class="num">${r.hours} h</td><td class="num">${money(r.boxAmount)}</td><td class="num">${r.machAmount ? money(r.machAmount) : "—"}</td><td class="num"><b>${money(r.total)}</b></td>
-        <td>${r.invoice ? `<span class="pill pill-positive">Facturada</span><div class="s num">${r.invoice.letter} ${r.invoice.number}</div>` : `<span class="pill pill-warning">Sin facturar</span>`}</td><td class="num">${act(r)}</td></tr>`).join("")}
+        <td>${estadoFactura(r)}</td><td class="num">${act(r)}</td></tr>`).join("")}
         <tr class="tot"><td>Total del mes</td><td class="num">${sum("hours")} h</td><td class="num">${money(sum("boxAmount"))}</td><td class="num">${sum("machAmount") ? money(sum("machAmount")) : "—"}</td><td class="num">${money(sum("total"))}</td><td></td><td></td></tr></tbody>
     </table></div>
     <div class="mrows">${rows.map(r => `<div class="mrow" style="cursor:default"><div class="main"><div class="l1"><span>${esc(r.u.name)}</span><span class="num">${money(r.total)}</span></div>
       <div class="l2">${r.hours} h de box${r.machAmount ? " · máquinas " + money(r.machAmount) : ""}</div>
-      <div class="inv-line">${r.invoice ? `<span class="pill pill-positive">Facturada · ${r.invoice.letter} ${r.invoice.number}</span>` : `<span class="pill pill-warning">Sin facturar</span>`}${act(r)}</div></div></div>`).join("")}</div>
+      <div class="inv-line">${estadoFactura(r, true)}${act(r)}</div></div></div>`).join("")}</div>
   </div></div>` : `<div class="panel"><div class="empty"><b>No hay nada para facturar en ${ymLabel(ym)}</b>Cuando haya alquileres en el mes, aparecen acá.</div></div>`}
-  <div class="note" style="margin-top:16px">Las facturas todavía no se emiten desde acá: falta conectar ARCA con los datos de ${esc(bl.name || "quien factura")}${bl.cuit ? ` (CUIT ${esc(bl.cuit)}, ${esc(bl.cond)})` : ""}. Mientras tanto, esta pantalla te muestra cuánto hay que facturarle a cada profesional.</div>`;
+  <div class="note" style="margin-top:16px">${nota}</div>`;
 }
 
 /* Cuánto debe una profesional: los saldos de los turnos que señó y todavía no terminó de pagar */
@@ -1980,6 +2044,7 @@ function viewProfesionales() {
     return `<li class="li"><div class="avatar">${initials(u.name)}</div>
       <div class="main"><div class="t">${esc(u.name)} ${u.status === "rechazado" ? '<span class="pill pill-negative">Rechazada</span>' : u.status === "bloqueado" ? '<span class="pill pill-neutral">Pausada</span>' : ""}</div>
       <div class="s">${esc(u.profession)} · ${esc(u.email)} · ${esc(u.phone)}</div>
+      <div class="s">CUIT ${esc(u.cuit || "sin cargar")} · ${condIvaTxt(u.ivaCond)} <button class="btn btn-text btn-sm" data-action="user-fiscal" data-id="${u.id}">Cambiar</button></div>
       <div class="s catline"><label>Categoría <select class="input input-sm" data-input="userCat" data-id="${u.id}">${S.config.categories.map(k => `<option value="${k.id}" ${k.id === catOf(u).id ? "selected" : ""}>${esc(k.name)} · ${money(k.pricePerHour)} la hora</option>`).join("")}</select></label></div>
       <div class="s">${u.status === "pendiente" ? "Pidió acceso " + fmtWhen(u.since) : u.status === "aprobado" ? `${nb} ${nb === 1 ? "reserva activa" : "reservas activas"}` : ""}${debeTxt(u)}</div></div>
       <div class="acts">${acts}</div></li>`;
@@ -2087,18 +2152,23 @@ function viewConfig() {
       </div>
     </section>
     <section class="set-sec">
-      <div><h2>Facturación ${tag}</h2><p class="desc">Los datos con los que se emiten las facturas del mes. La conexión con ARCA se hace una sola vez, con tu certificado.</p></div>
+      <div><h2>Facturación ${tag}</h2><p class="desc">Los datos que van en la factura del mes de cada profesional. Entreturno factura en tu nombre con su certificado: vos solo le delegás el servicio en ARCA, sin pasar tu clave.</p></div>
       <form class="set-panel" data-form="cfg-billing">
         <div class="row2">
           <div class="field"><label for="fn">Nombre o razón social</label><input class="input" id="fn" name="name" value="${esc(bl.name)}"></div>
-          <div class="field"><label for="fc">CUIT</label><input class="input" id="fc" name="cuit" inputmode="numeric" value="${esc(bl.cuit)}"></div>
+          <div class="field"><label for="fc">CUIT</label><input class="input" id="fc" name="cuit" inputmode="numeric" maxlength="13" value="${esc(bl.cuit)}"></div>
         </div>
         <div class="row2">
           <div class="field"><label for="fi">Condición frente al IVA</label><select class="input" id="fi" name="cond">${optv(["Monotributo", "Responsable inscripta"], bl.cond)}</select></div>
-          <div class="field"><label for="fp">Punto de venta</label><input class="input num" id="fp" name="pos" type="number" min="1" max="9998" value="${bl.pos}"></div>
+          <div class="field"><label for="fp">Punto de venta para web services</label><input class="input num" id="fp" name="pos" type="number" min="1" max="9998" value="${bl.pos}"></div>
         </div>
-        <div class="note">ARCA: sin conectar todavía. Estos datos quedan guardados para cuando se conecte.</div>
-        <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
+        <div class="row2">
+          <div class="field"><label for="fd">Domicilio comercial</label><input class="input" id="fd" name="address" maxlength="160" value="${esc(bl.address || "")}"></div>
+          <div class="field"><label for="fb">Ingresos Brutos</label><input class="input" id="fb" name="iibb" maxlength="30" value="${esc(bl.iibb || "")}"></div>
+        </div>
+        <div class="field"><label for="fs">Inicio de actividades</label><input class="input" id="fs" name="start" type="date" value="${esc(bl.start || "")}"></div>
+        <div class="note">${(bl.env || "apagado") === "apagado" ? "ARCA: todavía sin conectar. Estos datos quedan guardados para cuando se conecte." : bl.env === "prueba" ? "ARCA: conectada en modo prueba (las facturas no valen)." : "ARCA: conectada. Las facturas del mes salen con estos datos."}</div>
+        <div class="acts"><button class="btn" type="button" data-action="inv-probar" ${(bl.env || "apagado") === "apagado" ? "disabled" : ""}>Probar la conexión con ARCA</button><button class="btn btn-dark" type="submit">Guardar</button></div>
       </form>
     </section>
   </div>`;
@@ -2387,16 +2457,88 @@ function readImage(file) {
 }
 /* ---------- Factura del mes ---------- */
 function openInvoice(inv) {
-  const u = userById(inv.userId), bl = S.config.billing;
-  openSheet(`${sheetHead(`Factura ${inv.letter} ${inv.number}`, `${cap(ymLabel(inv.period))} · emitida el ${fmtWhen(inv.at)}`)}
+  const u = userById(inv.userId) || { name: "", cuit: "" }, bl = S.config.billing || {};
+  const titulo = inv.status === "emitida" ? `Factura ${inv.letter} ${inv.number}` : `Factura ${inv.letter} de ${ymLabel(inv.period)}`;
+  const sub = inv.status === "emitida" ? `${cap(ymLabel(inv.period))} · emitida el ${fmtWhen(inv.at)}`
+    : ({ incierta: "En duda", rechazada: "Rechazada por ARCA", revisar: "Para revisar", pendiente: "Sin mandar" })[inv.status] || "";
+  const motivos = (inv.notes || []).map(n => esc(`${n.codigo ? n.codigo + ": " : ""}${n.mensaje}`)).join("<br>");
+  const estado = ({
+    incierta: "No sabemos si ARCA la emitió. Apretá «Facturar todo el mes» de nuevo en unos minutos: se revisa sola, sin duplicarla.",
+    rechazada: "ARCA la rechazó. Corregí lo que dice abajo y volvé a facturar el mes.",
+    revisar: "Hay que revisarla a mano antes de volver a facturar: avisale a Entreturno.",
+  })[inv.status] || "";
+  openSheet(`${sheetHead(titulo, sub)}
   <div class="sheet-b">
-    <div class="summary"><b>${esc(bl.name)}</b><span class="r muted">CUIT ${esc(bl.cuit)}</span><span class="muted">${esc(bl.cond)}</span><span class="r muted">Punto de venta ${pad4(bl.pos)}</span></div>
-    <dl class="kv" style="grid-template-columns:auto 1fr"><dt>Para</dt><dd>${esc(u.name)}</dd><dt>CUIT</dt><dd>${esc(u.cuit || "sin cargar")}</dd><dt>Período</dt><dd>${cap(ymLabel(inv.period))}</dd></dl>
+    ${inv.env === "prueba" ? `<div class="note" style="margin-bottom:12px">Factura de prueba: salió en el ambiente de prueba de ARCA y no vale.</div>` : ""}
+    <div class="summary"><b>${esc(bl.name)}</b><span class="r muted">${inv.env === "prueba" ? "CUIT de prueba" : "CUIT " + esc(cuitConGuiones(inv.issuerCuit) || bl.cuit)}</span><span class="muted">${esc(bl.cond)}</span><span class="r muted">${inv.number ? "Punto de venta " + inv.number.slice(0, 4) : ""}</span></div>
+    <dl class="kv" style="grid-template-columns:auto 1fr"><dt>Para</dt><dd>${esc(u.name)}</dd><dt>CUIT</dt><dd>${esc(cuitConGuiones(inv.docNro) || u.cuit || "sin cargar")}</dd><dt>Condición</dt><dd>${condIvaTxt(inv.ivaCond)}</dd><dt>Período</dt><dd>${cap(ymLabel(inv.period))}</dd></dl>
     <div class="group-l" style="margin-top:16px">Detalle</div>
-    <ul class="list">${inv.lines.map(l => `<li class="li"><div class="main"><div class="s" style="color:var(--text);font-size:14.5px">${esc(l.text)}</div></div><span class="num">${money(l.amount)}</span></li>`).join("")}
+    <ul class="list">${(inv.lines || []).map(l => `<li class="li"><div class="main"><div class="s" style="color:var(--text);font-size:14.5px">${esc(l.text)}</div></div><span class="num">${money(l.amount)}</span></li>`).join("")}
       <li class="li"><div class="main"><div class="t">Total</div></div><b class="num">${money(inv.total)}</b></li></ul>
-    <div class="note">Número de autorización (CAE): ${esc(inv.cae)}</div>
+    ${inv.status === "emitida"
+      ? `<div class="note">Número de autorización de ARCA (CAE): ${esc(inv.cae)}${inv.caeDue ? ` · vence el ${esc(String(inv.caeDue).split("-").reverse().join("/"))}` : ""}</div>`
+      : `<div class="note">${estado}${motivos ? `${estado ? "<br>" : ""}${motivos}` : ""}</div>`}
   </div><div class="sheet-f"><button class="btn" data-action="close-sheet">Cerrar</button></div>`);
+}
+
+const filaHoja = (titulo, detalle, monto) => `<li class="li"><div class="main"><div class="t">${titulo}</div>${detalle ? `<div class="s">${detalle}</div>` : ""}</div>${monto == null ? "" : `<b class="num">${money(monto)}</b>`}</li>`;
+const textoErrorArca = (e) => MENSAJES[e.codigo]
+  || (/^arca_60\d$/.test(e.codigo) ? "ARCA no reconoce la delegación: revisá que tu consultorio le haya delegado «Facturación Electrónica» a Entreturno." : `ARCA: ${e.mensaje || e.codigo}`);
+
+function openFacturarSheet(ym) {
+  const rows = billingRows(ym), listas = rows.filter(paraFacturar), dudas = rows.filter(enDuda);
+  const faltan = rows.filter(r => !emitida(r) && !enDuda(r) && r.total > 0 && !datosFiscalesOk(r.u));
+  const prueba = (S.config.billing || {}).env === "prueba";
+  openSheet(`${sheetHead(`Facturar ${ymLabel(ym)}`, prueba ? "Modo prueba: no valen como facturas" : "Una Factura C por profesional")}
+  <div class="sheet-b">
+    ${dudas.length ? `<div class="group-l">Primero se revisan las que quedaron en duda</div>
+    <ul class="list">${dudas.map(r => filaHoja(esc(r.u.name), "Si ARCA ya la emitió, queda emitida; si no, se manda de nuevo", r.invoice.total)).join("")}</ul>` : ""}
+    ${listas.length ? `<p class="muted" style="margin:${dudas.length ? "14px" : "0"} 0 10px">Cada una recibe una sola factura por todas sus horas del mes.</p>
+    <ul class="list">${listas.map(r => filaHoja(esc(r.u.name), `${r.hours} h · CUIT ${esc(r.u.cuit)} · ${condIvaTxt(r.u.ivaCond)}`, r.total)).join("")}
+      ${filaHoja("Total", "", listas.reduce((a, r) => a + r.total, 0))}</ul>` : ""}
+    ${faltan.length ? `<div class="note" style="margin-top:12px">No se les factura ahora porque les falta la CUIT o la condición de IVA: ${faltan.map(r => esc(r.u.name)).join(", ")}. Completalo en Profesionales.</div>` : ""}
+  </div><div class="sheet-f"><button class="btn" data-action="close-sheet">Cancelar</button><button class="btn btn-primary" data-action="inv-facturar-ok" data-ym="${ym}">${!listas.length ? "Revisar las que están en duda" : listas.length === 1 ? "Emitir 1 factura" : `Emitir ${listas.length} facturas`}</button></div>`);
+}
+
+function openResultadoFacturacion(r) {
+  const nombre = (id) => esc((userById(id) || {}).name || "");
+  const bloque = (titulo, filas) => filas.length ? `<div class="group-l" style="margin-top:14px">${titulo}</div><ul class="list">${filas.join("")}</ul>` : "";
+  const nada = !r.error && ![r.emitidas, r.rechazadas, r.inciertas, r.revisar, r.faltan].some(l => l.length);
+  openSheet(`${sheetHead(`Facturación de ${ymLabel(r.periodo)}`, r.ambiente === "prueba" ? "Modo prueba: no valen como facturas" : "")}
+  <div class="sheet-b">
+    ${r.error ? `<div class="note">${esc(textoErrorArca(r.error))}</div>` : ""}
+    ${bloque("Facturadas", r.emitidas.map(x => filaHoja(nombre(x.userId), `Número ${pad8(x.numero)} · CAE ${esc(x.cae || "")}`)))}
+    ${bloque("Rechazadas por ARCA", r.rechazadas.map(x => filaHoja(nombre(x.userId), esc(x.motivo))))}
+    ${bloque("En duda", r.inciertas.map(x => filaHoja(nombre(x.userId), "Apretá «Facturar todo el mes» de nuevo en unos minutos: se revisa sola, sin duplicarla.")))}
+    ${bloque("Para revisar a mano", r.revisar.map(x => filaHoja(nombre(x.userId), "Avisale a Entreturno.")))}
+    ${bloque("Les faltan datos", r.faltan.map(x => filaHoja(nombre(x.userId), x.missing === "cuit" ? "Falta la CUIT" : "Falta la condición frente al IVA")))}
+    ${bloque("Quedaron para la próxima", (r.sinIntentar || []).map(x => filaHoja(nombre(x.userId), esc(x.motivo))))}
+    ${nada && !(r.sinIntentar || []).length ? `<p class="muted">No había nada para facturar.</p>` : ""}
+  </div><div class="sheet-f"><button class="btn btn-primary" data-action="close-sheet">Listo</button></div>`);
+}
+
+function openProbarResultado(r) {
+  let cuerpo;
+  if (r.ambiente === "apagado") cuerpo = `<p>La facturación con ARCA todavía no está prendida para tu consultorio.</p>`;
+  else if (!r.ok) cuerpo = `<div class="note">${esc(textoErrorArca(r.error || { codigo: "falla" }))}</div>`;
+  else {
+    const falta = r.ambiente === "real" && Array.isArray(r.puntosVenta) && !r.puntosVenta.includes(r.puntoVenta);
+    cuerpo = `<ul class="list">${filaHoja("ARCA responde", "Los servidores de facturación están en orden")}
+      ${filaHoja("Acceso con el certificado de Entreturno", `Vigente hasta el ${fmtWhen(Date.parse(r.ticketVence))}`)}
+      ${filaHoja(`Punto de venta ${pad4(r.puntoVenta)}`, `Último número emitido: ${r.ultimoNumero}`)}</ul>
+      ${falta ? `<div class="note" style="margin-top:12px">ARCA no tiene el punto de venta ${pad4(r.puntoVenta)} para web services con tu CUIT. Revisá el número.</div>` : ""}`;
+  }
+  openSheet(`${sheetHead("Conexión con ARCA", r.ambiente === "prueba" ? "Modo prueba" : r.ambiente === "real" ? "Facturación real" : "")}
+  <div class="sheet-b">${cuerpo}</div><div class="sheet-f"><button class="btn btn-primary" data-action="close-sheet">Listo</button></div>`);
+}
+
+function openFiscalSheet(u) {
+  openSheet(`${sheetHead("Datos para la factura", esc(u.name))}
+  <form data-form="user-fiscal" data-id="${u.id}"><div class="sheet-b">
+    <div class="field"><label for="uc">CUIT</label><input class="input" id="uc" name="cuit" inputmode="numeric" maxlength="13" placeholder="27-12345678-9" value="${esc(u.cuit || "")}" required></div>
+    <div class="field"><label for="ui">Condición frente al IVA</label><select class="input" id="ui" name="ivaCond" required><option value="">Elegí una</option>${CONDICIONES_IVA.map(([v, n]) => `<option value="${v}" ${u.ivaCond === v ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+    <p class="hint">Van en su factura del mes. Si no los sabe, están en su constancia de inscripción de ARCA.</p>
+  </div><div class="sheet-f"><button class="btn" type="button" data-action="close-sheet">Cancelar</button><button class="btn btn-primary" type="submit">Guardar</button></div></form>`);
 }
 
 /* =========================================================
@@ -2518,6 +2660,15 @@ document.addEventListener("click", async (e) => {
       render(); break;
     }
     case "inv-open": { const inv = S.invoices.find(i => i.id === ds.id); if (inv) openInvoice(inv); break; }
+    case "inv-facturar": openFacturarSheet(ds.ym); break;
+    case "inv-facturar-ok": {
+      const r = await accionFuncion("facturar", { accion: "facturar", periodo: ds.ym });
+      closeSheet(); render();
+      if (r) openResultadoFacturacion(r);
+      break;
+    }
+    case "inv-probar": { const r = await accionFuncion("facturar", { accion: "probar" }); if (r) openProbarResultado(r); break; }
+    case "user-fiscal": { const u = userById(ds.id); if (u) openFiscalSheet(u); break; }
   }
 });
 
@@ -2564,7 +2715,7 @@ document.addEventListener("submit", async (e) => {
   if (ocupada) return;
   const fd = new FormData(f), c = S.config;
   const txt = (k) => String(fd.get(k) ?? "").trim();
-  const pedido = () => ({ p_nombre: txt("name"), p_profesion: txt("profession"), p_categoria: txt("category") || (c.categories[0] && c.categories[0].id) || null, p_telefono: txt("phone"), p_cuit: txt("cuit") });
+  const pedido = () => ({ p_nombre: txt("name"), p_profesion: txt("profession"), p_categoria: txt("category") || (c.categories[0] && c.categories[0].id) || null, p_telefono: txt("phone"), p_cuit: txt("cuit"), p_condicion_iva: Number(fd.get("ivaCond")) || null });
   switch (kind) {
     case "login": {
       const mail = txt("email");
@@ -2575,6 +2726,7 @@ document.addEventListener("submit", async (e) => {
       break;
     }
     case "register": {
+      if (!cuitOk(txt("cuit"))) { toast(MENSAJES.cuit_invalido); return; }
       const datos = pedido(), mail = txt("email");
       let faltaConfirmar = false;
       const hecho = await entrarCon(async () => {
@@ -2606,6 +2758,7 @@ document.addEventListener("submit", async (e) => {
       break;
     }
     case "pedido": {
+      if (!cuitOk(txt("cuit"))) { toast(MENSAJES.cuit_invalido); return; }
       const r = await accion("pedir_acceso", pedido());
       S.ui.view = null; render(); window.scrollTo(0, 0);
       if (r) toast("Solicitud enviada.");
@@ -2681,9 +2834,18 @@ document.addEventListener("submit", async (e) => {
       closeSheet(); render(); toast(`Guardado: ${name}, ${money(price)} la hora.`); break;
     }
     case "cfg-billing": {
-      const r = await accion("guardar_facturacion", { p_nombre: txt("name"), p_cuit: txt("cuit"), p_condicion: txt("cond"), p_punto_venta: Math.min(9998, Math.max(1, +fd.get("pos") || 1)) });
+      if (txt("cuit") && !cuitOk(txt("cuit"))) { toast(MENSAJES.cuit_invalido); return; }
+      const r = await accion("guardar_facturacion", { p_nombre: txt("name"), p_cuit: txt("cuit"), p_condicion: txt("cond"), p_punto_venta: Math.min(9998, Math.max(1, +fd.get("pos") || 1)),
+        p_domicilio: txt("address"), p_iibb: txt("iibb"), p_inicio: txt("start") || null });
       if (!r) return;
       render(); toast("Datos de facturación guardados."); break;
+    }
+    case "user-fiscal": {
+      if (!cuitOk(txt("cuit"))) { toast(MENSAJES.cuit_invalido); return; }
+      const nombre = (userById(f.dataset.id) || {}).name || "";
+      const r = await accion("cambiar_datos_fiscales_profesional", { p_miembro: f.dataset.id, p_cuit: txt("cuit"), p_condicion_iva: Number(fd.get("ivaCond")) || null });
+      if (!r) return;       // la hoja queda abierta, con lo escrito
+      closeSheet(); render(); toast(`Listo: datos de factura de ${nombre} guardados.`); break;
     }
   }
 });
