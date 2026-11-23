@@ -22,7 +22,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
-| Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Cargado en Supabase y publicado el 23/11** (control 15 / 0 / 33 / 27 / 5; página TODO BIEN; `yanina` en modo prueba). Faltan los secretos de ARCA (los pega Santiago), probar la conexión y el PDF con QR |
+| Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Cargado en Supabase y publicado el 23/11** (control 15 / 0 / 33 / 27 / 5; página TODO BIEN; `yanina` en modo prueba). **Secretos de ARCA pegados por Santiago el 23/11 a las 12:26 y comprobados por huella (5 de 5). «Probar la conexión con ARCA» salió bien desde la página a las 12:37** (modo prueba: ARCA responde, ticket vigente, punto de venta 0001). Falta el PDF con QR |
 | Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
 | «Crear cuenta» desde el panel de la dueña | Falta. Hoy cada profesional se registra sola y la dueña la aprueba |
 | Probarla en un celular real | Falta |
@@ -289,7 +289,7 @@ hay que esperar a que venza.
 - **Ojo, RG 5866:** con el cobro por adelantado, la norma pide la factura al cobrar. La factura por mes la eligió Santiago:
   falta que la confirme el contador de Yani.
 
-**Cómo se carga en Supabase (hecho el 23/11/2026, salvo los secretos; la función se subió por el editor del panel):**
+**Cómo se carga en Supabase (todo hecho el 23/11/2026; la función se subió por el editor del panel):**
 1. **Base:** en el SQL Editor, `supabase\migrations\20261123100000_facturas_arca.sql`.
    - Tiene `drop table facturas` y `drop function`: el editor pide confirmar.
    - Si `facturas` no está vacía, la migración corta sola.
@@ -301,20 +301,28 @@ hay que esperar a que venza.
      `publicar\funcion-facturar\index.ts`.
    - Después, **apagar «Enforce JWT verification»**. La base revisa el pase en cada llamada.
 3. **Secretos** (Edge Functions → Secrets). **Los pega Santiago** con `Desktop\ENTRETURNO - ARCA\COPIAR PARA SUPABASE.cmd`:
-   - `ARCA_PRUEBA_CERT`, `ARCA_PRUEBA_CLAVE` y `ARCA_PRUEBA_CUIT` (la CUIT del WSASS);
-   - más adelante, `ARCA_REAL_CERT` y `ARCA_REAL_CLAVE`.
+   - `ARCA_PRUEBA_CERT`, `ARCA_PRUEBA_CLAVE` y `ARCA_PRUEBA_CUIT` (la CUIT del WSASS, sin guiones);
+   - `ARCA_REAL_CERT` y `ARCA_REAL_CLAVE` (se usan cuando el consultorio pasa a `real`).
    - Se pueden pegar en una sola línea: `normalizarPem` los arregla.
+   - **Pegados los 5 el 23/11/2026 a las 12:26.** Para comprobarlos sin ver los valores: el panel muestra la huella
+     SHA-256 de cada uno y se compara con la de los archivos de `Desktop\ENTRETURNO - ARCA`. Dieron 5 de 5. El campo pasa
+     los saltos de Windows a LF, y la clave de prueba quedó con un renglón en blanco de más al final, que no importa
+     (`normalizarPem` lo saca; se comprobó firmando con los valores tal como quedaron).
 4. **Página:** publicar como siempre (ver «Publicar»).
 5. **Prueba:**
    - `update consultorios set fact_ambiente = 'prueba' where slug = 'yanina'`.
    - Santiago, como Soporte: Configuración → «Probar la conexión con ARCA».
-   - Ojo: ARCA no da otro ticket para el mismo certificado mientras el anterior vale (12 h). El que pidió `npm run test:arca`
-     el 23/11 vencía a las 22:54: hasta esa hora, la función de Supabase no podía pedir el suyo (`ticket_perdido`).
+   - **Salió bien el 23/11/2026 a las 12:37:** «Modo prueba · ARCA responde · Acceso con el certificado de Entreturno,
+     vigente hasta el 24 nov 00:36 · Punto de venta 0001 · Último número emitido: 4» (los 4 son las Facturas C de prueba
+     de `npm run test:arca`).
+   - Se esperaba `ticket_perdido` hasta las 22:54, porque el ticket que había pedido `npm run test:arca` a la mañana
+     seguía vigente. Pero el ARCA de prueba le dio a la función uno nuevo igual. El manual dice que no da otro mientras
+     el anterior vale, así que la función guarda el ticket en la base y lo reusa.
    - Para facturar de verdad, cuando Yani delegue: `fact_ambiente = 'real'` y su CUIT y su punto de venta para web services
      en Configuración.
 
 **Lo que sigue, en orden:**
-1. Cargarlo en Supabase y publicar (los pasos de arriba).
+1. ~~Cargarlo en Supabase y publicar~~: hecho el 23/11/2026, con los secretos comprobados y la conexión probada.
 2. La respuesta del contador de Yani:
    - ¿una factura por mes le sirve, o tiene que ser por cobro?
    - ¿qué se hace con los turnos que cambian después de facturar?
