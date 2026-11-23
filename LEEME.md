@@ -22,7 +22,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
-| Facturas con ARCA | Falta (etapa 3). La pantalla muestra cuánto hay que facturar; los botones están apagados |
+| Facturas con ARCA | **En curso (23/11)**: la conexión con ARCA está hecha, revisada por Codex (14 puntos, los del módulo corregidos) y probada contra el ambiente de prueba de ARCA (10 de 10: Facturas C y Nota de Crédito C de mentira con su CAE, consulta y conciliación de un pendiente) y con 35 pruebas sin internet. Falta la base, la función de Supabase, el PDF con QR y las pantallas (los botones siguen apagados). Ver «Facturas con ARCA» |
 | Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
 | «Crear cuenta» desde el panel de la dueña | Falta. Hoy cada profesional se registra sola y la dueña la aprueba |
 | Probarla en un celular real | Falta |
@@ -31,9 +31,10 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (78 pruebas: base de datos + conexión; medio minuto)
+npm test                  (113 pruebas: base de datos + conexión + ARCA sin internet; medio minuto)
 npm run test:pantallas    (91 comprobaciones de la página en un Edge sin ventana; deja capturas en E:\Entreturno boxes\pruebas)
 npm run test:real         (8 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
+npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
 npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda»)
 ```
 
@@ -52,6 +53,8 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
   `web\config.js` tiene la dirección y la clave pública del proyecto real (el servidor de prueba arma el suyo y no lo usa).
 - `pruebas\sql\` — pruebas de la base. `pruebas\conexion.test.mjs` — de punta a punta por la red.
   `pruebas\pantallas.mjs` — la página en un navegador. `pruebas\servidor-local.mjs` — imita lo que se usa de Supabase.
+- `supabase\functions\_compartido\arca.ts` — la conexión con ARCA (ticket y factura electrónica). Corre en Supabase (Deno) y en
+  las pruebas (Node). `pruebas\arca.test.mjs` (sin internet) y `pruebas\arca-real.mjs` (contra el ambiente de prueba de ARCA).
 - `referencia\` — la demo de la que se partió y `como-se-paso-la-demo.py` (qué se le cambió; se corrió una sola vez).
 - `revisiones\` — los pedidos a Codex y sus respuestas.
 
@@ -182,6 +185,95 @@ Cómo trabaja la página:
 - Las reservas ajenas llegan con `status: "ocupado"` y `userId: null`.
 - El consultorio sale de la dirección (`yanina.entreturno.com.ar` → `yanina`), salvo que `config.js` lo fije.
 
+## Facturas con ARCA (en curso desde el 23/11/2026)
+
+**Cómo factura Entreturno.** Las facturas son de cada consultorio: salen con su CUIT y su punto de venta. Entreturno tiene
+un solo certificado para todos, y cada consultorio le delega en ARCA el servicio «Facturación Electrónica»: no pasa su clave
+ni saca certificado. Es el caso que ARCA llama «Tercerización del servicio» (`arca.gob.ar/ws/WSAA/ADMINREL.DelegarWS.pdf`).
+Los pasos que hace la dueña (punto de venta para web services y delegación) y los de Santiago (aceptar y asignar el
+certificado) están en la memoria de Claude: `entreturno-arca-facturacion`.
+
+**Certificados y claves: FUERA del repositorio, en `C:\Users\santi\Desktop\ENTRETURNO - ARCA\`.** Nunca se suben acá.
+- Prueba: `certificado-prueba.pem` + `clave-prueba.key`. En el WSASS el nombre quedó `entreturnoprueba`, sin guion, y está
+  autorizado a `wsfe` con la CUIT de Santiago.
+- Real: `entreturno_1aa114976aa71cea.crt` + `clave-real.key`, con el alias `entreturno`.
+- Los dos vencen el 22/11/2028: hay que renovarlos antes.
+- Los pedidos se rehacen con `GENERAR PEDIDOS DE CERTIFICADO.cmd`, que nunca pisa archivos.
+
+**El ticket de ARCA dura 12 horas y ARCA no da otro mientras ese valga.** Por eso siempre se guarda y se reusa.
+`npm run test:arca` lo guarda en `E:\Entreturno boxes\pruebas\arca\ticket-prueba.json` y anota las facturas de prueba
+emitidas en `facturas-de-prueba.json`, al lado. Si otro programa pide un ticket con el mismo certificado, este lo pierde y
+hay que esperar a que venza.
+
+**Lo que hace `arca.ts`:**
+- Pide el ticket (`obtenerTicket`, con el guardado de afuera) y consulta el estado de ARCA.
+- Consulta el último número, las condiciones de IVA y los puntos de venta. Esto último sirve para comprobar una delegación sin
+  emitir nada.
+- Arma el comprobante en el orden exacto del WSDL y pide el CAE. Un rechazo vuelve como «R» con el motivo.
+- Consulta un comprobante ya emitido.
+- Valida todo antes de mandar:
+  - la CUIT con su dígito verificador y el DNI;
+  - que las fechas existan y que el turno y el vencimiento sean coherentes;
+  - los importes en centavos, con el IVA del 21 % en A y B;
+  - que la nota de crédito diga a qué factura corresponde y que la A vaya a una CUIT.
+- `emitirComprobante` no factura dos veces:
+  - **`antesDeEnviar(numero)`** es obligatorio: el número se anota en la base antes de mandarlo.
+  - **Si ARCA no contesta o contesta algo raro**, busca el número. Si está y coincide en todo (`coincide`: fechas, turno,
+    importes, documento, condición y factura asociada), lo toma. Si no, corta con «incierto» y **no reintenta**.
+  - **Un pendiente** se concilia en la corrida siguiente, recién después de 3 minutos. Si ARCA lo tiene igual, se recupera.
+    Si tiene otra cosa con ese número, o ya numeró más allá sin tenerlo, corta con «pendiente_no_coincide» y hay que
+    mirarlo a mano. Si nunca llegó, se emite como nuevo.
+  - **Si otro tomó el número** (error 10016), reintenta con el que sigue.
+- El ticket se reusa mientras sirve. Si ARCA dice que ya dio uno, espera unos segundos a que la otra corrida lo guarde.
+  Si no se puede guardar, reintenta y después lo avisa.
+
+**Revisión de Codex (`revisiones/respuesta-codex-4.md`, 14 puntos):**
+- **Corregido en el módulo, cada uno con su prueba:**
+  - el reintento a ciegas después de un corte;
+  - una comparación «es la nuestra» que se quedaba corta;
+  - las respuestas vacías o raras, que pasaban por rechazos;
+  - las carreras del ticket;
+  - las fechas que no existen;
+  - los importes A y B;
+  - la nota de crédito sin factura asociada;
+  - la CUIT sin dígito verificador;
+  - las respuestas gigantes;
+  - los mensajes de la librería de firma.
+- **Queda para la base y la función de Supabase:**
+  - un candado por numeración que respeten todos los que emiten;
+  - el pedido congelado y su estado guardados antes y después de cada envío;
+  - el ticket pedido de a uno por certificado;
+  - el reloj del servidor en hora (Supabase lo tiene);
+  - no registrar nunca el SOAP, el ticket ni las claves.
+- **Sin probar:** que corra en Supabase (Deno). Se prueba al armar la función.
+- **Decidido:** las respuestas se siguen leyendo con expresiones simples, y no con una librería de XML, porque son chicas y
+  siempre iguales. A cambio, se valida la estructura y lo que importa.
+
+**Reglas de ARCA que el sistema tiene que cumplir:**
+- Desde el 1/12/2026, la condición frente al IVA de quien recibe la factura es obligatoria (manual WSFEv1 v4.8).
+- Un alquiler de box es concepto «servicios»: lleva las fechas del turno y el vencimiento del pago.
+- Con la RG 5866 (desde el 1/7/2026), la factura de un servicio va el día del cobro, aunque sea parcial, o el día en que
+  termina, lo que pase antes. Con el pago por adelantado, eso es una factura por cada cobro, no una por mes. Falta que lo
+  confirme el contador de Yani.
+- Cada devolución lleva una Nota de Crédito asociada a su factura.
+
+**Lo que sigue, en orden:**
+1. La respuesta del contador de Yani: ¿una factura por cada pago o una por el turno completo cuando entra la seña?
+2. Pedir la condición frente al IVA en «Pedir acceso», y también a las que ya tienen cuenta.
+   - Hoy `miembros` guarda la CUIT pero no la condición.
+3. La base:
+   - facturas por cobro con su nota de crédito (hoy la tabla `facturas` es una por profesional y por mes);
+   - el ticket guardado, el número pendiente y un candado por consultorio para emitir de a una;
+   - los datos fiscales que faltan del consultorio: domicilio comercial, Ingresos Brutos, inicio de actividades y si factura
+     en prueba o real.
+4. La función de Supabase (Deno) que usa `arca.ts`, con el certificado y la clave como secretos. Los carga Santiago.
+5. El comprobante para la profesional: PDF con el QR que pide ARCA, que se manda por mail.
+6. Las pantallas de Facturación de la dueña y de la profesional.
+7. Cuando Yani delegue:
+   - Santiago acepta y asigna el certificado;
+   - `puntosVenta` con su CUIT tiene que mostrar el punto de venta nuevo;
+   - recién ahí, la primera factura real.
+
 ## Decisiones tomadas al armar (sin consultar; se pueden cambiar)
 
 - Una profesional puede tener hasta 3 reservas sin pagar la seña a la vez (`max_sin_pagar`), para que nadie acapare turnos.
@@ -208,7 +300,7 @@ Cómo trabaja la página:
    desde Configuración).
 5. Mercado Pago real (aplicación «Entreturno», con API de Orders: falta probar que se puede cobrar a nombre de ella).
 6. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
-7. Facturas con ARCA.
+7. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
 
 ## Pendientes de la revisión de la página (revisiones\respuesta-codex-2.md)
 
