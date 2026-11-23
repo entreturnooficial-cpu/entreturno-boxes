@@ -25,6 +25,8 @@ import { createServer } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { facturarMes, probarConexion } from '../supabase/functions/_compartido/facturar.ts';
+import { crearArcaSimulado } from './arca-simulado.mjs';
 import { armarBase, comoRol, crearCuenta } from './base.mjs';
 import { BOXES, CATEGORIAS, CLAVE_DE_PRUEBA, CONSULTORIO, DUENA, MAQUINAS, PROFESIONALES } from './datos-de-ejemplo.mjs';
 
@@ -33,11 +35,14 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon' };
 /** La clave pública de mentira que usa la página contra este servidor. */
 export const CLAVE_PUBLICA = 'clave-publica-de-prueba';
+/** La clave secreta de mentira (la que en Supabase solo tiene la función de facturar): llama como service_role. */
+export const CLAVE_SECRETA = 'sb_secret_de_prueba';
 
 const b64 = (x) => Buffer.from(x).toString('base64url');
 
 export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar = true, confirmarMail = false } = {}) {
   const pg = await armarBase();
+  const arca = crearArcaSimulado();  // la función de facturar habla con este ARCA de mentira
   const secreto = randomBytes(32);
   const cuentas = new Map();        // mail → { id, email, sal, hash }
   const renovaciones = new Map();   // código para renovar → id de la cuenta
@@ -89,9 +94,14 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
   async function firmaDe(nombre) {
     if (!firmasDeFunciones.has(nombre)) {
       const r = await pg.query(
-        `select p.proargnames as nombres, (select array_agg(t::regtype::text order by n) from unnest(p.proargtypes) with ordinality as x(t, n)) as tipos
+        `select p.proargnames as nombres, p.pronargdefaults as con_defecto,
+                (select array_agg(t::regtype::text order by n) from unnest(p.proargtypes) with ordinality as x(t, n)) as tipos
            from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = $1`, [nombre]);
-      firmasDeFunciones.set(nombre, r.rows.length === 1 ? { nombres: r.rows[0].nombres ?? [], tipos: r.rows[0].tipos ?? [] } : null);
+      const f = r.rows[0];
+      const nombres = f?.nombres ?? [];
+      // como PostgREST: los parámetros que tienen valor por defecto (los últimos) se pueden omitir
+      firmasDeFunciones.set(nombre, r.rows.length === 1
+        ? { nombres, tipos: f.tipos ?? [], obligatorios: nombres.slice(0, nombres.length - (f.con_defecto ?? 0)) } : null);
     }
     return firmasDeFunciones.get(nombre);
   }
@@ -99,15 +109,18 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
     if (!/^[a-z_][a-z0-9_]*$/.test(nombre)) return [404, { code: 'PGRST202', message: `Could not find the function public.${nombre} in the schema cache` }];
     const firma = await firmaDe(nombre);
     const claves = Object.keys(args).sort();
-    if (!firma || JSON.stringify([...firma.nombres].sort()) !== JSON.stringify(claves)) {
+    const encaja = firma && claves.every((k) => firma.nombres.includes(k)) && firma.obligatorios.every((k) => claves.includes(k));
+    if (!encaja) {
       return [404, { code: 'PGRST202', message: `Could not find the function public.${nombre}(${claves.join(', ')}) in the schema cache`,
         hint: firma ? `Parámetros esperados: ${firma.nombres.join(', ')}` : null }];
     }
-    const lista = firma.nombres.map((n) => `${n} => x.${n}`).join(', ');
-    const columnas = firma.nombres.map((n, i) => `${n} ${firma.tipos[i]}`).join(', ');
+    const usados = firma.nombres.filter((n) => claves.includes(n));
+    const lista = usados.map((n) => `${n} => x.${n}`).join(', ');
+    const columnas = usados.map((n) => `${n} ${firma.tipos[firma.nombres.indexOf(n)]}`).join(', ');
     try {
-      const r = await comoRol(pg, rol, sub, (tx) =>
-        tx.query(`select public.${nombre}(${lista}) as r from jsonb_to_record($1::jsonb) as x(${columnas})`, [JSON.stringify(args)]));
+      const r = await comoRol(pg, rol, sub, (tx) => usados.length
+        ? tx.query(`select public.${nombre}(${lista}) as r from jsonb_to_record($1::jsonb) as x(${columnas})`, [JSON.stringify(args)])
+        : tx.query(`select public.${nombre}() as r`));
       return [200, r.rows[0].r];
     } catch (e) {
       const cuerpo = { code: e.code ?? 'XX000', message: e.message, details: e.detail ?? null, hint: e.hint ?? null };
@@ -143,7 +156,7 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
     for (const p of PROFESIONALES) {
       const cuenta = await altaDeCuenta(p.email, CLAVE_DE_PRUEBA);
       const [, pedido] = await llamar('pedir_acceso', { p_slug: CONSULTORIO.slug, p_nombre: p.nombre, p_profesion: p.profesion, p_categoria: cat[p.categoria],
-        p_telefono: p.telefono, p_cuit: p.cuit }, 'authenticated', cuenta.id);
+        p_telefono: p.telefono, p_cuit: p.cuit, p_condicion_iva: p.condicion }, 'authenticated', cuenta.id);
       if (p.estado === 'aprobado') {
         await llamar('cambiar_estado_profesional', { p_slug: CONSULTORIO.slug, p_miembro: pedido.id, p_estado: 'aprobado' }, 'authenticated', duena.id);
       }
@@ -223,7 +236,7 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
         return responder(res, 200, { id: cuenta.id, email: cuenta.email, user_metadata: cuenta.datos ?? {} });
       }
       if (req.method !== 'POST') return responder(res, 405, { message: 'método no permitido' });
-      if (req.headers.apikey !== CLAVE_PUBLICA) return responder(res, 401, { message: 'No API key found in request' });
+      if (req.headers.apikey !== CLAVE_PUBLICA && req.headers.apikey !== CLAVE_SECRETA) return responder(res, 401, { message: 'No API key found in request' });
       const cuerpo = await leerCuerpo(req);
       const pase = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
 
@@ -295,11 +308,37 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
         res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
         return res.end();
       }
+      // La función de Supabase «facturar» (supabase/functions/facturar), con el ARCA simulado
+      if (url.pathname === '/functions/v1/facturar') {
+        const datos = leerPase(pase);
+        if (!datos || datos.exp <= Math.floor(Date.now() / 1000)) return responder(res, 401, { code: 'sin_sesion' });
+        const comoBase = async (fn, args, rol, sub) => {
+          const [estado, salida] = await llamar(fn, args, rol, sub);
+          if (estado !== 200) throw Object.assign(new Error(salida.code === 'P0001' ? salida.message : salida.code), { estado });
+          return salida;
+        };
+        const dep = {
+          rpcUsuario: (fn, args) => comoBase(fn, args, 'authenticated', datos.sub),
+          rpcServicio: (fn, args) => comoBase(fn, args, 'service_role', null),
+          firmar: () => 'Q01T',
+          prueba: { cuit: '20123456786', puntoVenta: 1 },
+          fetchFn: arca.fetchFn,
+        };
+        try {
+          if (cuerpo.accion === 'facturar') return responder(res, 200, await facturarMes(dep, String(cuerpo.slug ?? ''), String(cuerpo.periodo ?? '')));
+          if (cuerpo.accion === 'probar') return responder(res, 200, await probarConexion(dep, String(cuerpo.slug ?? '')));
+          return responder(res, 400, { code: 'dato_invalido' });
+        } catch (e) {
+          return responder(res, e.estado === 401 ? 401 : 400, { code: String(e.message) });
+        }
+      }
       const rpc = /^\/rest\/v1\/rpc\/([^/]+)$/.exec(url.pathname);
       if (rpc) {
         let rol = 'anon';
         let sub = null;
-        if (pase !== CLAVE_PUBLICA) {
+        if (req.headers.apikey === CLAVE_SECRETA && (pase === '' || pase === CLAVE_SECRETA)) {
+          rol = 'service_role';
+        } else if (pase !== CLAVE_PUBLICA) {
           const datos = leerPase(pase);
           if (!datos) return responder(res, 401, { code: 'PGRST301', message: 'JWSError JWSInvalidSignature' });
           if (datos.exp <= Math.floor(Date.now() / 1000)) return responder(res, 401, { code: 'PGRST301', message: 'JWT expired' });
@@ -326,6 +365,8 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
     set confirmarMail(valor) { confirmarMail = valor; },
     /** Los mails de registro que se «mandaron»: { para, asunto, enlace }. */
     mails,
+    /** El ARCA simulado con el que habla la función de facturar (para mirar lo que recibió o pedirle fallas). */
+    arca,
     async cerrar() {
       await new Promise((listo) => servidor.close(listo));
       servidor.closeAllConnections?.();

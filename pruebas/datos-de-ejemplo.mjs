@@ -17,7 +17,7 @@ export const CONSULTORIO = {
     'Los residuos patogénicos van en el recipiente rojo. Cada profesional trae sus insumos descartables.',
     'Cualquier rotura o faltante se avisa el mismo día a la administradora.',
   ].join('\n'),
-  facturacion: { nombre: 'Laura Benítez', cuit: '27-30111222-4', condicion: 'Monotributo', puntoVenta: 2 },
+  facturacion: { nombre: 'Laura Benítez', cuit: '27-30111222-5', condicion: 'Monotributo', puntoVenta: 2 },
 };
 
 export const CATEGORIAS = [
@@ -42,7 +42,7 @@ export const MAQUINAS = [
 /** La dueña y las profesionales de prueba. Todas entran con CLAVE_DE_PRUEBA. */
 export const DUENA = { email: 'laura@lavanda.prueba', nombre: 'Laura' };
 export const PROFESIONALES = [
-  { email: 'lucia@lavanda.prueba', nombre: 'Lucía Ferrari', profesion: 'Médica dermatóloga', categoria: 'medica', telefono: '11 5555-0111', cuit: '27-28111222-3', estado: 'aprobado' },
-  { email: 'caro@lavanda.prueba', nombre: 'Carolina Méndez', profesion: 'Cosmetóloga', categoria: 'estetica', telefono: '11 5555-0122', cuit: '27-30222333-4', estado: 'aprobado' },
-  { email: 'martina@lavanda.prueba', nombre: 'Martina Sosa', profesion: 'Cosmiatra', categoria: 'estetica', telefono: '11 5555-0155', cuit: '27-33555666-7', estado: 'pendiente' },
+  { email: 'lucia@lavanda.prueba', nombre: 'Lucía Ferrari', profesion: 'Médica dermatóloga', categoria: 'medica', telefono: '11 5555-0111', cuit: '27-28111222-3', condicion: 6, estado: 'aprobado' },
+  { email: 'caro@lavanda.prueba', nombre: 'Carolina Méndez', profesion: 'Cosmetóloga', categoria: 'estetica', telefono: '11 5555-0122', cuit: '27-30222333-0', condicion: 6, estado: 'aprobado' },
+  { email: 'martina@lavanda.prueba', nombre: 'Martina Sosa', profesion: 'Cosmiatra', categoria: 'estetica', telefono: '11 5555-0155', cuit: '27-33555666-1', condicion: 5, estado: 'pendiente' },
 ];

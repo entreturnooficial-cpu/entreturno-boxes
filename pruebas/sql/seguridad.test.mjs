@@ -77,6 +77,7 @@ prueba('quien no es la dueña no puede usar ninguna función de la dueña', asyn
     ['quitar_bloqueo', { p_slug: 'lavanda', p_bloqueo: ninguno }],
     ['cambiar_estado_profesional', { p_slug: 'lavanda', p_miembro: martina, p_estado: 'aprobado' }],
     ['cambiar_categoria_profesional', { p_slug: 'lavanda', p_miembro: martina, p_categoria: esc.medica }],
+    ['cambiar_datos_fiscales_profesional', { p_slug: 'lavanda', p_miembro: martina, p_cuit: '27-11111111-7', p_condicion_iva: 6 }],
     ['guardar_turnos', { p_slug: 'lavanda', p_turno_horas: 2, p_abre: 8, p_cierra: 20, p_dias: '{1,2,3}' }],
     ['guardar_pago', { p_slug: 'lavanda', p_sena_pct: 30, p_minutos_pago: 30, p_max_saldos: 2 }],
     ['guardar_politica', { p_slug: 'lavanda', p_dias: 3, p_sena_antes: 100, p_sena_despues: 0, p_total_antes: 100, p_total_despues: 0 }],
@@ -88,6 +89,8 @@ prueba('quien no es la dueña no puede usar ninguna función de la dueña', asyn
     ['guardar_maquina', { p_slug: 'lavanda', p_id: null, p_nombre: 'Mía', p_resumen: '', p_precio_hora: 1, p_activa: true, p_foto: null }],
     ['quitar_maquina', { p_slug: 'lavanda', p_id: esc.maquinas.laser }],
     ['guardar_facturacion', { p_slug: 'lavanda', p_nombre: 'Yo', p_cuit: '20-1-1', p_condicion: 'Monotributo', p_punto_venta: 1 }],
+    ['facturacion_preparar', { p_slug: 'lavanda', p_periodo: '2026-11' }],
+    ['facturacion_estado', { p_slug: 'lavanda' }],
   ];
   // Todas las funciones con sesión que no son de uso general tienen que estar en la lista de arriba
   const generales = ['portada', 'foto', 'pedir_acceso', 'reservar', 'simular_pago', 'cancelar_reserva'];

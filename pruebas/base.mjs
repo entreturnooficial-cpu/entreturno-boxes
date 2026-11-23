@@ -9,7 +9,8 @@ import { btree_gist } from '@electric-sql/pglite/contrib/btree_gist';
 
 const CARPETA_MIGRACIONES = new URL('../supabase/migrations/', import.meta.url);
 /** El archivo del reloj (pg_cron) no va acá: solo existe en el proyecto real. */
-export const MIGRACIONES = ['20261120100000_tablas.sql', '20261120100100_funciones.sql', '20261120100300_mails.sql'];
+export const MIGRACIONES = ['20261120100000_tablas.sql', '20261120100100_funciones.sql', '20261120100300_mails.sql',
+  '20261123100000_facturas_arca.sql'];
 export const ZONA = 'America/Argentina/Buenos_Aires';
 
 /** Dueño de tablas y funciones (en Supabase es `postgres`, que NO es superusuario). */
@@ -80,11 +81,11 @@ export function leerMigracion(nombre) {
 }
 
 /** Base nueva, ya migrada. */
-export async function armarBase() {
+export async function armarBase(migraciones = MIGRACIONES) {
   const pg = await PGlite.create({ extensions: { btree_gist } });
   await pg.exec(PREPARAR_SUPABASE);
   await pg.exec(`set role ${DUENO}`);
-  for (const nombre of MIGRACIONES) {
+  for (const nombre of migraciones) {
     try {
       await pg.exec(leerMigracion(nombre));
     } catch (e) {

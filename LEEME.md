@@ -22,7 +22,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
-| Facturas con ARCA | **En curso (23/11)**: la conexión con ARCA está hecha, revisada por Codex (14 puntos, los del módulo corregidos) y probada contra el ambiente de prueba de ARCA (10 de 10: Facturas C y Nota de Crédito C de mentira con su CAE, consulta y conciliación de un pendiente) y con 35 pruebas sin internet. Falta la base, la función de Supabase, el PDF con QR y las pantallas (los botones siguen apagados). Ver «Facturas con ARCA» |
+| Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Todavía NO está cargado en el Supabase real ni publicado**: ver «Cómo se carga en Supabase». Falta el PDF con QR |
 | Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
 | «Crear cuenta» desde el panel de la dueña | Falta. Hoy cada profesional se registra sola y la dueña la aprueba |
 | Probarla en un celular real | Falta |
@@ -31,8 +31,8 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (113 pruebas: base de datos + conexión + ARCA sin internet; medio minuto)
-npm run test:pantallas    (91 comprobaciones de la página en un Edge sin ventana; deja capturas en E:\Entreturno boxes\pruebas)
+npm test                  (143 pruebas: base de datos + conexión + ARCA y facturación con un ARCA simulado; medio minuto)
+npm run test:pantallas    (103 comprobaciones de la página en un Edge sin ventana; deja capturas en E:\Entreturno boxes\pruebas)
 npm run test:real         (8 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
 npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda»)
@@ -55,6 +55,9 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
   `pruebas\pantallas.mjs` — la página en un navegador. `pruebas\servidor-local.mjs` — imita lo que se usa de Supabase.
 - `supabase\functions\_compartido\arca.ts` — la conexión con ARCA (ticket y factura electrónica). Corre en Supabase (Deno) y en
   las pruebas (Node). `pruebas\arca.test.mjs` (sin internet) y `pruebas\arca-real.mjs` (contra el ambiente de prueba de ARCA).
+- `supabase\functions\_compartido\facturar.ts` — «Facturar todo el mes» y «Probar la conexión con ARCA».
+  `supabase\functions\facturar\index.ts` — la función de Supabase. `publicar\armar_funcion.mjs` la junta en un solo archivo
+  (`publicar\funcion-facturar\index.ts`) para pegarla en el panel. `pruebas\arca-simulado.mjs` — un ARCA de mentira.
 - `referencia\` — la demo de la que se partió y `como-se-paso-la-demo.py` (qué se le cambió; se corrió una sola vez).
 - `revisiones\` — los pedidos a Codex y sus respuestas.
 
@@ -257,21 +260,67 @@ hay que esperar a que venza.
   confirme el contador de Yani.
 - Cada devolución lleva una Nota de Crédito asociada a su factura.
 
+**«Facturar todo el mes» (hecho y probado en la compu el 23/11/2026; decisión de Santiago: una factura por mes):**
+- Yani aprieta «Facturar todo el mes» en Facturación. Sale UNA Factura C por profesional con todas sus horas del mes: las
+  reservas confirmadas o cumplidas, con sus máquinas. Es lo mismo que ya mostraba la pantalla.
+- **Solo meses terminados** (`mes_en_curso`). La base lo exige, no solo la página.
+- **Cada profesional tiene que tener CUIT válida y condición frente al IVA.**
+  - Se piden en «Pedir acceso»: una lista de cuatro opciones (monotributista, responsable inscripta, exenta y consumidora
+    final).
+  - La dueña las corrige en Profesionales → «Cambiar».
+  - A la que le falta algo no se le factura: queda aparte, sin frenar a las demás.
+- **El consultorio tiene `fact_ambiente`:**
+  - «apagado» (por defecto): el botón no se prende;
+  - «prueba»: ARCA de prueba, con la CUIT del WSASS; no les llega a las profesionales y la página lo avisa;
+  - «real».
+  - **Se cambia solo desde el SQL Editor**, nunca desde la página.
+- **Estados de cada factura:**
+  - pendiente → incierta (número anotado, esperando a ARCA) → emitida / rechazada (con el motivo) / revisar (a mano).
+  - Lo que va a ARCA queda congelado al preparar.
+  - En real, a la profesional le llega un mail con el número y el CAE.
+- **Reglas para no facturar dos veces (revisiones 4 y 5 de Codex):**
+  - un candado por numeración;
+  - el número se anota antes de mandarlo, y solo si el candado sigue siendo de esa corrida y lo congelado no cambió
+    (`factura_cambio`, `candado_perdido`);
+  - primero se concilian las «inciertas» de cualquier mes, y si alguna sigue en duda no sale ninguna otra;
+  - el ticket se pide de a uno por ambiente.
+- **Diferencias:** si después de facturar se agregan o cancelan turnos de ese mes, la pantalla lo marca («Cambió después»)
+  y no dice «Todo facturado». **Qué hacer con eso (otra factura o una nota de crédito) lo tiene que decidir el contador.**
+- **Ojo, RG 5866:** con el cobro por adelantado, la norma pide la factura al cobrar. La factura por mes la eligió Santiago:
+  falta que la confirme el contador de Yani.
+
+**Cómo se carga en Supabase (todavía no se hizo):**
+1. **Base:** en el SQL Editor, `supabase\migrations\20261123100000_facturas_arca.sql`.
+   - Tiene `drop table facturas` y `drop function`: el editor pide confirmar.
+   - Si `facturas` no está vacía, la migración corta sola.
+   - Después, `supabase\control.sql`, que tiene que dar f_public 33, con_sesion 27 y arca_solo_servicio 5.
+   - Está probada sobre una base con datos como los de Yani (`pruebas\sql\migracion-sobre-datos.test.mjs`).
+2. **La función:**
+   - Correr `node publicar\armar_funcion.mjs`.
+   - En el panel: Edge Functions → «Deploy a new function» → «Via Editor», con el nombre `facturar` y pegando
+     `publicar\funcion-facturar\index.ts`.
+   - Después, **apagar «Enforce JWT verification»**. La base revisa el pase en cada llamada.
+3. **Secretos** (Edge Functions → Secrets). **Los pega Santiago** con `Desktop\ENTRETURNO - ARCA\COPIAR PARA SUPABASE.cmd`:
+   - `ARCA_PRUEBA_CERT`, `ARCA_PRUEBA_CLAVE` y `ARCA_PRUEBA_CUIT` (la CUIT del WSASS);
+   - más adelante, `ARCA_REAL_CERT` y `ARCA_REAL_CLAVE`.
+   - Se pueden pegar en una sola línea: `normalizarPem` los arregla.
+4. **Página:** publicar como siempre (ver «Publicar»).
+5. **Prueba:**
+   - `update consultorios set fact_ambiente = 'prueba' where slug = 'yanina'`.
+   - Santiago, como Soporte: Configuración → «Probar la conexión con ARCA».
+   - Para facturar de verdad, cuando Yani delegue: `fact_ambiente = 'real'` y su CUIT y su punto de venta para web services
+     en Configuración.
+
 **Lo que sigue, en orden:**
-1. La respuesta del contador de Yani: ¿una factura por cada pago o una por el turno completo cuando entra la seña?
-2. Pedir la condición frente al IVA en «Pedir acceso», y también a las que ya tienen cuenta.
-   - Hoy `miembros` guarda la CUIT pero no la condición.
-3. La base:
-   - facturas por cobro con su nota de crédito (hoy la tabla `facturas` es una por profesional y por mes);
-   - el ticket guardado, el número pendiente y un candado por consultorio para emitir de a una;
-   - los datos fiscales que faltan del consultorio: domicilio comercial, Ingresos Brutos, inicio de actividades y si factura
-     en prueba o real.
-4. La función de Supabase (Deno) que usa `arca.ts`, con el certificado y la clave como secretos. Los carga Santiago.
-5. El comprobante para la profesional: PDF con el QR que pide ARCA, que se manda por mail.
-6. Las pantallas de Facturación de la dueña y de la profesional.
-7. Cuando Yani delegue:
+1. Cargarlo en Supabase y publicar (los pasos de arriba).
+2. La respuesta del contador de Yani:
+   - ¿una factura por mes le sirve, o tiene que ser por cobro?
+   - ¿qué se hace con los turnos que cambian después de facturar?
+3. El comprobante para la profesional: PDF con el QR que pide ARCA, que se manda por mail. Hoy le llega un mail con el
+   número y el CAE, y la factura se ve en «Mis Comprobantes» de ARCA.
+4. Cuando Yani delegue:
    - Santiago acepta y asigna el certificado;
-   - `puntosVenta` con su CUIT tiene que mostrar el punto de venta nuevo;
+   - «Probar la conexión» en real tiene que mostrar su punto de venta;
    - recién ahí, la primera factura real.
 
 ## Decisiones tomadas al armar (sin consultar; se pueden cambiar)

@@ -195,12 +195,13 @@ prueba('máquinas: agregar, editar, pausar y quitar sin tocar las reservas que y
 
 prueba('datos de facturación', async (e) => {
   const esc = await e.armar();
-  const guardar = (args) => e.llamarComo(esc.admin, 'guardar_facturacion', { p_slug: esc.slug, p_nombre: 'Laura Benítez', p_cuit: '27-30111222-4', p_condicion: 'Responsable inscripta', p_punto_venta: 3, ...args });
+  const guardar = (args) => e.llamarComo(esc.admin, 'guardar_facturacion', { p_slug: esc.slug, p_nombre: 'Laura Benítez', p_cuit: '27-30111222-5', p_condicion: 'Responsable inscripta', p_punto_venta: 3, ...args });
   await esperarError(guardar({ p_condicion: 'Otra cosa' }), 'dato_invalido');
   await esperarError(guardar({ p_punto_venta: 0 }), 'dato_invalido');
-  await esperarError(guardar({ p_cuit: '27-ABC' }), 'dato_invalido');
+  await esperarError(guardar({ p_cuit: '27-ABC' }), 'cuit_invalido');
+  await esperarError(guardar({ p_cuit: '27-30111222-4' }), 'cuit_invalido');           // el último número no da
   await guardar({});
-  assert.deepEqual((await e.foto(esc, esc.admin)).config.billing, { name: 'Laura Benítez', cuit: '27-30111222-4', cond: 'Responsable inscripta', pos: 3 });
+  assert.deepEqual((await e.foto(esc, esc.admin)).config.billing, { name: 'Laura Benítez', cuit: '27-30111222-5', cond: 'Responsable inscripta', pos: 3, env: 'apagado', address: '', iibb: '', start: null });
   assert.equal((await e.foto(esc, esc.lucia)).config.billing, null);                  // las profesionales no ven esos datos
 });
 

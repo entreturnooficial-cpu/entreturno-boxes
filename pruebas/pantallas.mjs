@@ -90,7 +90,7 @@ try {
     (v) => v.includes('Médicas y médicos') && v.includes('$ 10.000 la hora') && v.includes('$ 6.000 la hora'));
   await poner('#rn', 'Ana Paz'); await poner('#rp', 'Kinesióloga'); await poner('form[data-form="register"] input[name="category"]:last-of-type', '');
   await js(`document.querySelectorAll('form[data-form="register"] input[name="category"]')[1].click(); 1`);
-  await poner('#rm', 'ana@lavanda.prueba'); await poner('#rt', '11 5555-0199'); await poner('#rc', '27-22333444-5'); await poner('#rw', 'una-clave-de-prueba');
+  await poner('#rm', 'ana@lavanda.prueba'); await poner('#rt', '11 5555-0199'); await poner('#rc', '27-22333444-5'); await poner('#ri', '6'); await poner('#rw', 'una-clave-de-prueba');
   await enviar('form[data-form="register"]');
   ver('solicitud enviada', await texto('main'), (v) => v.includes('Tu solicitud está en revisión') && v.includes('Laura te va a contactar') && v.includes('Entrevista con Laura'));
   ver('menú de la pendiente', await js(`[...document.querySelectorAll('.sidebar .nav a')].map(a => a.textContent.trim()).join(', ')`), (v) => v === 'Mi solicitud, Los boxes, Máquinas');
@@ -123,7 +123,7 @@ try {
   for (const v of ['semana', 'mes', 'dias', 'dia']) await clic(`[data-action="ag-view"][data-v="${v}"]`);
   // Ajustes
   await menu('config');
-  ver('ajustes sin rótulos de ejemplo', await texto('main'), (v) => v.includes('Lo que cambiás acá vale para las reservas nuevas') && !v.includes('Ejemplo, a definir') && v.includes('Turnos con saldo pendiente') && v.includes('ARCA: sin conectar todavía'));
+  ver('ajustes sin rótulos de ejemplo', await texto('main'), (v) => v.includes('Lo que cambiás acá vale para las reservas nuevas') && !v.includes('Ejemplo, a definir') && v.includes('Turnos con saldo pendiente') && v.includes('ARCA: todavía sin conectar'));
   ver('tope de saldos por defecto', await js(`document.querySelector('#ms').selectedOptions[0].textContent`), 'Hasta 2');
   await poner('#ms', 1); await enviar('form[data-form="cfg-precio"]');
   ver('guardar seña y pago', [await aviso(), await js(`document.querySelector('#ms').selectedOptions[0].textContent + ' / ' + S.config.maxOpenBalances`)], (v) => v[0] === 'Seña y pago guardados.' && v[1] === 'Uno solo / 1');
@@ -139,8 +139,10 @@ try {
   await menu('profesionales'); await clic('[data-action="tab"][data-v="aprobadas"]');
   ver('profesionales aprobadas', await js(`[...document.querySelectorAll('main .li .t')].map(e => e.textContent.trim()).join(', ')`), (v) => v.includes('Lucía Ferrari') && v.includes('Carolina Méndez') && v.includes('Ana Paz'));
   ver('sin «Crear cuenta»', await texto('main .title-row'), (v) => v.includes('piden acceso desde ahí') && !v.includes('Crear cuenta'));
+  ver('CUIT y condición en Profesionales', await texto('main'), (v) => v.includes('CUIT 27-28111222-3 · Monotributista'));
   await menu('facturacion');
-  ver('facturación', await texto('main'), (v) => v.includes('Las facturas todavía no se emiten desde acá') && !v.includes('de muestra') && !v.includes('Demostración'));
+  ver('facturación apagada', await texto('main'), (v) => v.includes('La facturación con ARCA todavía no está prendida') && !v.includes('de muestra') && !v.includes('Demostración'));
+  ver('sin ARCA, el botón no se prende', await js(`document.querySelector('[data-action="inv-facturar"]').disabled`), true);
   await salir();
 
   console.log('--- una profesional ---');
@@ -234,7 +236,9 @@ try {
   ver('le pide los datos', await texto('.auth-card'), (v) => v.includes('Pedí acceso') && v.includes('Entraste como bea@lavanda.prueba') && v.includes('Salir de esta cuenta'));
   await foto('cuenta-sin-pedido');
   await poner('#rn', 'Bea Luna'); await poner('#rp', 'Podóloga'); await js(`document.querySelectorAll('form[data-form="pedido"] input[name="category"]')[1].click(); 1`);
+  await poner('#rc', '27-22333444-5'); await poner('#ri', '4');
   await enviar('form[data-form="pedido"]');
+  ver('se guardó su CUIT y su condición', (await s.pg.query(`select cuit, condicion_iva from public.miembros where email = 'bea@lavanda.prueba'`)).rows[0], (v) => v.cuit === '27-22333444-5' && v.condicion_iva === 4);
   ver('queda pendiente', await texto('main'), 'Tu solicitud está en revisión');
   await salir();
   ver('al salir vuelve el ingreso', await js(`!!document.querySelector('form[data-form="login"]') && !document.querySelector('#toast').classList.contains('show')`), (v) => v === true);
@@ -328,7 +332,7 @@ try {
   const pedirAcceso = async (nombre, mail, clave) => {
     await clic('[data-action="auth-tab"][data-tab="register"]');
     await poner('#rn', nombre); await poner('#rp', 'Nutricionista'); await js(`document.querySelectorAll('form[data-form="register"] input[name="category"]')[1].click(); 1`);
-    await poner('#rm', mail); await poner('#rt', '11 5555-0142'); await poner('#rw', clave);
+    await poner('#rm', mail); await poner('#rt', '11 5555-0142'); await poner('#rc', '27-22333444-5'); await poner('#ri', '5'); await poner('#rw', clave);
     return enviar('form[data-form="register"]');
   };
   const mailsAntes = s.mails.length;
@@ -412,6 +416,47 @@ try {
   await boton('Volver a ingresar');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 768, deviceScaleFactor: 1, mobile: false });
   s.confirmarMail = false;
+
+  console.log('--- facturar todo el mes (ARCA simulado, modo prueba) ---');
+  // Al final, para no tocar los saldos de las pruebas de arriba: un turno cumplido de Lucía el mes pasado
+  await s.pg.query(`update public.consultorios set fact_ambiente = 'prueba' where slug = 'lavanda'`);
+  await s.pg.query(`
+    insert into public.reservas (consultorio_id, miembro_id, box_id, fecha, desde, hasta, servicio, categoria_id, categoria_nombre,
+                                 precio_hora, monto_box, total, monto_sena, plan, estado, reglamento_version)
+    select c.id, m.id, b.id, (date_trunc('month', now() at time zone c.zona) - interval '20 days')::date, 8, 12, 'Consulta',
+           k.id, k.nombre, k.precio_hora, k.precio_hora * 4, k.precio_hora * 4, k.precio_hora * 2, 'total', 'cumplida', c.reglamento_version
+      from public.consultorios c join public.miembros m on m.consultorio_id = c.id and m.email = $1
+      join public.boxes b on b.consultorio_id = c.id and b.numero = 1 join public.categorias k on k.id = m.categoria_id
+     where c.slug = 'lavanda'`, [LUCIA.email]);
+  await entrar(DUENA);
+  await menu('facturacion');
+  await clic('[data-action="inv-month"][data-go="-1"]');
+  ver('facturación en prueba', await texto('main'), (v) => v.includes('Modo prueba') && v.includes('Lucía Ferrari') && v.includes('Sin facturar'));
+  ver('botón facturar prendido', await js(`document.querySelector('[data-action="inv-facturar"]').disabled`), false);
+  await clic('[data-action="inv-facturar"]');
+  const aEmitir = await js(`billingRows(S.ui.invYm).filter(paraFacturar).length`);
+  ver('hoja para facturar', await texto('.overlay'), (v) => v.includes(aEmitir === 1 ? 'Emitir 1 factura' : `Emitir ${aEmitir} facturas`) && v.includes('Lucía Ferrari') && v.includes('Monotributista'));
+  await foto('facturar-el-mes');
+  await clic('[data-action="inv-facturar-ok"]');
+  await hasta(`document.querySelector('.overlay') && document.querySelector('.overlay').innerText.includes('Facturadas')`);
+  ver('resultado de facturar', await texto('.overlay'), (v) => v.includes('Facturadas') && v.includes('Lucía Ferrari') && v.includes('Número 0000000') && v.includes('Modo prueba'));
+  await foto('facturacion-resultado');
+  await clic('.overlay [data-action="close-sheet"]');
+  await hasta(`!document.querySelector('.overlay')`);
+  ver('quedaron facturadas', await texto('main'), (v) => v.includes('Facturada') && v.includes('C 0001-0000000') && !v.includes('Sin facturar'));
+  ver('ARCA recibió una por profesional', [s.arca.cuantos('FECAESolicitar'), aEmitir], (v) => v[0] === v[1] && v[0] >= 1);
+  ver('ya no queda nada para facturar', await js(`document.querySelector('[data-action="inv-facturar"]').disabled`), true);
+  await clic('[data-action="inv-open"]');
+  await hasta(`document.querySelector('.overlay') && document.querySelector('.overlay').innerText.includes('Detalle')`);
+  ver('la factura', await texto('.overlay'), (v) => /Factura C 0001-0000000\d/.test(v) && v.includes('Factura de prueba') && v.includes('CAE'));
+  await clic('.overlay [data-action="close-sheet"]');
+  await hasta(`!document.querySelector('.overlay')`);
+  await menu('config');
+  await clic('[data-action="inv-probar"]');
+  await hasta(`document.querySelector('.overlay') && document.querySelector('.overlay').innerText.includes('ARCA responde')`);
+  ver('probar la conexión con ARCA', await texto('.overlay'), (v) => v.includes('ARCA responde') && v.includes(`Último número emitido: ${aEmitir}`));
+  await clic('.overlay [data-action="close-sheet"]');
+  await salir();
 
   console.log('--- errores ---');
   const propios = errores.filter((e) => !/Failed to load resource.*(400|401|403)/.test(e));      // los rechazos esperados (clave equivocada) no cuentan
