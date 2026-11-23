@@ -22,7 +22,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
-| Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Todavía NO está cargado en el Supabase real ni publicado**: ver «Cómo se carga en Supabase». Falta el PDF con QR |
+| Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Cargado en Supabase y publicado el 23/11** (control 15 / 0 / 33 / 27 / 5; página TODO BIEN; `yanina` en modo prueba). Faltan los secretos de ARCA (los pega Santiago), probar la conexión y el PDF con QR |
 | Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
 | «Crear cuenta» desde el panel de la dueña | Falta. Hoy cada profesional se registra sola y la dueña la aprueba |
 | Probarla en un celular real | Falta |
@@ -289,7 +289,7 @@ hay que esperar a que venza.
 - **Ojo, RG 5866:** con el cobro por adelantado, la norma pide la factura al cobrar. La factura por mes la eligió Santiago:
   falta que la confirme el contador de Yani.
 
-**Cómo se carga en Supabase (todavía no se hizo):**
+**Cómo se carga en Supabase (hecho el 23/11/2026, salvo los secretos; la función se subió por el editor del panel):**
 1. **Base:** en el SQL Editor, `supabase\migrations\20261123100000_facturas_arca.sql`.
    - Tiene `drop table facturas` y `drop function`: el editor pide confirmar.
    - Si `facturas` no está vacía, la migración corta sola.
@@ -308,6 +308,8 @@ hay que esperar a que venza.
 5. **Prueba:**
    - `update consultorios set fact_ambiente = 'prueba' where slug = 'yanina'`.
    - Santiago, como Soporte: Configuración → «Probar la conexión con ARCA».
+   - Ojo: ARCA no da otro ticket para el mismo certificado mientras el anterior vale (12 h). El que pidió `npm run test:arca`
+     el 23/11 vencía a las 22:54: hasta esa hora, la función de Supabase no podía pedir el suyo (`ticket_perdido`).
    - Para facturar de verdad, cuando Yani delegue: `fact_ambiente = 'real'` y su CUIT y su punto de venta para web services
      en Configuración.
 
