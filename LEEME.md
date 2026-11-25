@@ -18,9 +18,9 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Revisión independiente de la página (Codex, 20/11) | 9 puntos: 6 corregidos con su prueba; 3 anotados más abajo. No encontró forma de meter código |
 | Revisión independiente de los mails de registro (Codex, 20/11) | 10 puntos: 6 corregidos, 2 comprobados y 2 que dependen de la prueba real (detalle más abajo). No encontró forma de meter código |
 | Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('yanina', '<su mail>', 'Yani')` |
-| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. **El consultorio sigue en `pagos_modo = 'simulado'`**: el pago publicado sigue siendo «de prueba» y no mueve plata. **Todavía no se probó contra el Mercado Pago de verdad.** La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. Falta: los pasos de Santiago en Mercado Pago con los 4 secretos (`Desktop\MERCADO PAGO - lo que tenés que hacer vos.txt`) y la primera prueba real. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
+| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. **Primera prueba real (ambiente de prueba de Mercado Pago) el 25/11: pago, confirmación, avisos firmados y devolución, todo bien** (ver «Cobro con Mercado Pago»); desde ese día el consultorio está en `mercadopago` / `prueba` y solo sirven tarjetas de prueba. Falta: activar producción, conectar la cuenta de Yani y `mp_ambiente = 'real'`. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
-| Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
+| Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **«Pedir acceso» con una cuenta nueva probado de verdad el 25/11** (mail, confirmación, pedido y aprobación). **Falta probar de verdad:** guardar una contraseña distinta |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
 | Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Cargado en Supabase y publicado el 23/11** (control 15 / 0 / 33 / 27 / 5; página TODO BIEN; `yanina` en modo prueba). **Secretos de ARCA pegados por Santiago el 23/11 a las 12:26 y comprobados por huella (5 de 5). «Probar la conexión con ARCA» salió bien desde la página a las 12:37** (modo prueba: ARCA responde, ticket vigente, punto de venta 0001). Falta el PDF con QR |
 | Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
@@ -431,14 +431,39 @@ Checkout Pro y «API de Orders»); por esa cuenta no pasa la plata de ningún co
 órdenes viejas para cerrar, devoluciones que esperan, pases que vencen en menos de 30 días. Si hay, despierta a la función
 con una clave que vive en el Vault. Si no hay nada, no llama a nadie.
 
-**Lo que NO se pudo comprobar sin el Mercado Pago de verdad** (el código está hecho para tolerarlo, pero hay que mirarlo en
-la primera prueba real):
-- Si la firma del aviso se calcula con el número de orden tal cual («ORD01…») o en minúsculas: se aceptan las dos.
-- Si `expiration_time` acepta minutos (`PT15M`): si lo rechaza, la orden se crea sin vencimiento y la cierra el reloj.
+**Primera prueba contra el Mercado Pago de verdad, en su ambiente de prueba (25/11/2026): salió bien de punta a punta.**
+- En la aplicación «Entreturno» (panel de Mercado Pago, cuenta de Santiago, con su OK y su código): URL de redireccionamiento,
+  PKCE y webhooks del ambiente Prueba («Order (Mercado Pago)» y «Vinculación de aplicaciones»). Secretos pegados por él:
+  `MP_PRUEBA_TOKEN` y `MP_WEBHOOK_SECRETO`. Consultorio en `pagos_modo = 'mercadopago'`, `mp_ambiente = 'prueba'` (con su OK).
+- **El orden en el panel importa: primero «Activar credenciales» de Prueba y después guardar los webhooks.** Al revés, la firma
+  secreta no se genera: el ojito queda apagado, los 64 puntitos que se ven NO son la firma (se copiaron por error y se detectó
+  comparando la huella del secreto), «Simular notificación» falla (`getWebhookSecret` 404) y Mercado Pago no manda ningún aviso.
+  Se arregla tocando «Guardar» otra vez.
+- «Pedir acceso» con una cuenta nueva: llegó el mail, se confirmó, el pedido apareció solo y se aprobó. (Estaba pendiente.)
+- La orden se creó en 2 segundos (`ORDTST…`) y `PT15M` fue aceptado (no quedó marcada sin vencimiento).
+- **Para pagar en la prueba: ventana de incógnito, sin sesión de Mercado Pago, y el mail `test@testuser.com`.** Con otro mail
+  dice «No podés pagar con un e-mail corporativo de Mercado Libre»; con la sesión de una persona real, «Una de las partes con
+  la que intentás hacer el pago es de prueba». (La guía de Checkout Pro dice que sirve cualquier mail: no es así.)
+- Pago de $ 50.000 aprobado: al volver, la página preguntó y la reserva quedó confirmada (12:22:09), con su mail.
+- Aviso simulado desde el panel, con un importe falso de 100.000: la función lo aceptó por la firma, releyó la orden y no
+  acreditó nada de más (un solo pago de 50.000).
+- Cancelada como Soporte a las 12:43:07: la devolución entera salió sola a las 12:44:03 (el reloj) y llegaron 4 avisos reales
+  («MercadoPago WebHook v1.0 order»), los 4 contestados 200: **la firma de los avisos de verdad se comprueba bien.**
+
+**Lo que todavía NO se comprobó contra el Mercado Pago de verdad:**
+- Que un pago se acredite solo con el aviso, sin volver a la página (esta vez la página preguntó antes).
 - El cuerpo exacto de la devolución de una parte y el texto del error cuando la cuenta no tiene saldo.
-- Que los avisos de las órdenes creadas con el pase de una dueña lleguen a la dirección de avisos de la aplicación.
-- Cómo se prueba la conexión de una cuenta en modo prueba (`test_token`) y cómo es el aviso de «le quitó el permiso».
+- Conectar una cuenta (hace falta activar producción y pegar `MP_CLIENT_ID` y `MP_CLIENT_SECRET`), `test_token`, que los avisos
+  de las órdenes de una dueña conectada lleguen a la aplicación, y el aviso de «le quitó el permiso».
+- La firma de los avisos de PRODUCCIÓN. La aplicación de prueba tiene otro número (2527279472896723, la de verdad es
+  3063961245855320), así que lo más probable es que la firma sea otra: hay que sumar un segundo secreto en la función.
 - Si Mercado Pago acepta direcciones de vuelta que no sean https (en la compu son http://localhost).
+
+**Encontrado en esa prueba, para corregir:**
+1. El mail «Recordatorio: mañana tenés…» salió para un turno del MISMO día, al minuto de confirmarlo (`interno.mantener` lo
+   manda si faltan menos de 24 horas y el texto dice siempre «mañana»).
+2. La hoja de pago en modo prueba debería decir qué mail usar.
+3. El segundo secreto para la firma de producción (arriba).
 
 **Cómo se carga en Supabase (hecho el 25/11/2026 con el OK de Santiago, «Sí, cargalo»; lo que falta está marcado):**
 
@@ -546,15 +571,14 @@ control de `volver_a` de la tabla `interno.mp_estados`.
 1. Hecho el 20/11: proyecto en Supabase, migraciones cargadas, `web\config.js` armado, consultorio de Yani cargado
    ($ 25.000 médicos y $ 20.000 esteticistas) y página real publicada en `yanina.entreturno.com.ar`.
 2. Hecho el 20/11: avisos por mail andando y mails de registro (confirmar cuenta, olvidé mi contraseña) publicados,
-   con «Confirm email» prendido. «Olvidé mi contraseña» ya se probó de verdad. **Falta la prueba real de «Pedir acceso»**
-   con una cuenta nueva (lo ideal: que la haga Santiago con otro mail antes de que se anote Yani).
+   con «Confirm email» prendido. «Olvidé mi contraseña» y «Pedir acceso» ya se probaron de verdad (20/11 y 25/11).
 3. Yani: que cree su cuenta desde la página y dejarla como dueña (`interno.alta_admin`).
 4. Datos reales de Yani: horarios, reglamento, descripción de los boxes, máquinas y fotos (depósito de archivos + subir
    desde Configuración).
-5. Mercado Pago real: **hecho y probado en la compu el 24/11/2026** contra un Mercado Pago simulado (ver «Cobro con
-   Mercado Pago»), y **cargado en Supabase y publicado el 25/11/2026** (el consultorio sigue en pagos de prueba). Falta que
-   Santiago cargue los datos en su aplicación de Mercado Pago y pegue los 4 secretos, y la primera prueba contra el Mercado
-   Pago de verdad.
+5. Mercado Pago real: hecho el 24/11, cargado y publicado el 25/11, y **probado de verdad el 25/11 en el ambiente de prueba de
+   Mercado Pago** (pago, avisos y devolución; ver «Cobro con Mercado Pago»). Falta: corregir lo que se encontró en esa prueba,
+   activar producción en la aplicación (Santiago), pegar `MP_CLIENT_ID`, `MP_CLIENT_SECRET` y la firma de producción, que Yani
+   conecte su cuenta y `mp_ambiente = 'real'`.
 6. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
 7. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
 
