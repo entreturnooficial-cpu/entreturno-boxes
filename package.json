@@ -12,6 +12,7 @@
     "test:pantallas": "node pruebas/pantallas.mjs",
     "test:pantallas-mp": "node pruebas/pantallas-mp.mjs",
     "test:real": "node pruebas/real.mjs",
+    "test:real-mp": "node pruebas/real-mp.mjs",
     "servidor": "node pruebas/servidor-local.mjs"
   },
   "devDependencies": {

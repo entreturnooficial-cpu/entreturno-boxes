@@ -18,7 +18,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Revisión independiente de la página (Codex, 20/11) | 9 puntos: 6 corregidos con su prueba; 3 anotados más abajo. No encontró forma de meter código |
 | Revisión independiente de los mails de registro (Codex, 20/11) | 10 puntos: 6 corregidos, 2 comprobados y 2 que dependen de la prueba real (detalle más abajo). No encontró forma de meter código |
 | Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('yanina', '<su mail>', 'Yani')` |
-| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. **El consultorio sigue en `pagos_modo = 'simulado'`**: el pago publicado sigue siendo «de prueba» y no mueve plata. **Todavía no se probó contra el Mercado Pago de verdad.** Falta: apagar «Verify JWT with legacy secret» de la función `mp` (se le pregunta a Santiago), sus pasos en Mercado Pago con los 4 secretos, y la primera prueba real. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
+| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. **El consultorio sigue en `pagos_modo = 'simulado'`**: el pago publicado sigue siendo «de prueba» y no mueve plata. **Todavía no se probó contra el Mercado Pago de verdad.** La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. Falta: los pasos de Santiago en Mercado Pago con los 4 secretos (`Desktop\MERCADO PAGO - lo que tenés que hacer vos.txt`) y la primera prueba real. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
@@ -35,6 +35,7 @@ npm test                  (197 pruebas: base de datos + conexión + ARCA con un 
 npm run test:pantallas    (103 comprobaciones de la página en un Edge sin ventana; deja capturas en E:\Entreturno boxes\pruebas)
 npm run test:pantallas-mp (56 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
 npm run test:real         (8 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
+npm run test:real-mp      (16 comprobaciones de la función «mp» real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
 npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda» y pagos de prueba)
 node pruebas/huellas.mjs  (escribe una consulta de SOLO LECTURA que compara la base real, pieza por pieza, con las migraciones)
@@ -434,9 +435,13 @@ Qué se hizo el 25/11 y cómo dio:
   desde la página de Yani anda, desde otro sitio da `dato_invalido`, pagar da `pagos_simulados` y las funciones del servidor
   dan «permission denied».
 - Función `mp` subida por el editor del panel (48.788 caracteres, huella `de7ab8698ad3`, igual a `publicar\funcion-mp\index.ts`).
-  **Queda con «Verify JWT with legacy secret» PRENDIDO** (así la crea Supabase): hasta apagarlo no entran ni la página, ni los
-  avisos de Mercado Pago, ni el reloj. Es apagar una protección, así que se le pregunta a Santiago aparte.
-- Reloj cargado: tarea `entreturno-boxes-mp`, cada minuto, corridas «succeeded», 0 pedidos en cola (no hay nada para hacer).
+  Supabase la crea con «Verify JWT with legacy secret» prendido, que deja afuera a la página, a los avisos y al reloj: **se apagó
+  con el OK de Santiago** («Sí, apagalo»). La función revisa por su cuenta a cada uno (sesión, firma o clave del reloj).
+- Desde afuera, con la función real: `npm run test:real-mp` 16 de 16 (sin sesión, pase inventado, clave pública, otro sitio, firma
+  inventada y reloj inventado: a todos les dice que no). Sin los secretos de Mercado Pago los avisos dan 500 «falta_configurar».
+- Reloj cargado: tarea `entreturno-boxes-mp`, cada minuto, corridas «succeeded», 0 pedidos en cola (no hay nada para hacer). Con
+  un pedido a mano desde la base (`net.http_post` con la clave del Vault) la función contestó 200 y todo en cero: el camino
+  base → función → base anda en el Supabase real.
 - Página publicada a las 10:53 (Cloudflare `yanina-entreturno`): TODO BIEN, 6 de 6, y sin errores al abrirla como visitante.
 
 Los pasos, para otra vez:
@@ -548,9 +553,9 @@ paso» avisa antes y después de moverlo. Lo que cambia para este trabajo:
 4. Datos reales de Yani: horarios, reglamento, descripción de los boxes, máquinas y fotos (depósito de archivos + subir
    desde Configuración).
 5. Mercado Pago real: **hecho y probado en la compu el 24/11/2026** contra un Mercado Pago simulado (ver «Cobro con
-   Mercado Pago»), y **cargado en Supabase y publicado el 25/11/2026** (el consultorio sigue en pagos de prueba). Falta: apagar
-   «Verify JWT with legacy secret» de la función `mp` (con el OK de Santiago), que él cargue los datos en su aplicación de
-   Mercado Pago y pegue los 4 secretos, y la primera prueba contra el Mercado Pago de verdad.
+   Mercado Pago»), y **cargado en Supabase y publicado el 25/11/2026** (el consultorio sigue en pagos de prueba). Falta que
+   Santiago cargue los datos en su aplicación de Mercado Pago y pegue los 4 secretos, y la primera prueba contra el Mercado
+   Pago de verdad.
 6. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
 7. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
 
