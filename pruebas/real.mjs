@@ -1,6 +1,7 @@
 // Comprueba el proyecto REAL de Supabase desde afuera, sin entrar con ninguna cuenta (no crea ni cambia nada):
 //   node pruebas/real.mjs            (npm run test:real)
 // Usa la dirección y la clave pública de web\config.js y el mismo web\conexion.js que usa la página.
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import '../web/conexion.js';
@@ -26,6 +27,18 @@ await espera('portada de un consultorio que no existe', conexion('no-existe-este
 // Lo demás, sin sesión, no se puede llamar
 await espera('foto sin sesión', conexion('yanina').rpc('foto'), ['42501 (401)', '42501 (403)', 'PGRST']);
 await espera('reservar sin sesión', conexion('yanina').rpc('reservar', { p_box: 1, p_fecha: '2030-01-07', p_desde: 8, p_hasta: 12, p_servicio: '', p_plan: 'sena', p_maquinas: [], p_reglamento_version: 1 }), ['42501 (401)', '42501 (403)', 'PGRST']);
+// El aviso de datos personales se lee sin entrar: con su versión, sin llaves sin completar y con la huella de ese mismo texto
+{
+  const p = (await conexion('yanina').rpc('portada')).site?.privacy ?? {};
+  const huella = createHash('sha256').update(p.text ?? '', 'utf8').digest('hex').slice(0, 32);
+  const ok = p.version >= 1 && p.text.length > 3000 && !/[{}]/.test(p.text) && p.hash === huella && p.text.includes('AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA');
+  if (!ok) fallas++;
+  console.log(`  ${ok ? '[OK]   ' : '[FALLA]'} ${'el aviso de datos se lee sin entrar'.padEnd(52)} versión ${p.version}, ${p.text?.length} letras, huella ${p.hash === huella ? 'igual' : 'DISTINTA'}`);
+}
+const sinPermiso = ['42501 (401)', '42501 (403)', 'PGRST'];
+await espera('aceptar el aviso sin sesión', conexion('yanina').rpc('aceptar_privacidad', { p_privacidad: 'x', p_exterior: true }), sinPermiso);
+await espera('cambiar los datos del aviso sin sesión', conexion('yanina').rpc('guardar_privacidad', { p_responsable: 'x', p_domicilio: 'x', p_contacto: 'x@example.com' }), sinPermiso);
+await espera('pedir acceso sin sesión', conexion('yanina').rpc('pedir_acceso', { p_nombre: 'x', p_profesion: 'x', p_categoria: '00000000-0000-0000-0000-000000000000', p_telefono: '', p_cuit: '', p_condicion_iva: 5, p_privacidad: 'x', p_exterior: true }), sinPermiso);
 // Las funciones internas no están publicadas
 await espera('función interna', conexion('yanina').rpc('mantener_todos', {}), ['PGRST202 (404)']);
 // Las tablas no se pueden leer por la API
