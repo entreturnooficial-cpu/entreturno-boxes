@@ -1,0 +1,61 @@
+# La copia de seguridad de todos los días: le pide la copia a Supabase (ya viene cifrada) y la guarda 30 días.
+# Está explicado en el LEEME, sección «Copia de seguridad». Si falla, GitHub le manda un mail al dueño de la cuenta.
+name: Copia diaria
+
+on:
+  schedule:
+    - cron: '23 6 * * *'        # 03:23 en Buenos Aires (GitHub la puede demorar un rato)
+  workflow_dispatch: {}          # el botón «Run workflow», para pedir una a mano
+
+# no necesita tocar nada del repositorio
+permissions: {}
+
+concurrency:
+  group: copia-diaria
+
+jobs:
+  copia:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Pedir la copia
+        id: pedir
+        env:
+          COPIA_CLAVE: ${{ secrets.COPIA_CLAVE }}
+          COPIA_URL: https://mgnzmjeyhzxzlyrgxotp.supabase.co/functions/v1/copia
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${COPIA_CLAVE:-}" ]; then echo "::error::Falta el secreto COPIA_CLAVE en este repositorio"; exit 1; fi
+          archivo="copia-$(TZ=America/Argentina/Buenos_Aires date +%Y-%m-%d-%Hh%M).ecopia"
+          curl --silent --show-error --fail --max-time 180 --retry 4 --retry-delay 30 --retry-all-errors \
+            --request POST --header "x-entreturno-copia: $COPIA_CLAVE" --data '' \
+            --dump-header cabeceras.txt --output "$archivo" "$COPIA_URL"
+          if [ "$(head -c 7 "$archivo")" != "ECOPIA1" ]; then echo "::error::Lo que llegó no es una copia"; exit 1; fi
+          bytes=$(wc -c < "$archivo" | tr -d ' ')
+          if [ "$bytes" -lt 2000 ]; then echo "::error::La copia es demasiado chica ($bytes bytes)"; exit 1; fi
+          huella=$(sha256sum "$archivo" | cut -d' ' -f1)
+          avisada=$(tr -d '\r' < cabeceras.txt | awk 'tolower($1) == "x-copia-huella:" { print $2 }' | tail -1)
+          if [ "$huella" != "$avisada" ]; then echo "::error::La copia llegó distinta de como salió"; exit 1; fi
+          rm -f cabeceras.txt
+          echo "archivo=$archivo" >> "$GITHUB_OUTPUT"
+          echo "huella=$huella" >> "$GITHUB_OUTPUT"
+          echo "Copia recibida: \`$archivo\` · $bytes bytes · huella \`$huella\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Guardarla 30 días
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a   # v7.0.1
+        with:
+          path: ${{ steps.pedir.outputs.archivo }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30        # lo que promete el convenio: las copias se borran solas a los 30 días
+      # recién ahora cuenta como hecha: si esto no pasa, el vigía de la base avisa por mail
+      - name: Confirmar que quedó guardada
+        env:
+          COPIA_CLAVE: ${{ secrets.COPIA_CLAVE }}
+          COPIA_URL: https://mgnzmjeyhzxzlyrgxotp.supabase.co/functions/v1/copia
+          HUELLA: ${{ steps.pedir.outputs.huella }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail --max-time 60 --retry 4 --retry-delay 30 --retry-all-errors \
+            --request POST --header "x-entreturno-copia: $COPIA_CLAVE" --header "x-entreturno-guardada: $HUELLA" --data '' "$COPIA_URL"

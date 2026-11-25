@@ -86,7 +86,7 @@ try {
   ver('texto del ingreso', await texto('.auth-side'), (v) => v.includes('3 boxes equipados, turnos de 4 h') && v.includes('Pagás seña del 50 % o el total') && v.includes('aprobados por Laura'));
   await foto('ingreso');
   ver('clave equivocada', (await entrar(LUCIA, 'otra-clave'), await aviso()), 'El mail o la contraseña no coinciden.');
-  ver('el aviso de datos se lee sin entrar', [await clic('.auth [data-action="ver-privacidad"]'), await texto('.overlay .sheet')], (v) => v[0] === 'ok' && v[1].includes('Aviso de datos personales') && v[1].includes('Consultorio Lavanda · versión 1')
+  ver('el aviso de datos se lee sin entrar', [await clic('.auth [data-action="ver-privacidad"]'), await texto('.overlay .sheet')], (v) => v[0] === 'ok' && v[1].includes('Aviso de datos personales') && v[1].includes('Consultorio Lavanda · versión 2')
     && v[1].includes('Dónde se guardan') && v[1].includes('San Pablo, Brasil') && v[1].includes('LA AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA') && !/[{}]/.test(v[1]));
   await foto('aviso-de-datos');
   await clic('.overlay [data-action="close-sheet"]');
@@ -107,7 +107,7 @@ try {
   ver('dos casilleros', await aceptarAviso('register'), 2);
   ver('ya se puede mandar', await falta(), '');
   await enviar('form[data-form="register"]');
-  ver('queda la constancia', (await s.pg.query(`select k.version, k.exterior, t.texto like '%Consultorio Lavanda%' as texto from interno.consentimientos k join interno.privacidad_textos t on t.huella = k.huella and t.consultorio_id = k.consultorio_id join public.miembros m on m.id = k.miembro_id where m.email = 'ana@lavanda.prueba'`)).rows, (v) => v.length === 1 && v[0].version === 1 && v[0].exterior === true && v[0].texto === true);
+  ver('queda la constancia', (await s.pg.query(`select k.version, k.exterior, t.texto like '%Consultorio Lavanda%' as texto from interno.consentimientos k join interno.privacidad_textos t on t.huella = k.huella and t.consultorio_id = k.consultorio_id join public.miembros m on m.id = k.miembro_id where m.email = 'ana@lavanda.prueba'`)).rows, (v) => v.length === 1 && v[0].version === 2 && v[0].exterior === true && v[0].texto === true);
   ver('solicitud enviada', await texto('main'), (v) => v.includes('Tu solicitud está en revisión') && v.includes('Laura te va a contactar') && v.includes('Entrevista con Laura'));
   ver('menú de la pendiente', await js(`[...document.querySelectorAll('.sidebar .nav a')].map(a => a.textContent.trim()).join(', ')`), (v) => v === 'Mi solicitud, Los boxes, Máquinas');
   await foto('solicitud-en-revision');
@@ -286,16 +286,16 @@ try {
   ver('cambió mientras lo leía', [await aviso(), await texto('.auth-card'), await js(`document.querySelectorAll('.consent input:checked').length`)], (v) => v[0].includes('cambió recién') && v[1].includes('con domicilio en Calle Falsa 123') && v[2] === 0);
   await aceptarAviso('privacidad'); await enviar('form[data-form="privacidad"]');
   ver('acepta y sigue', [await js(`!!document.querySelector('.sidebar')`), await aviso(), (await s.pg.query(`select count(*)::int as n from interno.consentimientos where miembro_id = (select id from public.miembros where email = $1)`, [CARO.email])).rows[0].n], (v) => v[0] === true && v[1] === 'Gracias. Ya podés seguir.' && v[2] === 1);
-  await s.pg.query(`insert into interno.privacidad (version, texto) select 2, replace(texto, 'versión 1', 'versión 2') from interno.privacidad where version = 1`);
+  await s.pg.query(`insert into interno.privacidad (version, texto) select 3, replace(texto, 'versión 2', 'versión 3') from interno.privacidad where version = 2`);
   await js(`refrescar().then(() => 1)`);
-  ver('una versión nueva se pide de nuevo', await texto('.auth-card'), (v) => v.includes('Cambió el aviso de datos personales') && v.includes('versión 2'));
+  ver('una versión nueva se pide de nuevo', await texto('.auth-card'), (v) => v.includes('Cambió el aviso de datos personales') && v.includes('versión 3'));
   await aceptarAviso('privacidad'); await enviar('form[data-form="privacidad"]');
-  ver('y también queda anotada', (await s.pg.query(`select version from interno.consentimientos where miembro_id = (select id from public.miembros where email = $1) order by version`, [CARO.email])).rows.map((r) => r.version).join(','), '1,2');
-  ver('el aviso, siempre a mano', [await clic('main [data-action="ver-privacidad"]'), await texto('.overlay .sheet-h')], (v) => v[0] === 'ok' && v[1].includes('versión 2'));
+  ver('y también queda anotada', (await s.pg.query(`select version from interno.consentimientos where miembro_id = (select id from public.miembros where email = $1) order by version`, [CARO.email])).rows.map((r) => r.version).join(','), '2,3');
+  ver('el aviso, siempre a mano', [await clic('main [data-action="ver-privacidad"]'), await texto('.overlay .sheet-h')], (v) => v[0] === 'ok' && v[1].includes('versión 3'));
   await clic('.overlay [data-action="close-sheet"]');
-  await s.pg.query(`delete from interno.consentimientos where version = 2`);      // el resto de la prueba sigue con la versión 1
-  await s.pg.query(`delete from interno.privacidad_textos where version = 2`);
-  await s.pg.query(`delete from interno.privacidad where version = 2`);
+  await s.pg.query(`delete from interno.consentimientos where version = 3`);      // el resto de la prueba sigue con la versión 2
+  await s.pg.query(`delete from interno.privacidad_textos where version = 3`);
+  await s.pg.query(`delete from interno.privacidad where version = 3`);
   await js(`refrescar().then(() => 1)`);
   await salir();
 

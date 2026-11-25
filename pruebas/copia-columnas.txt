@@ -1,0 +1,23 @@
+# Las tablas y columnas que salen en la copia de seguridad, revisadas una por una el 25/11/2026 (la copia va cifrada, pero ni así tiene que
+# llevar claves ni pases). Si una migración agrega algo, la prueba falla hasta que alguien lo mire y lo anote acá.
+interno.ajustes: clave, valor
+interno.consentimientos: aviso, consultorio_id, en, exterior, huella, id, miembro_id, usuario_id, version
+interno.copias: bytes, datos, guardada_en, hecha_en, huella, id, llaves
+interno.mp_cuentas: ambiente, conectada_en, confirmada_en, consultorio_id, email, error, estado, miembro_id, mp_user_id, nombre, renovada_en, vence
+interno.privacidad: desde, texto, version
+interno.privacidad_textos: consultorio_id, huella, primera_vez, texto, version
+public.avisos: asunto, consultorio_id, creado_en, cuerpo, enviado_en, error, estado, id, intentos, miembro_id, para, pedido_en, pedido_id
+public.bloqueo_boxes: bloqueo_id, box_id, consultorio_id
+public.bloqueos: consultorio_id, creado_en, desde, dia_semana, fecha, hasta, id, nota, recurrente
+public.box_precios: box_id, categoria_id, consultorio_id, precio_hora
+public.boxes: activo, consultorio_id, equipamiento, foto, id, nombre, numero, resumen
+public.categorias: activa, consultorio_id, creada_en, id, nombre, nota, orden, precio_hora
+public.consultorios: abre, activo, cierra, creado_en, dias, duena, fact_ambiente, fact_condicion, fact_cuit, fact_domicilio, fact_iibb, fact_inicio, fact_nombre, fact_punto_venta, id, letras, max_saldos, max_sin_pagar, minutos_pago, mp_ambiente, nombre, pagos_modo, pol_dias, pol_sena_antes, pol_sena_despues, pol_total_antes, pol_total_despues, priv_contacto, priv_domicilio, priv_responsable, reglamento, reglamento_version, semanas_adelante, sena_pct, slug, turno_horas, zona
+public.facturas: ambiente, anotado_en, cae, cae_vence, cbte_tipo, condicion_iva, consultorio_id, creada_en, doc_nro, doc_tipo, emisor_cuit, emitida_en, estado, fecha, horas, id, letra, lineas, miembro_id, numero, observaciones, periodo, punto_venta, servicio_desde, servicio_hasta, total
+public.maquinas: activa, consultorio_id, creada_en, foto, id, nombre, precio_hora, quitada, resumen
+public.miembros: categoria_id, condicion_iva, consultorio_id, cuit, desde, email, estado, id, nombre, profesion, rol, telefono, usuario_id
+public.pagos: actualizado_en, aprobado_en, consultorio_id, creado_en, datos, enlace, error, estado, id, intentos, monto, proveedor, proveedor_id, reserva_id, tipo, vence_en
+public.ratos_libres: box_id, consultorio_id, creado_en, desde, fecha, hasta, id
+public.reglamentos: consultorio_id, desde, texto, version
+public.reserva_maquinas: activa, consultorio_id, desde, fecha, hasta, horas, maquina_id, monto, nombre, precio_hora, reserva_id
+public.reservas: box_id, cancelada_en, cancelada_por, categoria_id, categoria_nombre, consultorio_id, creada_en, desde, devolucion_monto, devolucion_pct, estado, fecha, hasta, id, miembro_id, monto_box, monto_sena, plan, precio_hora, recordada, reglamento_version, servicio, total, vence_en

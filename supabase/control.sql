@@ -1,8 +1,9 @@
 -- Control para correr en el SQL Editor del proyecto real después de cargar las migraciones.
--- Tiene que dar: tablas 15 · sin_candado 0 · f_public 60 (61 en el proyecto real: public.rls_auto_enable)
---                sin_sesion «public.portada» · con_sesion 36 · arca_solo_servicio 5 · mp_solo_servicio 19
+-- Tiene que dar: tablas 15 · sin_candado 0 · f_public 63 (64 en el proyecto real: public.rls_auto_enable)
+--                sin_sesion «public.portada» · con_sesion 36 · arca_solo_servicio 5 · mp_solo_servicio 19 · copia_solo_servicio 3
 --                interno_abierto false · legibles 0 · mp_tablas_abiertas 0 · ext «extensions» · lee_usuarios true · dueno «postgres»
--- (antes del aviso de datos personales, del 25/11/2026, daba f_public 59 en el real y con_sesion 34;
+-- (antes de la copia de seguridad, del 25/11/2026, daba f_public 61 en el real, sin copia_solo_servicio;
+--  antes del aviso de datos personales, del 25/11/2026, daba f_public 59 en el real y con_sesion 34;
 --  antes del cobro con Mercado Pago, del 24/11/2026, daba f_public 32 y con_sesion 27, sin mp_solo_servicio;
 --  antes de las facturas con ARCA, del 23/11/2026, daba f_public 24 y con_sesion 24, sin arca_solo_servicio)
 select
@@ -22,6 +23,10 @@ select
     where p.pronamespace = 'public'::regnamespace and p.proname like 'mp\_%'
       and has_function_privilege('service_role', p.oid, 'execute')
       and not has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute')) as mp_solo_servicio,
+  (select count(*) from pg_proc p
+    where p.pronamespace = 'public'::regnamespace and p.proname like 'copia\_%'
+      and has_function_privilege('service_role', p.oid, 'execute')
+      and not has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute')) as copia_solo_servicio,
   (has_schema_privilege('anon', 'interno', 'usage') or has_schema_privilege('authenticated', 'interno', 'usage')) as interno_abierto,
   (select count(*) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p')
       and (has_table_privilege('anon', c.oid, 'select') or has_table_privilege('authenticated', c.oid, 'select'))) as legibles,

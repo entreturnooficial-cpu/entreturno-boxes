@@ -3,9 +3,10 @@
 //
 //   node publicar/armar_funcion.mjs     →  publicar/funcion-facturar/index.ts   (facturas con ARCA)
 //                                          publicar/funcion-mp/index.ts         (cobro con Mercado Pago)
+//                                          publicar/funcion-copia/index.ts      (copia de seguridad)
 //
 // Junta los archivos de _compartido con el index de cada función, sacando los import entre ellos. Los nombres no se
-// pisan: lo controlan pruebas/funcion.test.mjs y pruebas/funcion-mp.test.mjs, que además corren estos mismos archivos armados.
+// pisan: lo controlan pruebas/funcion.test.mjs, funcion-mp.test.mjs y copia.test.mjs, que además corren estos mismos archivos armados.
 // La única dependencia de afuera es npm:node-forge, y solo en «facturar».
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -42,3 +43,4 @@ function armar(nombre, compartidos, { conForge = false } = {}) {
 
 armar('facturar', ['arca.ts', 'facturar.ts'], { conForge: true });
 armar('mp', ['mp.ts', 'cobros.ts']);
+armar('copia', ['copia.ts', 'copia-llaves.ts']);

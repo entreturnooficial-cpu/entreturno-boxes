@@ -6,6 +6,7 @@ import { esperarError, esperarSinPermiso, prueba } from './entorno.mjs';
 
 const huellaDe = (texto) => createHash('sha256').update(texto, 'utf8').digest('hex').slice(0, 32);
 const portada = async (e, slug = 'lavanda') => (await e.comoAnon((c) => c.llamar('portada', { p_slug: slug }))).site.privacy;
+const VIGENTE = 2;            // la versión del aviso que está en las migraciones
 const constancias = (e, miembro) => e.sql(`select version, huella, aviso, exterior, usuario_id from interno.consentimientos where miembro_id = $1 order by version, en`, [miembro]);
 
 /** Alguien que ya era parte del consultorio antes de que existiera el aviso: está, pero sin constancia. */
@@ -16,7 +17,7 @@ async function sinConstancia(e, usuario, esc) {
 prueba('el aviso se lee antes de entrar, con los datos del consultorio y todo lo que pide la ley', async (e) => {
   await e.armar();
   const p = await portada(e);
-  assert.equal(p.version, 1);
+  assert.equal(p.version, VIGENTE);
   assert.equal(p.hash, huellaDe(p.text));
   assert.equal(/[{}]/.test(p.text), false, 'quedó un casillero sin completar');
   for (const dice of ['base de datos de Laura, responsable de «Consultorio Lavanda»', 'hablá con Laura', 'Hablá con Laura.',       // responsable y a quién pedirle
@@ -45,7 +46,7 @@ prueba('sin aceptar las dos cosas no se puede pedir acceso, y no queda nada guar
   assert.deepEqual(await e.uno('select (select count(*) from public.miembros)::int as m, (select count(*) from public.avisos)::int as a, (select count(*) from interno.consentimientos)::int as k'), antes);
 
   const r = await pedir(bien);
-  assert.deepEqual(await constancias(e, r.id), [{ version: 1, huella: bien.p_privacidad, aviso: true, exterior: true, usuario_id: ana }]);
+  assert.deepEqual(await constancias(e, r.id), [{ version: VIGENTE, huella: bien.p_privacidad, aviso: true, exterior: true, usuario_id: ana }]);
   // y queda guardado el texto entero que tuvo en pantalla
   assert.equal((await e.uno('select texto from interno.privacidad_textos where huella = $1', [bien.p_privacidad])).texto, (await portada(e)).text);
 });
@@ -70,23 +71,40 @@ prueba('quien ya tenía cuenta no puede reservar hasta aceptar; lo demás le sig
   assert.deepEqual(await aceptar(bien), { ok: true });
   assert.deepEqual(await aceptar(bien), { ok: true });                         // dos veces: queda una sola constancia
   assert.equal((await constancias(e, await e.miembro(esc, esc.lucia))).length, 1);
-  assert.equal((await e.foto(esc, esc.lucia)).users[0].privacy.version, 1);
+  assert.equal((await e.foto(esc, esc.lucia)).users[0].privacy.version, VIGENTE);
   await e.reservar(esc, esc.lucia, { fecha: dia, desde: 12, hasta: 16 });
+});
+
+prueba('la versión 2 nombra la copia de seguridad y no cambia nada más; quien aceptó la 1 tiene que aceptarla', async (e) => {
+  const filas = await e.sql(`select version, texto from interno.privacidad order by version`);
+  assert.deepEqual(filas.map((f) => f.version), [1, 2]);
+  const [v1, v2] = filas.map((f) => f.texto.split('\n'));
+  assert.equal(v1.length, v2.length);
+  const cambios = v1.map((r, i) => [r, v2[i]]).filter(([a, b]) => a !== b).map(([, b]) => b);
+  assert.equal(cambios.length, 4);
+  assert.match(cambios[0], /Es la versión 2, del 25 de noviembre de 2026\./);
+  assert.match(cambios[1], /Resend \(manda los mails\) y GitHub \(guarda la copia de seguridad de cada día, cifrada: no la puede leer\)\./);
+  assert.match(cambios[2], /La copia de seguridad se guarda, cifrada, en Estados Unidos, donde también procesan datos algunos de esos servicios\./);
+  assert.match(cambios[3], /En las copias de seguridad quedan hasta 30 días más, y después se borran solas\./);
+  const esc = await e.armar();
+  const m = await e.miembro(esc, esc.lucia);
+  await e.sql(`update interno.consentimientos set version = 1 where miembro_id = $1`, [m]);
+  await esperarError(e.reservar(esc, esc.lucia, { fecha: await e.diaHabil(3) }), 'privacidad_falta');
 });
 
 prueba('una versión nueva del aviso se pide de nuevo, y quedan las dos constancias', async (e) => {
   const esc = await e.armar();
   const dia = await e.diaHabil(10);
   const vieja = await e.aviso('lavanda');
-  await e.sql(`insert into interno.privacidad (version, texto) select 2, replace(texto, 'versión 1', 'versión 2') || ' Ahora también.' from interno.privacidad where version = 1`);
+  await e.sql(`insert into interno.privacidad (version, texto) select $1::int, replace(texto, 'versión ' || $2::int, 'versión ' || $1::int) || ' Ahora también.' from interno.privacidad where version = $2::int`, [VIGENTE + 1, VIGENTE]);
   const p = await portada(e);
-  assert.deepEqual([p.version, p.text.includes('Ahora también.'), p.hash === vieja.p_privacidad], [2, true, false]);
+  assert.deepEqual([p.version, p.text.includes('Ahora también.'), p.hash === vieja.p_privacidad], [VIGENTE + 1, true, false]);
   await esperarError(e.reservar(esc, esc.lucia, { fecha: dia }), 'privacidad_falta');
   await esperarError(e.llamarComo(esc.lucia, 'aceptar_privacidad', { p_slug: 'lavanda', ...vieja }), 'privacidad_cambio');       // tenía la anterior en pantalla
   await e.llamarComo(esc.lucia, 'aceptar_privacidad', { p_slug: 'lavanda', ...(await e.aviso('lavanda')) });
   await e.reservar(esc, esc.lucia, { fecha: dia });
-  assert.deepEqual((await constancias(e, await e.miembro(esc, esc.lucia))).map((k) => [k.version, k.huella === vieja.p_privacidad]), [[1, true], [2, false]]);
-  assert.equal((await e.foto(esc, esc.lucia)).users[0].privacy.version, 2);
+  assert.deepEqual((await constancias(e, await e.miembro(esc, esc.lucia))).map((k) => [k.version, k.huella === vieja.p_privacidad]), [[VIGENTE, true], [VIGENTE + 1, false]]);
+  assert.equal((await e.foto(esc, esc.lucia)).users[0].privacy.version, VIGENTE + 1);
 });
 
 prueba('la dueña completa los datos del aviso; quien ya aceptó no tiene que volver a hacerlo', async (e) => {
@@ -141,7 +159,7 @@ prueba('dos consultorios con el mismo texto: cada constancia queda con su consul
 prueba('quién ve la constancia: la dueña la de todas, cada profesional la suya; la dueña no tiene que aceptar', async (e) => {
   const esc = await e.armar();
   const f = await e.foto(esc, esc.admin);
-  assert.deepEqual(f.users.map((u) => [u.name, u.privacy ? u.privacy.version : null]).sort(), [['Carolina Méndez', 1], ['Laura', null], ['Lucía Ferrari', 1], ['Martina Sosa', 1]]);
+  assert.deepEqual(f.users.map((u) => [u.name, u.privacy ? u.privacy.version : null]).sort(), [['Carolina Méndez', VIGENTE], ['Laura', null], ['Lucía Ferrari', VIGENTE], ['Martina Sosa', VIGENTE]]);
   assert.ok(f.users.every((u) => !u.privacy || Math.abs(u.privacy.at - Date.now()) < 60000));
   assert.deepEqual((await e.foto(esc, esc.lucia)).users.map((u) => u.name), ['Lucía Ferrari']);
   assert.deepEqual(await e.llamarComo(esc.admin, 'aceptar_privacidad', { p_slug: 'lavanda', p_privacidad: null, p_exterior: null }), { ok: true });

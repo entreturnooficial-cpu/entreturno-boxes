@@ -60,7 +60,7 @@ test('la migración de Mercado Pago se carga sobre una base con datos y lo que h
     const control = (await pg.query(readFileSync(new URL('../../supabase/control.sql', import.meta.url), 'utf8'))).rows[0];
     assert.deepEqual({ ...control, lee_usuarios: undefined, dueno: undefined }, {
       tablas: 15, sin_candado: 0, f_public: 58, f_interno: control.f_interno, sin_sesion: 'public.portada', con_sesion: 34, arca_solo_servicio: 5,
-      mp_solo_servicio: 19, interno_abierto: false, legibles: 0, mp_tablas_abiertas: 0, ext: 'extensions', lee_usuarios: undefined, dueno: undefined });
+      mp_solo_servicio: 19, copia_solo_servicio: 0, interno_abierto: false, legibles: 0, mp_tablas_abiertas: 0, ext: 'extensions', lee_usuarios: undefined, dueno: undefined });
   } finally {
     await pg.close();
   }
@@ -110,7 +110,7 @@ test('la migración del aviso de datos se carga sobre una base con datos: lo que
     const control = (await pg.query(readFileSync(new URL('../../supabase/control.sql', import.meta.url), 'utf8'))).rows[0];
     assert.deepEqual({ ...control, f_interno: 0, lee_usuarios: undefined, dueno: undefined }, {
       tablas: 15, sin_candado: 0, f_public: 60, f_interno: 0, sin_sesion: 'public.portada', con_sesion: 36, arca_solo_servicio: 5,
-      mp_solo_servicio: 19, interno_abierto: false, legibles: 0, mp_tablas_abiertas: 0, ext: 'extensions', lee_usuarios: undefined, dueno: undefined });
+      mp_solo_servicio: 19, copia_solo_servicio: 0, interno_abierto: false, legibles: 0, mp_tablas_abiertas: 0, ext: 'extensions', lee_usuarios: undefined, dueno: undefined });
   } finally {
     await pg.close();
   }

@@ -5,3 +5,6 @@ __pycache__/
 .env*
 # Los zip son paquetes ya armados para subir a Cloudflare: se rearman con los programas
 *.zip
+# Las copias de seguridad y las llaves que las abren no van nunca al repositorio
+llave-privada-*.json
+*.ecopia
