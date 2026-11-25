@@ -21,7 +21,7 @@ export const CONSULTORIO = {
 };
 
 export const CATEGORIAS = [
-  { clave: 'medica', nombre: 'Médicas y médicos', nota: 'Atención médica. Incluye el servicio de emergencias y el seguro.', precio: 10000 },
+  { clave: 'medica', nombre: 'Médicas y médicos', nota: 'Atención médica.', precio: 10000 },
   { clave: 'estetica', nombre: 'Esteticistas', nota: 'Tratamientos estéticos, sin práctica médica.', precio: 6000 },
 ];
 

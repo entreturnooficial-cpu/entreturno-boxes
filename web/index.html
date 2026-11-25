@@ -509,7 +509,7 @@ button.seg:active{transform:scale(.985)}
 .choice{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--control);border-radius:12px;padding:13px 15px;margin-bottom:10px;cursor:pointer;color:inherit;transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .14s var(--ease-out)}
 .choice input{margin-top:3px;accent-color:var(--primary);width:18px;height:18px;flex:none}
 .choice .ct{font-weight:600}
-.choice .cs{font-size:13px;color:var(--muted);margin-top:1px}
+.choice .cs{font-size:13px;font-weight:400;color:var(--muted);margin-top:1px}
 .choice .camt{margin-left:auto;font-weight:600;white-space:nowrap}
 .choice:has(input:checked){border-color:var(--text);background:var(--raised);box-shadow:inset 0 0 0 1px var(--text)}
 button.choice:active{transform:scale(.985)}
@@ -1476,7 +1476,7 @@ const lateralDeIngreso = () => {
 const camposDelPedido = () => `
             <div class="field"><label for="rn">Nombre y apellido</label><input class="input" id="rn" name="name" required maxlength="80" autocomplete="name"></div>
             <div class="field"><label for="rp">Profesión</label><input class="input" id="rp" name="profession" required maxlength="80" placeholder="Ej.: Médica dermatóloga"></div>
-            <div class="field"><span class="lab">¿Qué vas a hacer en el consultorio?</span>
+            <div class="field"><span class="lab">¿En qué categoría entrás?</span>
               ${S.config.categories.map(k => `<label class="choice"><input type="radio" name="category" value="${k.id}" required><div><div class="ct">${esc(k.name)}</div>${k.note ? `<div class="cs">${esc(k.note)}</div>` : ""}</div><span class="camt num">${money(k.pricePerHour)}<small> la hora</small></span></label>`).join("")}
               <span class="hint">De esto depende el precio, que también puede cambiar según el box. ${OW()} lo confirma en la entrevista.</span></div>`;
 
@@ -2798,7 +2798,7 @@ function openCatSheet(k) {
   openSheet(`${sheetHead(k ? "Editar categoría" : "Agregar categoría", "El precio vale para las reservas nuevas")}
   <form data-form="cat-save" data-id="${k ? k.id : ""}"><div class="sheet-b">
     <div class="field"><label for="kn">Nombre</label><input class="input" id="kn" name="name" required value="${esc(k ? k.name : "")}" placeholder="Ej.: Esteticistas"></div>
-    <div class="field"><label for="kd">Qué incluye o a quién corresponde</label><input class="input" id="kd" name="note" value="${esc(k ? k.note || "" : "")}" placeholder="Ej.: Incluye el servicio de emergencias"></div>
+    <div class="field"><label for="kd">Qué incluye o a quién corresponde</label><input class="input" id="kd" name="note" value="${esc(k ? k.note || "" : "")}" placeholder="Ej.: Tratamientos faciales y corporales"></div>
     <div class="field"><label for="kp">Precio por hora</label><input class="input num" id="kp" name="pricePerHour" type="number" min="0" step="500" required value="${k ? k.pricePerHour : ""}"><span class="hint">Un turno de ${S.config.turnHours} h cuesta ${S.config.turnHours} veces este valor.</span></div>
     ${used ? `<p class="muted small">La ${used === 1 ? "usa 1 profesional" : "usan " + used + " profesionales"}. Para quitarla, pasalas antes a otra categoría.</p>` : ""}
   </div><div class="sheet-f">${canDelete ? `<button class="btn btn-danger" type="button" data-action="cat-del" data-id="${k.id}" style="margin-right:auto">Quitar</button>` : ""}<button class="btn" type="button" data-action="close-sheet">Cancelar</button><button class="btn btn-dark" type="submit">Guardar</button></div></form>`);

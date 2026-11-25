@@ -704,10 +704,15 @@ URL `https://puntoalmagro.entreturno.com.ar` y cuatro Redirect URLs (las dos dir
 **No mirado:** la página por dentro con una cuenta de verdad, en la dirección nueva (Santiago tiene que volver a entrar), y un mail de registro que
 vuelva a la dirección nueva.
 
-**A la espera de Yani** (`Desktop\YANI - lo que falta preguntarle (WhatsApp).txt`): si los precios son por hora, la duración del turno, la seña, qué pagan
-psicólogos y demás, qué incluye cada categoría, si alquila máquinas, reglas de uso y fotos. Mientras tanto, dos cosas de la página no coinciden con
-lo que dijo: el plano dibujado es el de la demo (muestra una camilla en el Consultorio 1, que no tiene) y el menú «Máquinas» y el renglón «Equipos para
-sumar a tu turno» se muestran aunque no haya ninguna cargada.
+**Contestado por Santiago el mismo día:** los precios son por hora, los turnos de 4 horas, la seña del 50 % con 15 minutos, reprogramar una vez hasta 3
+días antes y el mail del aviso («sobre el mensaje uno es todo si»). Categorías (OK: «Sí, así»), cargadas con `supabase\datos\puntoalmagro-categorias.sql`:
+Médicos, Psicólogos, Nutricionistas y Coaches a $ 25.000 la hora, y Esteticistas a $ 15.000. Lo del seguro y las emergencias se sacó por completo (de la
+categoría, del ejemplo de Configuración y de los datos de ejemplo), y al pedir acceso ahora pregunta «¿En qué categoría entrás?».
+
+**A la espera de Yani** (`Desktop\YANI - lo que falta preguntarle (WhatsApp).txt`): el detalle de las máquinas (hoy se cobran por todo el turno, en cualquier
+espacio y para cualquier categoría: si ella las quiere de otra forma, hay que armarlo), el borrador de 43 reglas de uso (cuando lo confirme va al
+reglamento, con títulos: hoy la página numera cada renglón), fotos, punto de venta, profesionales para la prueba, Mercado Pago y que se registre. El plano
+dibujado sigue siendo el de la demo (muestra una camilla en el Consultorio 1, que no nombró) y «Máquinas» se ve aunque todavía no haya ninguna.
 
 **Revisión 10 de Codex (5 puntos, todos corregidos con su prueba):** 1 el precio al mover se comparaba con el de hoy y no con lo que se cobró;
 2 con más de un cambio se podía mejorar la devolución; 3 la página ofrecía horarios con la máquina ocupada; 4 la política se guardaba en dos
