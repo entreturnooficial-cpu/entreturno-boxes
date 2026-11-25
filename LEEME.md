@@ -58,8 +58,8 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
 - `supabase\migrations\` — la base: `…_tablas.sql`, `…_funciones.sql`, `…_mails.sql` y `…_reloj.sql` (este último solo en el proyecto real).
   `supabase\datos\` — el alta del consultorio de Yani. `supabase\control.sql` — control de permisos para el proyecto real.
   `supabase\mails\` — los textos de los mails de registro, que se cargan a mano en el panel de Supabase (tiene su LEEME).
-- `publicar\armar_para_publicar.py` — arma `publicar\yanina\` y el zip que se sube a Cloudflare Pages (proyecto `yanina-entreturno`).
-  `publicar\comprobar_publicado.py` — después de subir: baja la página como un navegador y avisa si algo no coincide.
+- `publicar\armar_para_publicar.py` — arma `publicar\yanina\`, lo que se publica (lo corre Cloudflare solo en cada `push`).
+  `publicar\comprobar_publicado.py` — después del `push`: baja la página como un navegador y avisa si algo no coincide.
 - `web\index.html` — la página entera (estilos y lógica). `web\conexion.js` — lo único que habla con el servidor.
   `web\config.js` tiene la dirección y la clave pública del proyecto real (el servidor de prueba arma el suyo y no lo usa).
 - `pruebas\sql\` — pruebas de la base. `pruebas\conexion.test.mjs` — de punta a punta por la red.
@@ -78,11 +78,28 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
 
 ## Publicar (y por qué los archivos llevan una marca)
 
+**Desde el 25/11/2026 a las 11:13, un `push` a `main` ES la publicación.** Cloudflare (proyecto de Pages `entreturno-boxes`,
+conectado a GitHub) arma la página y la publica sola en `yanina.entreturno.com.ar`. Ya no se sube nada a mano. Lo conectó la
+sesión «Paso a paso» por pedido de Santiago; ese día se comprobó acá: 30 pedidos de 30 bien y todo igual a lo armado.
+
 ```
-python -X utf8 publicar\armar_para_publicar.py     (arma la carpeta y el zip)
-   … subir el zip a Cloudflare Pages: proyecto yanina-entreturno → Create deployment → Production → Save and deploy
-python -X utf8 publicar\comprobar_publicado.py     (tiene que terminar en TODO BIEN)
+npm test · npm run test:pantallas · npm run test:pantallas-mp    (antes de subir)
+   … si la página nueva necesita algo de la base o de una función: cargar Supabase PRIMERO y correr control.sql
+python -X utf8 publicar\armar_para_publicar.py                   (arma publicar\yanina, para comparar después)
+git pull --ff-only · git add -A · git commit -F <archivo> · git push
+python -X utf8 publicar\comprobar_publicado.py --esperar         (espera hasta 3 minutos; tiene que terminar en TODO BIEN)
 ```
+
+- Como subir es publicar, un cambio de la página se sube **con el OK de Santiago**, igual que antes hacía falta para publicar.
+  Lo que no toca la página (LEEME, pruebas) se puede subir cuando se quiera: se publica otra vez lo mismo.
+- Cloudflare corre `npm clean-install` antes de armar: si se agrega una dependencia, subir `package.json` y
+  `package-lock.json` juntos. Si no coinciden, la publicación falla y queda en línea la anterior.
+- Para volver atrás: en Cloudflare, proyecto `entreturno-boxes` → Deployments → la versión anterior → «Rollback» (sin probar
+  todavía), o `git revert` del cambio y `push`.
+- El proyecto viejo, `yanina-entreturno` (subida a mano), quedó sin dominio, de respaldo, con la página del 25/11 a las 10:53.
+- En `entreturno-boxes.pages.dev` (la misma página con otra dirección) no andan «Facturar» ni Mercado Pago: las funciones solo
+  aceptan `*.entreturno.com.ar`, `*-entreturno.pages.dev` y localhost. Para probar eso, usar la dirección real.
+
 
 En la dirección propia (`yanina.entreturno.com.ar`), Cloudflare le dice al navegador que guarde **4 horas** los `.js`, aunque
 el `_headers` del sitio pida lo contrario (en `…pages.dev` sí lo respeta). El 20/11/2026 eso rompió la primera prueba real:
@@ -490,32 +507,14 @@ diseño y las 10 que salieron de la revisión 6), y las 22 se detectaron (24/11/
 «el cobro es justo el de ese pago», y se le agregó su prueba). El programa que las rompe no está en el repositorio: es
 `E:\Entreturno boxes\pruebas\mutar.mjs`, y trabaja sobre la copia `E:\Entreturno boxes\pruebas\copia-para-romper`.
 
-**Ojo con el orden al publicar: GitHub ya publica solo en una dirección de prueba.** El 24/11/2026 la sesión «Paso a
-paso», por pedido de Santiago, conectó GitHub con Cloudflare. Hay un proyecto de Pages nuevo, `entreturno-boxes`, que en
-cada `push` a `main` corre `python3 publicar/armar_para_publicar.py` y publica `publicar/yanina` en
-`https://entreturno-boxes.pages.dev` (tarda unos 14 segundos, según esa sesión). Esa copia habla con el Supabase real.
-Ese día `yanina.entreturno.com.ar` seguía saliendo del proyecto viejo `yanina-entreturno`, de subida a mano; «Paso a
-paso» avisa antes y después de moverlo. Lo que cambia para este trabajo:
+**El orden al publicar: primero Supabase, después el `push`** (que es la publicación; ver «Publicar»). El 25/11/2026 se hizo así:
+base, función `mp`, reloj, página (la última subida a mano, 10:53) y `push`. A las 11:13 la dirección pasó al proyecto que
+publica solo.
 
-- **Primero Supabase, después el `push`, desde ya.** La página nueva llama a funciones que no existen hasta cargar la
-  migración. Orden: la base, la función `mp` y `control.sql`; después publicar (a mano mientras el dominio no se mueva) y
-  comprobar; recién entonces el `push`. Antes de publicar, mirar si el dominio ya se movió: si se movió, el `push` ES la
-  publicación.
-- **Comprobar también la dirección nueva.** `publicar\comprobar_publicado.py` mira `yanina.entreturno.com.ar` y
-  `yanina-entreturno.pages.dev`. Después del `push`, correrlo con `--github`, que mira `entreturno-boxes.pages.dev` (esperar
-  un minuto); cuando el dominio se mueva, el segundo sitio de ese programa pasa a ser ese.
-- El 25/11/2026 se hizo en ese orden: Supabase, página (a mano, el dominio seguía en `yanina-entreturno`) y `push`.
-- **En `entreturno-boxes.pages.dev` no andan ni «Facturar» ni Mercado Pago** (mirado en el código el 24/11/2026). Las
-  dos funciones y la vuelta de conectar la cuenta solo aceptan `*.entreturno.com.ar`, `*-entreturno.pages.dev` y, en
-  pruebas, localhost. El nombre nuevo empieza con «entreturno-», no termina así. Para el público no cambia nada: el
-  dominio real sigue aceptado aunque pase al proyecto nuevo. Para probar ARCA o Mercado Pago, usar el dominio real.
-- **Mejora menor pendiente:** el patrón `*-entreturno.pages.dev` acepta cualquier proyecto de Pages cuyo nombre termine
-  así, también de otra cuenta de Cloudflare. Con eso solo no se puede hacer nada (hace falta el pase de la persona), pero
-  es más prolijo poner la lista exacta de direcciones propias. Si se cambia, va en las dos funciones y en el control de
-  `volver_a` de la tabla `interno.mp_estados`.
-- **Paquetes:** Cloudflare corre `npm clean-install` en cada publicación. Si se agrega una dependencia, subir
-  `package.json` y `package-lock.json` juntos; si no coinciden, la publicación falla y queda en línea la anterior. El
-  cambio de Mercado Pago solo tocó `scripts` (comprobado con `git diff` el 24/11/2026).
+**Mejora menor pendiente:** el patrón `*-entreturno.pages.dev` que aceptan las funciones sirve para cualquier proyecto de Pages
+cuyo nombre termine así, también de otra cuenta de Cloudflare. Con eso solo no se puede hacer nada (hace falta el pase de la
+persona), pero es más prolijo poner la lista exacta de direcciones propias. Si se cambia, va en las dos funciones y en el
+control de `volver_a` de la tabla `interno.mp_estados`.
 
 **Limitaciones conocidas (para decidir más adelante):**
 - No hay ninguna prueba con dos conexiones a la vez (reservar, cancelar y un aviso de pago en el mismo instante): hay que

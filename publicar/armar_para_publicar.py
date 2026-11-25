@@ -1,4 +1,5 @@
-# Arma lo que se sube a Cloudflare Pages para un consultorio (por ahora, el de Yani: proyecto «yanina-entreturno»).
+# Arma lo que publica Cloudflare Pages para un consultorio (por ahora, el de Yani: proyecto «entreturno-boxes»). Desde el
+# 25/11/2026 lo corre Cloudflare solo en cada «push» a main; acá se corre para probar y para comparar después de publicar.
 #   python -X utf8 publicar\armar_para_publicar.py
 # Deja la carpeta publicar\yanina\ y el zip «publicar\yanina - sitio para subir.zip» con la página real:
 # index.html, conexion.js, config.js (apuntando al proyecto real de Supabase y con el consultorio fijo), _headers y 404.html.
