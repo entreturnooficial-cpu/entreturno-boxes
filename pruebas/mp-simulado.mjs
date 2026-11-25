@@ -48,9 +48,9 @@ export function crearMpSimulado({
   /** El pase de prueba de la aplicación (la cuenta de Entreturno, en modo prueba). */
   const dePrueba = cuenta('900900900', { nombre: 'Entreturno Prueba', real: false });
 
-  const firmar = (dato, pedido, ts = Date.now()) => {
+  const firmar = (dato, pedido, ts = Date.now(), secreto = secretoAvisos) => {
     const manifiesto = [dato ? `id:${dato}` : '', pedido ? `request-id:${pedido}` : '', `ts:${ts}`].filter(Boolean).join(';') + ';';
-    return `ts=${ts},v1=${createHmac('sha256', secretoAvisos).update(manifiesto).digest('hex')}`;
+    return `ts=${ts},v1=${createHmac('sha256', secreto).update(manifiesto).digest('hex')}`;
   };
 
   /** El aviso que Mercado Pago mandaría por una orden, con su firma. */

@@ -205,21 +205,43 @@ prueba('datos de facturación', async (e) => {
   assert.equal((await e.foto(esc, esc.lucia)).config.billing, null);                  // las profesionales no ven esos datos
 });
 
-prueba('el recordatorio del día anterior se deja listo una sola vez', async (e) => {
+// Un turno confirmado que empieza dentro de `horas`, reservado hace `dias` días. Devuelve null si a esta hora el turno cruzaría
+// la medianoche (la prueba no sirve) o la fecha y los recordatorios que salieron después de abrir la página dos veces.
+async function recordatoriosDe(e, horas, dias) {
   const esc = await e.armar();
   await e.sql(`update public.consultorios set abre = 0, cierra = 24, turno_horas = 1, dias = '{0,1,2,3,4,5,6}' where id = $1`, [esc.id]);
-  const en = await e.uno(`select ((now() at time zone 'America/Argentina/Buenos_Aires') + interval '3 hours')::date::text as dia,
-                                 extract(hour from (now() at time zone 'America/Argentina/Buenos_Aires') + interval '3 hours')::int as hora`);
-  if (en.hora === 23) return;        // el turno cruzaría la medianoche: no se prueba a esa hora
+  const en = await e.uno(`select (x.t)::date::text as dia, extract(hour from x.t)::int as hora, ((x.t)::date = (now() at time zone 'America/Argentina/Buenos_Aires')::date) as hoy
+                            from (select (now() at time zone 'America/Argentina/Buenos_Aires') + make_interval(hours => $1) as t) x`, [horas]);
+  if (en.hora === 23) return null;
   const r = await e.reservar(esc, esc.lucia, { fecha: en.dia, desde: en.hora, hasta: en.hora + 1, plan: 'sena' });
+  await e.sql(`update public.reservas set creada_en = now() - make_interval(days => $2) where id = $1`, [r.id, dias]);
   await e.pagar(esc, esc.lucia, r.id, 'sena');
   await e.foto(esc, esc.admin);
   await e.foto(esc, esc.lucia);
-  const avisos = await e.sql(`select asunto, cuerpo from public.avisos where miembro_id = $1 and asunto like 'Recordatorio%'`, [await e.miembro(esc, esc.lucia)]);
-  assert.equal(avisos.length, 1);
-  assert.equal(avisos[0].asunto, 'Recordatorio: mañana tenés Box 2');
-  assert.match(avisos[0].cuerpo, /Te queda pagar el saldo: \$ 5\.000\./);
+  return { ...en, recordada: (await e.uno('select recordada from public.reservas where id = $1', [r.id])).recordada,
+    avisos: await e.sql(`select asunto, cuerpo from public.avisos where miembro_id = $1 and asunto like 'Recordatorio%'`, [await e.miembro(esc, esc.lucia)]) };
+}
+
+prueba('el recordatorio del día anterior sale una sola vez y dice «mañana» o «hoy» según la fecha', async (e) => {
+  const v = await recordatoriosDe(e, 20, 3);
+  if (!v) return;
+  assert.equal(v.avisos.length, 1);
+  assert.equal(v.avisos[0].asunto, `Recordatorio: ${v.hoy ? 'hoy' : 'mañana'} tenés Box 2`);
+  assert.match(v.avisos[0].cuerpo, /Te queda pagar el saldo: \$ 5\.000\./);
 });
+
+prueba('un recordatorio que sale tarde, el mismo día del turno, dice «hoy»', async (e) => {
+  const v = await recordatoriosDe(e, 2, 3);
+  if (!v || !v.hoy) return;                       // a última hora de la noche, «dentro de 2 horas» ya es mañana
+  assert.deepEqual(v.avisos.map((a) => a.asunto), ['Recordatorio: hoy tenés Box 2']);
+});
+
+for (const horas of [2, 20]) {
+  prueba(`quien reserva con menos de un día de anticipación no recibe recordatorio (faltan ${horas} horas)`, async (e) => {
+    const v = await recordatoriosDe(e, horas, 0);
+    if (v) assert.deepEqual([v.avisos.length, v.recordada], [0, true]);
+  });
+}
 
 prueba('los textos de los avisos: plata y fechas como en la página', async (e) => {
   await e.armar();

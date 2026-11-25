@@ -4,26 +4,24 @@
 // Hace lo que haría una persona: la dueña conecta su cuenta y la confirma; una profesional reserva, sale a pagar y
 // vuelve confirmada; paga el saldo aunque el aviso no llegue; le rechazan la tarjeta, vuelve sin pagar y reintenta;
 // cancela y la devolución sale sola; la cuenta se queda sin saldo y la dueña lo ve; sin cuenta no se puede pagar.
-// No toca internet ni plata. Las capturas quedan en E:\Entreturno boxes\pruebas\pantallas-mp <fecha y hora>.
+// No toca internet ni plata. Al final dice en qué carpeta quedaron las capturas (ver navegador.mjs).
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { CLAVE_DE_PRUEBA, DUENA, PROFESIONALES } from './datos-de-ejemplo.mjs';
+import { NAVEGADOR, carpetaDeCapturas } from './navegador.mjs';
 import { crearServidor } from './servidor-local.mjs';
 
 const [LUCIA, CARO] = PROFESIONALES;
 const dos = (n) => String(n).padStart(2, '0');
-const AHORA = new Date();
-const CAPTURAS = `E:/Entreturno boxes/pruebas/pantallas-mp ${AHORA.getFullYear()}-${dos(AHORA.getMonth() + 1)}-${dos(AHORA.getDate())} ${dos(AHORA.getHours())}${dos(AHORA.getMinutes())}${dos(AHORA.getSeconds())}`;
-mkdirSync(CAPTURAS, { recursive: true });
-const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+const CAPTURAS = carpetaDeCapturas('pantallas-mp');
 const PUERTO = +(process.env.PUERTO || 9473);
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const s = await crearServidor({ pagos: 'mercadopago', mpAmbiente: 'real' });
-const nav = spawn(EDGE, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', `--remote-debugging-port=${PUERTO}`,
+const nav = spawn(NAVEGADOR, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', `--remote-debugging-port=${PUERTO}`,
   `--user-data-dir=${mkdtempSync(path.join(tmpdir(), 'edge-boxes-mp-'))}`, '--window-size=1366,768', 'about:blank'], { stdio: 'ignore' });
 let info;
 for (let i = 0; i < 80 && !info; i++) { try { info = (await (await fetch(`http://127.0.0.1:${PUERTO}/json`)).json()).find((t) => t.type === 'page'); } catch {} if (!info) await dormir(250); }
@@ -273,6 +271,7 @@ try {
   await menu('mis'); await clic('[data-action="tab"][data-v="proximas"]');      // (la pestaña elegida se recuerda de la cuenta anterior)
   ver('abre el pago desde Mis reservas', await clic('[data-action="pay-now"]'), 'ok');
   ver('hoja de pago en modo prueba', await hoja(), (v) => v.includes('Modo prueba: no se cobra plata de verdad') && v.includes('usá una tarjeta de prueba') && v.includes('Ir a pagar $ 12.000'));
+  ver('dice con qué mail pagar en la prueba', await hoja(), (v) => v.includes('test@testuser.com') && v.includes('sin entrar a tu cuenta de Mercado Pago'));
   await foto('hoja-de-pago-modo-prueba');
   await salirHacia('[data-action="mp-ir"]', '/__mp/pagar');
   await enMp('pagar');

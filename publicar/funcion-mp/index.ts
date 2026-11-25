@@ -771,9 +771,12 @@ export async function despachar(dep: DependenciasMp, slug: string): Promise<Vuel
 //
 // Secretos (Supabase → Edge Functions → Secrets; los carga Santiago y nunca van al repositorio):
 //   MP_CLIENT_ID, MP_CLIENT_SECRET   los de la aplicación «Entreturno» de Mercado Pago (Credenciales de producción)
-//   MP_WEBHOOK_SECRETO               la «firma secreta» de la aplicación (Webhooks → Configurar notificaciones)
+//   MP_WEBHOOK_SECRETO               la «firma secreta» de los avisos del ambiente Prueba (Configuración de webhooks)
+//   MP_WEBHOOK_SECRETO_REAL          la «firma secreta» de los avisos del ambiente Producción (son dos aplicaciones distintas
+//                                    para Mercado Pago, así que son dos firmas). Alcanza con que esté cargada una.
 //   MP_PRUEBA_TOKEN                  el Access Token de PRUEBA de la aplicación: con ese se cobra en modo prueba cuando
 //                                    el consultorio todavía no conectó su cuenta
+// Un secreto que son solo puntitos (lo que muestra el panel para tapar la clave) cuenta como que falta: pasó el 25/11/2026.
 //
 // En la aplicación de Mercado Pago hay que cargar la dirección de esta función (https://<proyecto>.supabase.co/functions/v1/mp)
 // como «URL de redireccionamiento» y como dirección de Webhooks (eventos «Order (Mercado Pago)» y «Vinculación de aplicaciones»).
@@ -805,6 +808,12 @@ function claveDeSupabase(simple: string, lista: string): string {
   } catch {
     return "";
   }
+}
+
+/** Un secreto cargado a mano: sin los espacios que sobren, y vacío si son los puntitos con que el panel tapa la clave. */
+function secretoDe(nombre: string): string {
+  const v = (Deno.env.get(nombre) ?? "").trim();
+  return /^[•·*●.]+$/.test(v) ? "" : v;
 }
 
 class ErrorDeBase extends Error {
@@ -857,10 +866,10 @@ Deno.serve(async (req: Request) => {
     rpcUsuario: (fn, args) => rpc(fn, args, { apikey: publica, Authorization: pase }),
     rpcServicio: (fn, args) => rpc(fn, args, comoServicio),
     app: {
-      clientId: (Deno.env.get("MP_CLIENT_ID") ?? "").trim(),
-      clientSecret: (Deno.env.get("MP_CLIENT_SECRET") ?? "").trim(),
+      clientId: secretoDe("MP_CLIENT_ID"),
+      clientSecret: secretoDe("MP_CLIENT_SECRET"),
       redirectUri: `${supabase}/functions/v1/mp`,
-      paseDePrueba: (Deno.env.get("MP_PRUEBA_TOKEN") ?? "").trim(),
+      paseDePrueba: secretoDe("MP_PRUEBA_TOKEN"),
     },
   };
   const url = new URL(req.url);
@@ -898,11 +907,16 @@ Deno.serve(async (req: Request) => {
     // 3) Un aviso de Mercado Pago
     const firma = req.headers.get("x-signature");
     if (firma !== null) {
-      const secreto = (Deno.env.get("MP_WEBHOOK_SECRETO") ?? "").trim();
-      if (!secreto) return responder(500, { code: "falta_configurar" });
+      // Prueba y Producción firman cada una con la suya. Da igual con cuál venga: el aviso solo dice «mirá esta orden», y la orden
+      // se vuelve a leer en Mercado Pago con el pase de la cuenta que la creó.
+      const secretos = [secretoDe("MP_WEBHOOK_SECRETO"), secretoDe("MP_WEBHOOK_SECRETO_REAL")].filter(Boolean);
+      if (!secretos.length) return responder(500, { code: "falta_configurar" });
       const dato = url.searchParams.get("data.id") ?? "";
-      // una firma de hace más de dos días ya no vale (para entonces el reloj ya miró esa orden por su cuenta)
-      const firmaOk = await firmaValida({ firma, pedido: req.headers.get("x-request-id"), dato, secreto, maxAntiguedadSeg: 2 * 86400 });
+      let firmaOk = false;
+      for (const secreto of secretos) {
+        // una firma de hace más de dos días ya no vale (para entonces el reloj ya miró esa orden por su cuenta)
+        firmaOk = firmaOk || await firmaValida({ firma, pedido: req.headers.get("x-request-id"), dato, secreto, maxAntiguedadSeg: 2 * 86400 });
+      }
       if (!firmaOk) return responder(401, { code: "firma_invalida" });
       const tipo = String(url.searchParams.get("type") ?? cuerpo?.type ?? "");
       try {

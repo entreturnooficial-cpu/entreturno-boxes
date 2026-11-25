@@ -4,26 +4,24 @@
 // una profesional reserva con una máquina, paga, llega al tope de saldos, paga un saldo y cancela; otra ve «ocupado».
 // También mira el tamaño de celular, el modo oscuro, que la sesión siga al recargar y que no haya errores.
 // Y los mails de registro: confirmar la cuenta desde el enlace, mandarlo de nuevo y «olvidé mi contraseña».
-// No toca internet ni datos reales. Las capturas quedan en E:\Entreturno boxes\pruebas\pantallas <fecha y hora>.
+// No toca internet ni datos reales. Al final dice en qué carpeta quedaron las capturas (ver navegador.mjs).
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { CLAVE_DE_PRUEBA, DUENA, PROFESIONALES } from './datos-de-ejemplo.mjs';
+import { NAVEGADOR, carpetaDeCapturas } from './navegador.mjs';
 import { CLAVE_PUBLICA, crearServidor } from './servidor-local.mjs';
 
 const [LUCIA, CARO] = PROFESIONALES;
 const dos = (n) => String(n).padStart(2, '0');
-const AHORA = new Date();
-const CAPTURAS = `E:/Entreturno boxes/pruebas/pantallas ${AHORA.getFullYear()}-${dos(AHORA.getMonth() + 1)}-${dos(AHORA.getDate())} ${dos(AHORA.getHours())}${dos(AHORA.getMinutes())}${dos(AHORA.getSeconds())}`;
-mkdirSync(CAPTURAS, { recursive: true });
-const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+const CAPTURAS = carpetaDeCapturas('pantallas');
 const PUERTO = +(process.env.PUERTO || 9471);
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const s = await crearServidor();
-const nav = spawn(EDGE, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', `--remote-debugging-port=${PUERTO}`,
+const nav = spawn(NAVEGADOR, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', `--remote-debugging-port=${PUERTO}`,
   `--user-data-dir=${mkdtempSync(path.join(tmpdir(), 'edge-boxes-'))}`, '--window-size=1366,768', 'about:blank'], { stdio: 'ignore' });
 let info;
 for (let i = 0; i < 80 && !info; i++) { try { info = (await (await fetch(`http://127.0.0.1:${PUERTO}/json`)).json()).find((t) => t.type === 'page'); } catch {} if (!info) await dormir(250); }

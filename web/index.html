@@ -2400,7 +2400,7 @@ function openMp(b, kind) {
       openSheet(`${sheetHead("Pagar con Mercado Pago", mpDePrueba() ? "Modo prueba: no se cobra plata de verdad" : "")}
       <div class="sheet-b">${resumen}
         <p class="muted" style="margin-top:10px">Te llevamos a Mercado Pago para pagar con tarjeta o con dinero en cuenta. Al terminar volvés acá y la reserva queda confirmada.</p>
-        ${mpDePrueba() ? `<div class="note acc">Modo prueba de Mercado Pago: usá una tarjeta de prueba. No se cobra plata de verdad.</div>` : ""}
+        ${mpDePrueba() ? `<div class="note acc">Modo prueba de Mercado Pago: usá una tarjeta de prueba. No se cobra plata de verdad. Pagá sin entrar a tu cuenta de Mercado Pago (mejor en una ventana de incógnito) y, si te pide un mail, poné <b>test@testuser.com</b>: con otro no anda.</div>` : ""}
       </div>
       <div class="sheet-f"><button class="btn" data-action="close-sheet">Ahora no</button><button class="btn btn-primary" data-action="mp-ir" data-id="${b.id}" data-kind="${kind}">Ir a pagar ${money(amount)}</button></div>`);
     }

@@ -217,6 +217,38 @@ test('el reloj entra solo con la clave que guarda la base', async () => {
   assert.equal((await pedir({ accion: 'reloj' }, { origen: null, cabeceras: { 'x-entreturno-reloj': '' } })).estado, 401);
 });
 
+test('los avisos valen con la firma de Prueba o con la de Producción, y los puntitos no son una firma', async () => {
+  const guardados = { ...env };
+  const aviso = s.mp.aviso([...s.mp.ordenes.keys()][0]);
+  const conFirma = (secreto) => mandarAviso(aviso, { firma: s.mp.firmar(aviso.dato, aviso.pedido, Date.now(), secreto) });
+  try {
+    // una sola cargada: la otra no vale
+    assert.deepEqual([(await conFirma(s.mp.secretoAvisos)).estado, (await conFirma('firma-de-produccion')).estado], [200, 401]);
+    // las dos: vale cualquiera; una tercera, no
+    env.MP_WEBHOOK_SECRETO_REAL = ' firma-de-produccion\n';
+    assert.deepEqual([(await conFirma(s.mp.secretoAvisos)).estado, (await conFirma('firma-de-produccion')).estado, (await conFirma('otra-firma')).estado], [200, 200, 401]);
+    // solo la de Producción
+    delete env.MP_WEBHOOK_SECRETO;
+    assert.deepEqual([(await conFirma(s.mp.secretoAvisos)).estado, (await conFirma('firma-de-produccion')).estado], [401, 200]);
+    // lo que muestra el panel para tapar la clave (pasó el 25/11/2026): es como si no estuviera, ni siquiera firmando con eso
+    delete env.MP_WEBHOOK_SECRETO_REAL;
+    for (const tapada of ['•'.repeat(64), '*'.repeat(40), '·'.repeat(64)]) {
+      env.MP_WEBHOOK_SECRETO = tapada;
+      const v = await conFirma(tapada);
+      assert.deepEqual([v.estado, v.cuerpo], [500, { code: 'falta_configurar' }]);
+      env.MP_WEBHOOK_SECRETO_REAL = 'firma-de-produccion';
+      assert.deepEqual([(await conFirma(tapada)).estado, (await conFirma('firma-de-produccion')).estado], [401, 200]);
+      delete env.MP_WEBHOOK_SECRETO_REAL;
+    }
+    // lo mismo con el pase de prueba y con los datos de la aplicación
+    Object.assign(env, guardados, { MP_CLIENT_SECRET: '•'.repeat(32) });
+    assert.deepEqual((await pedir({ accion: 'conectar', slug: 'lavanda' }, { token: await pase(DUENA.email) })).cuerpo, { code: 'falta_configurar' });
+  } finally {
+    delete env.MP_WEBHOOK_SECRETO_REAL;
+    Object.assign(env, guardados);
+  }
+});
+
 test('si falta cargar un secreto, lo dice sin hacer nada', async () => {
   const duena = await pase(DUENA.email);
   const guardados = { ...env };

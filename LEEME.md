@@ -31,9 +31,9 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (197 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
-npm run test:pantallas    (103 comprobaciones de la página en un Edge sin ventana; deja capturas en E:\Entreturno boxes\pruebas)
-npm run test:pantallas-mp (56 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
+npm test                  (201 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
+npm run test:pantallas    (103 comprobaciones de la página en un Edge o Chrome sin ventana; al final dice dónde dejó las capturas)
+npm run test:pantallas-mp (57 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
 npm run test:real         (8 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:real-mp      (16 comprobaciones de la función «mp» real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
@@ -456,14 +456,18 @@ con una clave que vive en el Vault. Si no hay nada, no llama a nadie.
 - Conectar una cuenta (hace falta activar producción y pegar `MP_CLIENT_ID` y `MP_CLIENT_SECRET`), `test_token`, que los avisos
   de las órdenes de una dueña conectada lleguen a la aplicación, y el aviso de «le quitó el permiso».
 - La firma de los avisos de PRODUCCIÓN. La aplicación de prueba tiene otro número (2527279472896723, la de verdad es
-  3063961245855320), así que lo más probable es que la firma sea otra: hay que sumar un segundo secreto en la función.
+  3063961245855320), así que lo más probable es que la firma sea otra: va en `MP_WEBHOOK_SECRETO_REAL`.
 - Si Mercado Pago acepta direcciones de vuelta que no sean https (en la compu son http://localhost).
 
-**Encontrado en esa prueba, para corregir:**
-1. El mail «Recordatorio: mañana tenés…» salió para un turno del MISMO día, al minuto de confirmarlo (`interno.mantener` lo
-   manda si faltan menos de 24 horas y el texto dice siempre «mañana»).
-2. La hoja de pago en modo prueba debería decir qué mail usar.
-3. El segundo secreto para la firma de producción (arriba).
+**Encontrado en esa prueba y corregido el mismo día** (con el OK de Santiago: «cargalo en supabase githbu y donde sea necesario
+para que se vea en linea»; base cargada y comprobada, 543 de 543; función `mp` nueva, 49.711 caracteres, huella `9daa1f88c4a6`):
+1. El mail «Recordatorio: mañana tenés…» salió para un turno del MISMO día, al minuto de confirmarlo. Ahora
+   (`…25100000_recordatorio.sql`) quien reserva con menos de un día de anticipación no recibe recordatorio (le acaba de llegar
+   «Reserva confirmada») y el texto dice «hoy» o «mañana» según la fecha.
+2. La hoja de pago en modo prueba dice que se paga sin entrar a Mercado Pago y con el mail `test@testuser.com`.
+3. La función acepta dos firmas: `MP_WEBHOOK_SECRETO` (ambiente Prueba) y `MP_WEBHOOK_SECRETO_REAL` (Producción); alcanza con
+   una. Y un secreto que son solo puntitos cuenta como que falta, para que no vuelva a pasar lo de esa mañana.
+Con pruebas: `npm test` 201 de 201, pantallas 103 y 57, y 6 roturas a propósito, las 6 detectadas.
 
 **Cómo se carga en Supabase (hecho el 25/11/2026 con el OK de Santiago, «Sí, cargalo»; lo que falta está marcado):**
 
@@ -576,8 +580,8 @@ control de `volver_a` de la tabla `interno.mp_estados`.
 4. Datos reales de Yani: horarios, reglamento, descripción de los boxes, máquinas y fotos (depósito de archivos + subir
    desde Configuración).
 5. Mercado Pago real: hecho el 24/11, cargado y publicado el 25/11, y **probado de verdad el 25/11 en el ambiente de prueba de
-   Mercado Pago** (pago, avisos y devolución; ver «Cobro con Mercado Pago»). Falta: corregir lo que se encontró en esa prueba,
-   activar producción en la aplicación (Santiago), pegar `MP_CLIENT_ID`, `MP_CLIENT_SECRET` y la firma de producción, que Yani
+   Mercado Pago** (pago, avisos y devolución; ver «Cobro con Mercado Pago»). Falta:
+   activar producción en la aplicación (Santiago), pegar `MP_CLIENT_ID`, `MP_CLIENT_SECRET` y `MP_WEBHOOK_SECRETO_REAL`, que Yani
    conecte su cuenta y `mp_ambiente = 'real'`.
 6. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
 7. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
