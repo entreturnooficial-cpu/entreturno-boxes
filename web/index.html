@@ -196,6 +196,14 @@ input[type="search"].input{-webkit-appearance:none;appearance:none;padding-left:
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;cursor:pointer}
 .check input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--primary);flex:none}
+.linkish{background:none;border:0;padding:0;font:inherit;color:inherit;text-decoration:underline;text-decoration-color:var(--control);text-underline-offset:3px;cursor:pointer}
+.consent{border:1px solid var(--control);border-radius:12px;padding:13px 15px;display:grid;gap:12px;margin-bottom:16px}
+.consent .linkish{justify-self:start;font-size:14.5px;font-weight:600;padding:4px 0}
+.legal h3{font-size:15px;margin:18px 0 6px}
+.legal p,.legal li{font-size:14px;line-height:1.55}
+.legal p{margin:0 0 8px}.legal ul{margin:0 0 8px;padding-left:18px;display:grid;gap:4px}
+.legal-box{max-height:min(46vh,420px);overflow:auto;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;background:var(--raised)}
+.pie{margin-top:40px;font-size:13px;color:var(--muted)}
 .iconbtn{width:36px;height:36px;border-radius:var(--r-control);border:1px solid var(--control);background:var(--surface);display:grid;place-items:center;color:var(--text);flex:none;transition:background-color .16s ease,transform .14s var(--ease-out)}
 .iconbtn:active{transform:scale(.94)}
 .iconbtn[disabled]{opacity:.38;cursor:not-allowed;transform:none}
@@ -863,7 +871,7 @@ let eligiendoClave = false; // volvió del mail de «olvidé mi contraseña» y 
    También quedan anotados en su cuenta, por si abre el enlace del mail en otro aparato. */
 const PEDIDO_KEY = "et-pedido-" + SLUG, VISTO_KEY = "et-pedido-visto-" + SLUG;
 const guardarPedido = (mail, datos) => { try { almacen.setItem(PEDIDO_KEY, JSON.stringify({ mail: String(mail).toLowerCase(), datos, hasta: Date.now() + 7 * 864e5 })); } catch (e) { /* sin almacén: quedan los de la cuenta */ } };
-const pedidoGuardado = () => { try { const p = JSON.parse(almacen.getItem(PEDIDO_KEY)); return p && p.datos && p.hasta > Date.now() ? p : null; } catch (e) { return null; } };
+const pedidoGuardado = () => { try { const p = JSON.parse(almacen.getItem(PEDIDO_KEY)); if (p && p.datos && p.hasta > Date.now()) return p; if (p) almacen.removeItem(PEDIDO_KEY); return null; } catch (e) { return null; } };
 
 let S = null;              // lo que manda el servidor, con los nombres de siempre, más S.ui (lo de esta pantalla)
 let fase = "cargando";     // cargando · error · lista
@@ -933,6 +941,9 @@ const MENSAJES = {
   mp_cuenta_cambio: "La cuenta conectada cambió recién. Mirá de nuevo cuál es antes de confirmar.",
   mp_en_curso: "El sistema la está intentando en este momento. Probá de nuevo en un par de minutos.",
   solo_miembros: "Eso es solo para quienes alquilan en este consultorio.",
+  privacidad_falta: "Para seguir, leé y aceptá el aviso de datos personales.",
+  privacidad_exterior: "Falta aceptar que tus datos se guarden fuera de la Argentina.",
+  privacidad_cambio: "El aviso de datos personales cambió recién. Leelo y aceptalo de nuevo.",
   horario_invalido: "Ese horario no es válido. Revisá las horas.",
   fuera_de_bloqueo: "El rato libre tiene que estar dentro del horario bloqueado.",
   rato_superpuesto: "Ya hay un rato libre publicado en ese horario.",
@@ -1058,7 +1069,7 @@ async function mandarPedidoGuardado() {
   ocupada = true;
   document.body.classList.add("is-busy");
   let motivo = "", estado = 0;
-  try { await servidor.rpc("pedir_acceso", { p_nombre: d.p_nombre, p_profesion: d.p_profesion, p_categoria: d.p_categoria, p_telefono: d.p_telefono, p_cuit: d.p_cuit, p_condicion_iva: d.p_condicion_iva ?? null }); }
+  try { await servidor.rpc("pedir_acceso", { p_nombre: d.p_nombre, p_profesion: d.p_profesion, p_categoria: d.p_categoria, p_telefono: d.p_telefono, p_cuit: d.p_cuit, p_condicion_iva: d.p_condicion_iva ?? null, p_privacidad: d.p_privacidad ?? null, p_exterior: d.p_exterior ?? null }); }
   catch (e) { motivo = (e && e.code) || "error"; estado = (e && e.status) || 0; }
   finally { ocupada = false; document.body.classList.remove("is-busy"); }
   if (motivo === "sin_conexion" || estado >= 500 || estado === 429) return null;   // falla pasajera: se prueba de nuevo la próxima vez que entre
@@ -1338,6 +1349,7 @@ function render() {
   if (enlaceEnEspera) { app.innerHTML = renderCambioDeCuenta(); fx = ""; paintTheme(); return; }
   if (eligiendoClave) { app.innerHTML = renderClaveNueva(); fx = ""; paintTheme(); return; }
   if (!servidor.sesion || !u) { app.innerHTML = servidor.sesion ? renderPedido() : renderAuth(); fx = ""; paintTheme(); return; }
+  if (faltaPrivacidad(u)) { app.innerHTML = renderPrivacidad(u); fx = ""; paintTheme(); return; }
   const nav = navFor(u);
   if (!S.ui.view || !nav.some(n => n.id === S.ui.view)) S.ui.view = nav[0].id;
   const view = S.ui.view;
@@ -1361,7 +1373,7 @@ function render() {
     <header class="topbar">${mono("mono-sm")}<div class="brand-name">${esc(current?.label || "")}</div><span class="sp"></span>
       <button class="iconbtn" data-action="toggle-theme"></button>
       <button class="iconbtn" data-action="logout" aria-label="Cerrar sesión" title="Cerrar sesión">${ic("logout")}</button></header>
-    <main id="main">${renderView(view)}</main>
+    <main id="main">${renderView(view)}${pieDePrivacidad()}</main>
     <nav class="bottomnav" aria-label="Navegación">${bottomLinks}</nav>
   </div>`;
   fx = "";
@@ -1423,6 +1435,58 @@ const camposFiscales = () => `
               <div class="field"><label for="ri">Condición frente al IVA</label><select class="input" id="ri" name="ivaCond" required><option value="">Elegí una</option>${CONDICIONES_IVA.map(([v, n]) => `<option value="${v}">${n}</option>`).join("")}</select></div>
             </div>`;
 
+/* ---------- El aviso de datos personales ----------
+   El texto lo manda la base, con los datos del consultorio. Al aceptarlo vuelve su huella (p_privacidad): solo vale si es la
+   del texto vigente, así lo que queda anotado es lo que la persona tuvo en pantalla. */
+const privacidad = () => (S.site && S.site.privacy) || null;
+const avisosMostrados = {};      // huella → el aviso con el que se armó cada formulario: la hoja muestra ese, aunque mientras haya llegado uno nuevo
+const anotarAviso = () => { const p = privacidad(); avisosMostrados[p.hash] = p; return p.hash; };
+const faltaPrivacidad = (u) => !!(u && u.role === "pro" && privacidad() && !(u.privacy && u.privacy.version >= privacidad().version));
+const avisoHtml = (texto) => {
+  let html = "", lista = false;
+  const cerrar = () => { if (lista) { html += "</ul>"; lista = false; } };
+  for (const l of String(texto || "").split("\n").map(s => s.trim()).filter(Boolean)) {
+    if (l.startsWith("- ")) { if (!lista) { html += "<ul>"; lista = true; } html += `<li>${esc(l.slice(2))}</li>`; continue; }
+    cerrar();
+    html += l.startsWith("## ") ? `<h3>${esc(l.slice(3))}</h3>` : `<p>${esc(l)}</p>`;
+  }
+  cerrar();
+  return `<div class="legal">${html}</div>`;
+};
+const camposDePrivacidad = (conEnlace = true) => !privacidad() ? "" : `
+            <div class="consent">
+              ${conEnlace ? `<button type="button" class="linkish" data-action="ver-privacidad" data-hash="${esc(privacidad().hash)}">Leer el aviso de datos personales</button>` : ""}
+              <label class="check"><input type="checkbox" name="privacidad" value="${esc(anotarAviso())}" required><span>Leí el aviso de datos personales y acepto que usen mis datos como dice ahí.</span></label>
+              <label class="check"><input type="checkbox" name="exterior" value="1" required><span>Acepto que mis datos se guarden en servidores fuera de la Argentina (Brasil y Estados Unidos).</span></label>
+            </div>`;
+const pieDePrivacidad = () => privacidad() ? `<p class="pie"><button type="button" class="linkish" data-action="ver-privacidad">Datos personales</button></p>` : "";
+function openPrivacidad(huella) {
+  const p = avisosMostrados[huella] || privacidad();
+  if (!p) return;
+  openSheet(`${sheetHead("Aviso de datos personales", `${SITE()} · versión ${p.version}`)}<div class="sheet-b">${avisoHtml(p.text)}</div>
+    <div class="sheet-f"><button class="btn btn-primary" data-action="close-sheet">Cerrar</button></div>`, { wide: true });
+}
+/* Ya tenía cuenta de antes, o hay una versión nueva: lo lee y lo acepta antes de seguir */
+function renderPrivacidad(u) {
+  return `<div class="auth">
+    <button class="iconbtn auth-theme" data-action="toggle-theme"></button>
+    ${lateralDeIngreso()}
+    <section class="auth-main">
+      <div class="auth-card">
+        <h2>${u.privacy ? "Cambió el aviso de datos personales" : "Antes de seguir, leé cómo se usan tus datos"}</h2>
+        <p class="muted" style="margin-bottom:14px">${u.privacy ? "Hay una versión nueva. Leela y aceptala para seguir usando la página." : "Es un aviso que pide la ley. Leelo y aceptalo para seguir usando la página."}</p>
+        <div class="legal-box" tabindex="0" role="region" aria-label="Aviso de datos personales">${avisoHtml(privacidad().text)}</div>
+        <form data-form="privacidad" data-sucio="1">
+          ${camposDePrivacidad(false)}
+          <button class="btn btn-primary btn-block" type="submit">Aceptar y seguir</button>
+        </form>
+        <p class="muted small" style="margin-top:14px">Si no estás de acuerdo, no lo aceptes: hablá con ${OW()}. Mientras tanto no vas a poder usar la página.</p>
+        <button class="btn btn-text btn-block" style="margin-top:6px" data-action="logout">Salir de esta cuenta</button>
+      </div>
+    </section>
+  </div>`;
+}
+
 /* Lo que muestra el ingreso cuando hay un mail de por medio: pedir el enlace, esperar el mail, o un enlace que ya no sirve */
 function pasoDelIngreso() {
   const p = pasoDeIngreso, mail = esc(p.mail || "");
@@ -1475,6 +1539,7 @@ function renderAuth() {
           </form>
           <button class="btn btn-text btn-block" style="margin-top:10px" data-action="auth-paso" data-tipo="olvide">Olvidé mi contraseña</button>
           <p class="muted small" style="margin-top:16px">¿Todavía no tenés cuenta? Pedí acceso y ${OW()} te contacta.</p>
+          ${pieDePrivacidad()}
         ` : `
           <h2>Pedí acceso</h2>
           <p class="muted" style="margin-bottom:18px">Completá tus datos. ${OW()} te contacta para una entrevista y, si te aprueba, ya podés reservar.</p>
@@ -1486,6 +1551,7 @@ function renderAuth() {
             </div>
             ${camposFiscales()}
             <div class="field"><label for="rw">Contraseña</label><input class="input" id="rw" name="password" type="password" autocomplete="new-password" minlength="6" required></div>
+            ${camposDePrivacidad()}
             <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
           </form>
         `}`}
@@ -1545,6 +1611,7 @@ function renderPedido() {
           ${camposDelPedido()}
           <div class="field"><label for="rt">Teléfono</label><input class="input" id="rt" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
           ${camposFiscales()}
+          ${camposDePrivacidad()}
           <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
         </form>
         <button class="btn btn-text btn-block" style="margin-top:10px" data-action="logout">Salir de esta cuenta</button>
@@ -2140,7 +2207,8 @@ function viewProfesionales() {
       <div class="s">${esc(u.profession)} · ${esc(u.email)} · ${esc(u.phone)}</div>
       <div class="s">CUIT ${esc(u.cuit || "sin cargar")} · ${condIvaTxt(u.ivaCond)} <button class="btn btn-text btn-sm" data-action="user-fiscal" data-id="${u.id}">Cambiar</button></div>
       <div class="s catline"><label>Categoría <select class="input input-sm" data-input="userCat" data-id="${u.id}">${S.config.categories.map(k => `<option value="${k.id}" ${k.id === catOf(u).id ? "selected" : ""}>${esc(k.name)} · ${money(k.pricePerHour)} la hora</option>`).join("")}</select></label></div>
-      <div class="s">${u.status === "pendiente" ? "Pidió acceso " + fmtWhen(u.since) : u.status === "aprobado" ? `${nb} ${nb === 1 ? "reserva activa" : "reservas activas"}` : ""}${debeTxt(u)}</div></div>
+      <div class="s">${u.status === "pendiente" ? "Pidió acceso " + fmtWhen(u.since) : u.status === "aprobado" ? `${nb} ${nb === 1 ? "reserva activa" : "reservas activas"}` : ""}${debeTxt(u)}</div>
+      ${privacidad() ? `<div class="s">${faltaPrivacidad(u) ? "Todavía no aceptó el aviso de datos personales" : `Aceptó el aviso de datos personales ${fmtWhen(u.privacy.at)}`}</div>` : ""}</div>
       <div class="acts">${acts}</div></li>`;
   };
   return `
@@ -2154,7 +2222,7 @@ function viewProfesionales() {
 }
 
 function viewConfig() {
-  const c = S.config, p = c.policy, bl = c.billing;
+  const c = S.config, p = c.policy, bl = c.billing, pv = c.privacy;
   const tag = "";
   const hours = Array.from({ length: 17 }, (_, i) => i + 6);
   const opt = (arr, v, f = (x) => x) => arr.map(x => `<option value="${x}" ${x === v ? "selected" : ""}>${f(x)}</option>`).join("");
@@ -2249,6 +2317,18 @@ function viewConfig() {
         <div class="acts"><button class="btn" data-action="machine-add">Agregar máquina</button></div>
       </div>
     </section>
+    ${pv ? `<section class="set-sec" id="cfg-privacidad">
+      <div><h2>Datos personales ${tag}</h2><p class="desc">La ley pide decirle a cada profesional quién responde por sus datos. Esto va en el aviso que aceptan al pedir acceso; queda guardado quién lo aceptó y cuándo.</p></div>
+      <form class="set-panel" data-form="cfg-privacidad">
+        ${pv.complete ? "" : `<div class="note warn">Falta completar estos datos: el aviso tiene que decir quién es responsable, su domicilio y adónde escribir.</div>`}
+        <div class="field"><label for="pvn">Nombre y apellido o razón social de quien responde</label><input class="input" id="pvn" name="name" maxlength="120" value="${esc(pv.name)}" placeholder="${esc(bl.name || "")}"></div>
+        <div class="row2">
+          <div class="field"><label for="pvd">Domicilio</label><input class="input" id="pvd" name="address" maxlength="160" value="${esc(pv.address)}" placeholder="${esc(bl.address || "")}"></div>
+          <div class="field"><label for="pvc">Mail para pedidos sobre datos</label><input class="input" id="pvc" name="contact" type="email" maxlength="254" value="${esc(pv.contact)}"></div>
+        </div>
+        <div class="acts"><button class="btn" type="button" data-action="ver-privacidad">Ver el aviso</button><button class="btn btn-dark" type="submit">Guardar</button></div>
+      </form>
+    </section>` : ""}
     <section class="set-sec">
       <div><h2>Facturación ${tag}</h2><p class="desc">Los datos que van en la factura del mes de cada profesional. Entreturno factura en tu nombre con su certificado: vos solo le delegás el servicio en ARCA, sin pasar tu clave.</p></div>
       <form class="set-panel" data-form="cfg-billing">
@@ -2785,6 +2865,7 @@ document.addEventListener("click", async (e) => {
       S.ui.view = null; S.ui.calPicked = false;
       try { await cargar(); } catch (err) { fase = "error"; errorDeArranque = mensajeDe(err); }
       render(); window.scrollTo(0, 0); break;
+    case "ver-privacidad": openPrivacidad(ds.hash); break;
     case "auth-tab": pasoDeIngreso = null; S.ui.authTab = ds.tab; render(); break;
     case "auth-paso": pasoDeIngreso = { tipo: ds.tipo }; render(); window.scrollTo(0, 0); break;
     case "reenviar-mail":
@@ -2971,7 +3052,8 @@ document.addEventListener("submit", async (e) => {
   if (ocupada) return;
   const fd = new FormData(f), c = S.config;
   const txt = (k) => String(fd.get(k) ?? "").trim();
-  const pedido = () => ({ p_nombre: txt("name"), p_profesion: txt("profession"), p_categoria: txt("category") || (c.categories[0] && c.categories[0].id) || null, p_telefono: txt("phone"), p_cuit: txt("cuit"), p_condicion_iva: Number(fd.get("ivaCond")) || null });
+  const pedido = () => ({ p_nombre: txt("name"), p_profesion: txt("profession"), p_categoria: txt("category") || (c.categories[0] && c.categories[0].id) || null, p_telefono: txt("phone"), p_cuit: txt("cuit"), p_condicion_iva: Number(fd.get("ivaCond")) || null,
+    p_privacidad: fd.get("privacidad") || null, p_exterior: fd.get("exterior") ? true : null });      // la huella del aviso que tuvo en pantalla
   switch (kind) {
     case "login": {
       const mail = txt("email");
@@ -3089,6 +3171,18 @@ document.addEventListener("submit", async (e) => {
       const r = await accion("guardar_maquina", { p_id: f.dataset.id || null, p_nombre: name, p_resumen: txt("short"), p_precio_hora: price, p_activa: fd.get("active") === "on", p_foto: machinePhoto });
       if (!r) return;       // la hoja queda abierta, con lo escrito
       closeSheet(); render(); toast(`Guardado: ${name}, ${money(price)} la hora.`); break;
+    }
+    case "cfg-privacidad": {
+      const r = await accion("guardar_privacidad", { p_responsable: txt("name"), p_domicilio: txt("address"), p_contacto: txt("contact") });
+      if (!r) return;
+      render(); toast("Datos del aviso guardados."); break;
+    }
+    case "privacidad": {
+      const r = await accion("aceptar_privacidad", { p_privacidad: fd.get("privacidad") || null, p_exterior: fd.get("exterior") ? true : null });
+      if (!r && ultimoError !== "privacidad_cambio") return;      // quedó como estaba, con lo tildado
+      render(); window.scrollTo(0, 0);      // si el aviso cambió mientras lo leía, se ve el nuevo y hay que tildarlo de nuevo
+      if (r) toast("Gracias. Ya podés seguir.");
+      break;
     }
     case "cfg-billing": {
       if (txt("cuit") && !cuitOk(txt("cuit"))) { toast(MENSAJES.cuit_invalido); return; }

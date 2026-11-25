@@ -51,7 +51,7 @@ prueba('pedir acceso: la CUIT se valida y queda con guiones, y la condición fre
   const pedir = async (cambios) =>
     e.llamarComo(await e.crearUsuario(), 'pedir_acceso', {
       p_slug: esc.slug, p_nombre: 'Ana Paz', p_profesion: 'Kinesióloga', p_categoria: esc.medica, p_telefono: '',
-      p_cuit: '27111111117', p_condicion_iva: 1, ...cambios,
+      p_cuit: '27111111117', p_condicion_iva: 1, ...(await e.aviso(esc.slug)), ...cambios,
     });
   await esperarError(pedir({ p_cuit: '27-11111111-1' }), 'cuit_invalido');          // el último número no da
   await esperarError(pedir({ p_cuit: '2711111111' }), 'cuit_invalido');             // le falta un número

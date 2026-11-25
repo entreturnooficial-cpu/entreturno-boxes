@@ -1,8 +1,9 @@
 -- Control para correr en el SQL Editor del proyecto real después de cargar las migraciones.
--- Tiene que dar: tablas 15 · sin_candado 0 · f_public 58 (59 en el proyecto real: public.rls_auto_enable)
---                sin_sesion «public.portada» · con_sesion 34 · arca_solo_servicio 5 · mp_solo_servicio 19
+-- Tiene que dar: tablas 15 · sin_candado 0 · f_public 60 (61 en el proyecto real: public.rls_auto_enable)
+--                sin_sesion «public.portada» · con_sesion 36 · arca_solo_servicio 5 · mp_solo_servicio 19
 --                interno_abierto false · legibles 0 · mp_tablas_abiertas 0 · ext «extensions» · lee_usuarios true · dueno «postgres»
--- (antes del cobro con Mercado Pago, del 24/11/2026, daba f_public 32 y con_sesion 27, sin mp_solo_servicio;
+-- (antes del aviso de datos personales, del 25/11/2026, daba f_public 59 en el real y con_sesion 34;
+--  antes del cobro con Mercado Pago, del 24/11/2026, daba f_public 32 y con_sesion 27, sin mp_solo_servicio;
 --  antes de las facturas con ARCA, del 23/11/2026, daba f_public 24 y con_sesion 24, sin arca_solo_servicio)
 select
   (select count(*) from pg_tables where schemaname = 'public') as tablas,

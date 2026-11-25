@@ -39,7 +39,7 @@ function ver(nombre, valor, espera) {
   const texto = typeof valor === 'string' ? valor : JSON.stringify(valor);
   const ok = typeof espera === 'function' ? !!espera(valor) : texto.includes(espera);
   hechas++; if (!ok) fallas++;
-  console.log(`  ${ok ? '[OK]   ' : '[FALLA]'} ${nombre.padEnd(34)} ${texto.replace(/\s+/g, ' ').slice(0, 250)}`);
+  console.log(`  ${ok ? '[OK]   ' : '[FALLA]'} ${nombre.padEnd(34)} ${texto.replace(/\s+/g, ' ').slice(0, ok ? 250 : 6000)}`);      // si falla, entero
 }
 const foto = async (nombre) => { const r = await cdp('Page.captureScreenshot', { format: 'png' }); writeFileSync(`${CAPTURAS}/${dos(++numero)}-${nombre}.png`, Buffer.from(r.result.data, 'base64')); };
 /** Espera hasta que la expresión dé verdadero (o 6 segundos). */
@@ -57,6 +57,9 @@ async function entrar(persona, clave = CLAVE_DE_PRUEBA) {
   return enviar('form[data-form="login"]');
 }
 const salir = () => clic('[data-action="logout"]');
+/** Tilda los dos casilleros del aviso de datos personales de ese formulario. */
+const aceptarAviso = (form) => js(`(() => { const c = [...document.querySelectorAll('form[data-form="${form}"] .consent input')]; c.forEach(i => { if (!i.checked) i.click(); }); return c.length; })()`);
+const huellaDelAviso = () => js(`S.site.privacy.hash`);
 /** El primer día de lunes a sábado, a `dias` días de hoy o después. */
 function diaHabil(dias) {
   const d = new Date(); d.setDate(d.getDate() + dias);
@@ -83,13 +86,28 @@ try {
   ver('texto del ingreso', await texto('.auth-side'), (v) => v.includes('3 boxes equipados, turnos de 4 h') && v.includes('Pagás seña del 50 % o el total') && v.includes('aprobados por Laura'));
   await foto('ingreso');
   ver('clave equivocada', (await entrar(LUCIA, 'otra-clave'), await aviso()), 'El mail o la contraseña no coinciden.');
+  ver('el aviso de datos se lee sin entrar', [await clic('.auth [data-action="ver-privacidad"]'), await texto('.overlay .sheet')], (v) => v[0] === 'ok' && v[1].includes('Aviso de datos personales') && v[1].includes('Consultorio Lavanda · versión 1')
+    && v[1].includes('Dónde se guardan') && v[1].includes('San Pablo, Brasil') && v[1].includes('LA AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA') && !/[{}]/.test(v[1]));
+  await foto('aviso-de-datos');
+  await clic('.overlay [data-action="close-sheet"]');
   await clic('[data-action="auth-tab"][data-tab="register"]');
   ver('pedir acceso: categorías', await js(`[...document.querySelectorAll('form[data-form="register"] input[name="category"]')].map(i => i.closest('label').innerText.replace(/\\s+/g, ' ').trim()).join(' / ')`),
     (v) => v.includes('Médicas y médicos') && v.includes('$ 10.000 la hora') && v.includes('$ 6.000 la hora'));
   await poner('#rn', 'Ana Paz'); await poner('#rp', 'Kinesióloga'); await poner('form[data-form="register"] input[name="category"]:last-of-type', '');
   await js(`document.querySelectorAll('form[data-form="register"] input[name="category"]')[1].click(); 1`);
   await poner('#rm', 'ana@lavanda.prueba'); await poner('#rt', '11 5555-0199'); await poner('#rc', '27-22333444-5'); await poner('#ri', '6'); await poner('#rw', 'una-clave-de-prueba');
+  const falta = () => js(`[...document.querySelectorAll('form[data-form="register"] :invalid')].map(i => i.name).join(',')`);
+  ver('sin aceptar el aviso no se puede mandar', await falta(), 'privacidad,exterior');
+  await js(`document.querySelector('form[data-form="register"] .consent [data-action="ver-privacidad"]').click(); 1`); await dormir(200);
+  ver('el enlace no está adentro de un rótulo', await js(`document.querySelectorAll('.consent label button').length`), '0');
+  ver('leer el aviso desde el casillero', [await texto('.overlay .sheet-h'), await js(`document.querySelectorAll('.consent input:checked').length`)], (v) => v[0].includes('Aviso de datos personales') && v[1] === 0);
+  await clic('.overlay [data-action="close-sheet"]'); await dormir(400);
+  ver('y no borró lo escrito', await js(`[document.querySelector('#rn').value, document.querySelector('#rw').value.length]`), (v) => v[0] === 'Ana Paz' && v[1] === 19);
+  await foto('pedir-acceso-con-aviso');
+  ver('dos casilleros', await aceptarAviso('register'), 2);
+  ver('ya se puede mandar', await falta(), '');
   await enviar('form[data-form="register"]');
+  ver('queda la constancia', (await s.pg.query(`select k.version, k.exterior, t.texto like '%Consultorio Lavanda%' as texto from interno.consentimientos k join interno.privacidad_textos t on t.huella = k.huella and t.consultorio_id = k.consultorio_id join public.miembros m on m.id = k.miembro_id where m.email = 'ana@lavanda.prueba'`)).rows, (v) => v.length === 1 && v[0].version === 1 && v[0].exterior === true && v[0].texto === true);
   ver('solicitud enviada', await texto('main'), (v) => v.includes('Tu solicitud está en revisión') && v.includes('Laura te va a contactar') && v.includes('Entrevista con Laura'));
   ver('menú de la pendiente', await js(`[...document.querySelectorAll('.sidebar .nav a')].map(a => a.textContent.trim()).join(', ')`), (v) => v === 'Mi solicitud, Los boxes, Máquinas');
   await foto('solicitud-en-revision');
@@ -228,6 +246,18 @@ try {
   ver('sigue adentro al recargar', await js(`document.querySelector('.side-foot .who b')?.textContent`), 'Lucía Ferrari');
   await salir();
 
+  console.log('--- el aviso cambia con «Pedir acceso» a medio completar ---');
+  await clic('[data-action="auth-tab"][data-tab="register"]'); await poner('#rn', 'Sol Ríos');
+  await s.pg.query(`update public.consultorios set priv_domicilio = 'Otra calle 9'`);
+  await js(`refrescar().then(() => 1)`);
+  await js(`document.querySelector('form[data-form="register"] .consent [data-action="ver-privacidad"]').click(); 1`); await dormir(200);
+  ver('la hoja muestra el texto de ese formulario', [await texto('.overlay .legal'), await js(`S.site.privacy.text.includes('Otra calle 9')`)], (v) => !v[0].includes('Otra calle 9') && v[1] === true);
+  await clic('.overlay [data-action="close-sheet"]');
+  await s.pg.query(`update public.consultorios set priv_domicilio = ''`);
+  await cdp('Page.reload'); await hasta(`typeof fase !== "undefined" && fase === "lista"`, 15000);
+  ver('un pedido vencido no queda en el aparato', await js(`(() => { localStorage.setItem(PEDIDO_KEY, JSON.stringify({ mail: 'x@y.z', datos: { p_nombre: 'x' }, hasta: Date.now() - 1 })); const r = pedidoGuardado(); return [r, localStorage.getItem(PEDIDO_KEY)]; })()`), (v) => v[0] === null && v[1] === null);
+  await clic('[data-action="auth-tab"][data-tab="login"]');
+
   console.log('--- una cuenta que todavía no pidió acceso ---');
   await fetch(`${s.url}/auth/v1/signup`, { method: 'POST', headers: { apikey: CLAVE_PUBLICA, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'bea@lavanda.prueba', password: 'otra-clave-de-prueba' }) });
   await entrar({ email: 'bea@lavanda.prueba' }, 'otra-clave-de-prueba');
@@ -235,11 +265,39 @@ try {
   await foto('cuenta-sin-pedido');
   await poner('#rn', 'Bea Luna'); await poner('#rp', 'Podóloga'); await js(`document.querySelectorAll('form[data-form="pedido"] input[name="category"]')[1].click(); 1`);
   await poner('#rc', '27-22333444-5'); await poner('#ri', '4');
+  await aceptarAviso('pedido');
   await enviar('form[data-form="pedido"]');
   ver('se guardó su CUIT y su condición', (await s.pg.query(`select cuit, condicion_iva from public.miembros where email = 'bea@lavanda.prueba'`)).rows[0], (v) => v.cuit === '27-22333444-5' && v.condicion_iva === 4);
   ver('queda pendiente', await texto('main'), 'Tu solicitud está en revisión');
   await salir();
   ver('al salir vuelve el ingreso', await js(`!!document.querySelector('form[data-form="login"]') && !document.querySelector('#toast').classList.contains('show')`), (v) => v === true);
+
+  console.log('--- quien ya tenía cuenta: acepta el aviso antes de seguir ---');
+  await s.pg.query(`delete from interno.consentimientos where miembro_id = (select id from public.miembros where email = $1)`, [CARO.email]);
+  await entrar(CARO);
+  ver('le muestra el aviso y nada más', [await texto('.auth-card'), await js(`!!document.querySelector('.sidebar')`)], (v) => v[0].includes('Antes de seguir, leé cómo se usan tus datos') && v[0].includes('San Pablo, Brasil') && v[0].includes('hablá con Laura') && v[1] === false);
+  await foto('aceptar-el-aviso');
+  ver('sin tildar no sigue', [await js(`document.querySelector('form[data-form="privacidad"]').checkValidity()`), await enviar('form[data-form="privacidad"]'), await js(`!!document.querySelector('form[data-form="privacidad"]')`)], (v) => v[0] === false && v[2] === true);
+  // si el aviso cambia mientras lo lee, ve el nuevo y lo acepta de nuevo
+  await s.pg.query(`update public.consultorios set priv_domicilio = 'Calle Falsa 123'`);
+  await js(`refrescar().then(() => 1)`); await dormir(1300);
+  ver('no cambia solo mientras lo lee', [await texto('.auth-card'), await js(`S.site.privacy.text.includes('Calle Falsa 123')`)], (v) => !v[0].includes('Calle Falsa 123') && v[1] === true);
+  await aceptarAviso('privacidad'); await enviar('form[data-form="privacidad"]');
+  ver('cambió mientras lo leía', [await aviso(), await texto('.auth-card'), await js(`document.querySelectorAll('.consent input:checked').length`)], (v) => v[0].includes('cambió recién') && v[1].includes('con domicilio en Calle Falsa 123') && v[2] === 0);
+  await aceptarAviso('privacidad'); await enviar('form[data-form="privacidad"]');
+  ver('acepta y sigue', [await js(`!!document.querySelector('.sidebar')`), await aviso(), (await s.pg.query(`select count(*)::int as n from interno.consentimientos where miembro_id = (select id from public.miembros where email = $1)`, [CARO.email])).rows[0].n], (v) => v[0] === true && v[1] === 'Gracias. Ya podés seguir.' && v[2] === 1);
+  await s.pg.query(`insert into interno.privacidad (version, texto) select 2, replace(texto, 'versión 1', 'versión 2') from interno.privacidad where version = 1`);
+  await js(`refrescar().then(() => 1)`);
+  ver('una versión nueva se pide de nuevo', await texto('.auth-card'), (v) => v.includes('Cambió el aviso de datos personales') && v.includes('versión 2'));
+  await aceptarAviso('privacidad'); await enviar('form[data-form="privacidad"]');
+  ver('y también queda anotada', (await s.pg.query(`select version from interno.consentimientos where miembro_id = (select id from public.miembros where email = $1) order by version`, [CARO.email])).rows.map((r) => r.version).join(','), '1,2');
+  ver('el aviso, siempre a mano', [await clic('main [data-action="ver-privacidad"]'), await texto('.overlay .sheet-h')], (v) => v[0] === 'ok' && v[1].includes('versión 2'));
+  await clic('.overlay [data-action="close-sheet"]');
+  await s.pg.query(`delete from interno.consentimientos where version = 2`);      // el resto de la prueba sigue con la versión 1
+  await s.pg.query(`delete from interno.privacidad_textos where version = 2`);
+  await s.pg.query(`delete from interno.privacidad where version = 2`);
+  await js(`refrescar().then(() => 1)`);
+  await salir();
 
   console.log('--- otra profesional ---');
   await entrar(CARO);
@@ -273,6 +331,11 @@ try {
   await clic('.bottomnav [data-nav="pagos"]');
   ver('celular: pagos', [await sinDesborde(), await texto('main')], (v) => v[0] === true && v[1].includes('Modo de prueba') && v[1].includes('Lucía Ferrari') && v[1].includes('Devolución'));
   await clic('.bottomnav [data-nav="reservas"]'); ver('celular: reservas', await sinDesborde(), (v) => v === true);
+  await js(`S.ui.view = 'config'; render(); document.querySelector('#cfg-privacidad').scrollIntoView(); 1`);
+  ver('celular: los datos del aviso', [await sinDesborde(), await texto('#cfg-privacidad')], (v) => v[0] === true && v[1].includes('Falta completar estos datos') && v[1].includes('Ver el aviso'));
+  await foto('celular-datos-del-aviso');
+  await clic('#cfg-privacidad [data-action="ver-privacidad"]'); ver('celular: el aviso', await sinDesborde(), (v) => v === true); await foto('celular-aviso');
+  await clic('.overlay [data-action="close-sheet"]');
 
   console.log('--- textos con trampa ---');
   // Alguien pide acceso con un nombre que intenta meter código, y un box queda con un nombre con símbolos:
@@ -282,13 +345,22 @@ try {
   const cuenta = await (await fetch(`${s.url}/auth/v1/signup`, { method: 'POST', headers: { apikey: CLAVE_PUBLICA, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'trampa@lavanda.prueba', password: 'otra-clave-de-prueba' }) })).json();
   const categoria = (await s.pg.query(`select id from public.categorias order by orden limit 1`)).rows[0].id;
   const pedido = await fetch(`${s.url}/rest/v1/rpc/pedir_acceso`, { method: 'POST', headers: { apikey: CLAVE_PUBLICA, Authorization: `Bearer ${cuenta.access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ p_slug: 'lavanda', p_nombre: TRAMPA, p_profesion: '"><b onclick=alert(1)>x</b>', p_categoria: categoria, p_telefono: '<i>11</i>', p_cuit: '' }) });
+    body: JSON.stringify({ p_slug: 'lavanda', p_nombre: TRAMPA, p_profesion: '"><b onclick=alert(1)>x</b>', p_categoria: categoria, p_telefono: '<i>11</i>', p_cuit: '', p_privacidad: await huellaDelAviso(), p_exterior: true }) });
   await js(`servidor.rpc("guardar_box", { p_numero: 2, p_nombre: 'Box "2" <b>azul</b>', p_resumen: "<u>amplio</u>", p_equipamiento: ["<s>Camilla</s>"], p_precios: {} }).then(() => refrescar()).then(() => 1)`);
   await clic('.sidebar [data-nav="inicio"]');
   const limpio = `({ ejecuto: window.__trampa ?? null, colados: document.querySelectorAll('main img[src="x"], main script, main b[onclick], main u, main s').length })`;
   ver('pedido con trampa: se ve como texto', [pedido.status, await js(limpio), await texto('main')], (v) => v[0] === 200 && v[1].ejecuto === null && v[1].colados === 0 && v[2].includes('<img src=x onerror=window.__trampa=1>') && v[2].includes('<i>11</i>'));
   await menu('profesionales'); await clic('[data-action="tab"][data-v="solicitudes"]');
   ver('en profesionales, igual', [await js(limpio), await texto('main')], (v) => v[0].ejecuto === null && v[0].colados === 0 && v[1].includes('<b onclick=alert(1)>x</b>'));
+  await clic('[data-action="tab"][data-v="aprobadas"]');
+  ver('la dueña ve quién aceptó el aviso', await texto('main'), (v) => v.includes('Aceptó el aviso de datos personales'));
+  await menu('config');
+  await poner('#pvn', TRAMPA); await poner('#pvd', '"><u>Calle</u>'); await poner('#pvc', 'mal'); await enviar('form[data-form="cfg-privacidad"]');
+  await poner('#pvc', 'Laura@Lavanda.prueba'); await enviar('form[data-form="cfg-privacidad"]');
+  ver('los datos del aviso se guardan', [await aviso(), await texto('#cfg-privacidad'), await js(`document.querySelector('#pvc').value`)], (v) => v[0] === 'Datos del aviso guardados.' && !v[1].includes('Falta completar') && v[2] === 'laura@lavanda.prueba');
+  await clic('#cfg-privacidad [data-action="ver-privacidad"]');
+  ver('el aviso con trampa: se ve como texto', [await js(`({ ejecuto: window.__trampa ?? null, colados: document.querySelectorAll('.overlay img, .overlay script, .overlay u').length })`), await texto('.overlay .legal')], (v) => v[0].ejecuto === null && v[0].colados === 0 && v[1].includes('<img src=x onerror=window.__trampa=1>') && v[1].includes('con domicilio en "><u>Calle</u>') && v[1].includes('Escribí a laura@lavanda.prueba.'));
+  await clic('.overlay [data-action="close-sheet"]');
   await menu('agenda');
   ver('box con símbolos en la agenda', [await js(limpio), await texto('main .cal')], (v) => v[0].ejecuto === null && v[0].colados === 0 && v[1].includes('Box "2" <b>azul</b>'));
   await menu('config');
@@ -331,6 +403,7 @@ try {
     await clic('[data-action="auth-tab"][data-tab="register"]');
     await poner('#rn', nombre); await poner('#rp', 'Nutricionista'); await js(`document.querySelectorAll('form[data-form="register"] input[name="category"]')[1].click(); 1`);
     await poner('#rm', mail); await poner('#rt', '11 5555-0142'); await poner('#rc', '27-22333444-5'); await poner('#ri', '5'); await poner('#rw', clave);
+    await aceptarAviso('register');
     return enviar('form[data-form="register"]');
   };
   const mailsAntes = s.mails.length;
@@ -348,6 +421,7 @@ try {
   ver('el enlace del mail la deja adentro', [await texto('main'), await aviso(), await js(`({ barra: location.href, guardado: localStorage.getItem('et-pedido-lavanda'), nombre: me() && me().name })`)],
     (v) => v[0].includes('Tu solicitud está en revisión') && v[1] === 'Tu mail quedó confirmado y tu solicitud ya está enviada.' && !v[2].barra.includes('#') && !v[2].barra.includes('token') && v[2].guardado === null && v[2].nombre === 'Eva Ñandú');
   await foto('mail-confirmado');
+  ver('y con la constancia del aviso', (await s.pg.query(`select count(*)::int as n from interno.consentimientos k join public.miembros m on m.id = k.miembro_id where m.email = 'eva@lavanda.prueba' and k.exterior`)).rows[0].n, 1);
   await abrirEnlace(enlaceDeEva);
   ver('con una cuenta adentro, pregunta antes', [await texto('.auth-card'), await js(`location.href`)], (v) => v[0].includes('Abriste un enlace de mail') && v[0].includes('eva@lavanda.prueba') && v[0].includes('Seguir con esta cuenta') && !v[1].includes('token'));
   await boton('Usar el enlace');

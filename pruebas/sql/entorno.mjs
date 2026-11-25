@@ -21,7 +21,7 @@ export const FUNCIONES_CON_SESION = [
   'guardar_categoria', 'quitar_categoria', 'guardar_maquina', 'quitar_maquina', 'guardar_facturacion',
   'facturacion_preparar', 'facturacion_estado',
   'mp_conexion_iniciar', 'mp_conexion_confirmar', 'mp_desconectar', 'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio',
-  'mp_devolucion_a_mano',
+  'mp_devolucion_a_mano', 'aceptar_privacidad', 'guardar_privacidad',
 ];
 
 /** Las que solo pueden llamar las funciones de Supabase de ARCA y de Mercado Pago (service_role). */
@@ -200,11 +200,18 @@ class Entorno {
     return esc;
   }
 
+  /** Lo que manda la página cuando la persona aceptó el aviso de datos que tiene en pantalla. */
+  async aviso(slug) {
+    const p = await this.comoAnon((c) => c.llamar('portada', { p_slug: slug }));
+    return { p_privacidad: p.site.privacy.hash, p_exterior: true };
+  }
+
   /** Cuenta nueva que pide acceso; por defecto la dueña la aprueba. Devuelve el id de la cuenta. */
   async crearPro(esc, { nombre, profesion = 'Profesional', categoria, aprobar = true, email }) {
     const id = await this.crearUsuario(email);
     const r = await this.llamarComo(id, 'pedir_acceso', {
       p_slug: esc.slug, p_nombre: nombre, p_profesion: profesion, p_categoria: categoria, p_telefono: '11 5555-0000', p_cuit: '27-11111111-7', p_condicion_iva: 6,
+      ...(await this.aviso(esc.slug)),
     });
     if (aprobar) {
       await this.llamarComo(esc.admin, 'cambiar_estado_profesional', { p_slug: esc.slug, p_miembro: r.id, p_estado: 'aprobado' });

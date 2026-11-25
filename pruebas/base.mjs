@@ -10,7 +10,8 @@ import { btree_gist } from '@electric-sql/pglite/contrib/btree_gist';
 const CARPETA_MIGRACIONES = new URL('../supabase/migrations/', import.meta.url);
 /** El archivo del reloj (pg_cron) no va acá: solo existe en el proyecto real. */
 export const MIGRACIONES = ['20261120100000_tablas.sql', '20261120100100_funciones.sql', '20261120100300_mails.sql',
-  '20261123100000_facturas_arca.sql', '20261124100000_mercadopago.sql', '20261125100000_recordatorio.sql'];
+  '20261123100000_facturas_arca.sql', '20261124100000_mercadopago.sql', '20261125100000_recordatorio.sql',
+  '20261125110000_privacidad.sql'];
 export const ZONA = 'America/Argentina/Buenos_Aires';
 
 /** Dueño de tablas y funciones (en Supabase es `postgres`, que NO es superusuario). */

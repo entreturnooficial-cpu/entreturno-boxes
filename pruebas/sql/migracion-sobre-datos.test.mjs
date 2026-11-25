@@ -66,6 +66,56 @@ test('la migración de Mercado Pago se carga sobre una base con datos y lo que h
   }
 });
 
+test('la migración del aviso de datos se carga sobre una base con datos: lo que había sigue, y para reservar hay que aceptarlo', async () => {
+  const nueva = '20261125110000_privacidad.sql';
+  const pg = await armarBase(MIGRACIONES.slice(0, MIGRACIONES.indexOf(nueva)));
+  try {
+    // Como el proyecto real: Soporte como dueña y una profesional aprobada antes de que existiera el aviso, con una reserva sin pagar
+    const c = (await pg.query(
+      `insert into public.consultorios (slug, nombre, duena, letras, reglamento) values ('yanina', 'Consultorio Yani', 'Yani', 'YO', 'Provisorio') returning id`,
+    )).rows[0].id;
+    const cat = (await pg.query(
+      `insert into public.categorias (consultorio_id, nombre, nota, precio_hora, orden) values ($1, 'Médicas y médicos', '', 25000, 1) returning id`, [c],
+    )).rows[0].id;
+    for (const n of [1, 2]) await pg.query(`insert into public.boxes (consultorio_id, numero, nombre, resumen, equipamiento) values ($1, $2, $3, '', '{}')`, [c, n, `Box ${n}`]);
+    const soporte = await crearCuenta(pg, 'soporte@entreturno.prueba');
+    await pg.query(`select interno.alta_admin('yanina', 'soporte@entreturno.prueba', 'Soporte Entreturno')`);
+    const comoPersona = async (sub, sql, params) => (await comoRol(pg, 'authenticated', sub, (tx) => tx.query(sql, params))).rows[0];
+    const pro = await crearCuenta(pg, 'pro@prueba.com');
+    const PEDIR = `select public.pedir_acceso(p_slug => 'yanina', p_nombre => 'Paula Pro', p_profesion => 'Médica', p_categoria => $1, p_telefono => '', p_cuit => '27-11111111-7', p_condicion_iva => 6) as r`;
+    const pedido = await comoPersona(pro, PEDIR, [cat]);
+    await comoPersona(soporte, `select public.cambiar_estado_profesional(p_slug => 'yanina', p_miembro => $1, p_estado => 'aprobado')`, [pedido.r.id]);
+    let dia = new Date(Date.now() + 10 * 864e5);
+    if (dia.getUTCDay() === 0) dia = new Date(dia.getTime() + 864e5);
+    const reservar = (box) => comoPersona(pro, `select public.reservar(p_slug => 'yanina', p_box => $1, p_fecha => $2, p_desde => 8, p_hasta => 12,
+      p_servicio => 'Consulta', p_plan => 'sena', p_maquinas => '{}', p_reglamento_version => 1) as r`, [box, dia.toISOString().slice(0, 10)]);
+    const r = (await reservar(1)).r;
+
+    await pg.exec(`set role ${DUENO}`);
+    await pg.exec(leerMigracion(nueva));
+    await pg.exec('reset role');
+
+    // Lo que había sigue: ve lo suyo, paga y cancela. Para reservar de nuevo tiene que aceptar el aviso.
+    const foto = async (sub) => (await comoPersona(sub, `select public.foto(p_slug => 'yanina') as f`)).f;
+    const yo = await foto(pro);
+    assert.deepEqual([yo.bookings.length, yo.users[0].privacy, yo.site.privacy.version, yo.site.privacy.text.includes('base de datos de Yani, responsable de «Consultorio Yani»')], [1, null, 1, true]);
+    await comoPersona(pro, `select public.simular_pago(p_slug => 'yanina', p_reserva => $1, p_tipo => 'sena')`, [r.id]);
+    await assert.rejects(reservar(2), /privacidad_falta/);
+    await comoPersona(pro, `select public.aceptar_privacidad('yanina', $1, true)`, [yo.site.privacy.hash]);
+    await reservar(2);
+    await comoPersona(pro, `select public.cancelar_reserva(p_slug => 'yanina', p_reserva => $1)`, [r.id]);
+    // Un pedido mandado por la página vieja (sin el aviso) no entra, y queda una sola versión de la función
+    await assert.rejects(comoPersona(await crearCuenta(pg, 'otra@prueba.com'), PEDIR, [cat]), /privacidad_falta/);
+    assert.equal((await pg.query(`select count(*)::int as n from pg_proc where pronamespace = 'public'::regnamespace and proname = 'pedir_acceso'`)).rows[0].n, 1);
+    const control = (await pg.query(readFileSync(new URL('../../supabase/control.sql', import.meta.url), 'utf8'))).rows[0];
+    assert.deepEqual({ ...control, f_interno: 0, lee_usuarios: undefined, dueno: undefined }, {
+      tablas: 15, sin_candado: 0, f_public: 60, f_interno: 0, sin_sesion: 'public.portada', con_sesion: 36, arca_solo_servicio: 5,
+      mp_solo_servicio: 19, interno_abierto: false, legibles: 0, mp_tablas_abiertas: 0, ext: 'extensions', lee_usuarios: undefined, dueno: undefined });
+  } finally {
+    await pg.close();
+  }
+});
+
 test('la migración de facturas se carga sobre una base con datos y lo que había sigue andando', async () => {
   const nueva = '20261123100000_facturas_arca.sql';
   const pg = await armarBase(MIGRACIONES.slice(0, MIGRACIONES.indexOf(nueva)));     // solo las anteriores a esa

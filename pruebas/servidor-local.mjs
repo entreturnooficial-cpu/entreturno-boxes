@@ -246,10 +246,12 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
     }
     const duena = await altaDeCuenta(DUENA.email, CLAVE_DE_PRUEBA);
     await pg.query(`select interno.alta_admin($1, $2, $3)`, [CONSULTORIO.slug, DUENA.email, DUENA.nombre]);
+    const [, portada] = await llamar('portada', { p_slug: CONSULTORIO.slug }, 'anon', null);
     for (const p of PROFESIONALES) {
       const cuenta = await altaDeCuenta(p.email, CLAVE_DE_PRUEBA);
       const [, pedido] = await llamar('pedir_acceso', { p_slug: CONSULTORIO.slug, p_nombre: p.nombre, p_profesion: p.profesion, p_categoria: cat[p.categoria],
-        p_telefono: p.telefono, p_cuit: p.cuit, p_condicion_iva: p.condicion }, 'authenticated', cuenta.id);
+        p_telefono: p.telefono, p_cuit: p.cuit, p_condicion_iva: p.condicion, p_privacidad: portada.site.privacy.hash, p_exterior: true },
+      'authenticated', cuenta.id);
       if (p.estado === 'aprobado') {
         await llamar('cambiar_estado_profesional', { p_slug: CONSULTORIO.slug, p_miembro: pedido.id, p_estado: 'aprobado' }, 'authenticated', duena.id);
       }

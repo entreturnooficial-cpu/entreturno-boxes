@@ -556,6 +556,23 @@ control de `volver_a` de la tabla `interno.mp_estados`.
   Hay que nombrarlo en el aviso de datos personales cuando se haga.
 - Prender el cobro de verdad (`pagos_modo`) lo hace Entreturno por SQL, no la dueña. Al sumar consultorios conviene un botón.
 
+## Aviso de datos personales (hecho en la compu el 25/11/2026; SIN cargar en Supabase ni publicar hasta el OK de Santiago)
+
+- Lo promete el convenio (11.4). Base: `20261125110000_privacidad.sql` (texto con versión, huella, constancia en
+  `interno.consentimientos`, `pedir_acceso` con dos datos más, `aceptar_privacidad`, `guardar_privacidad`; `reservar` lo exige).
+  Página: dos casilleros al pedir acceso, el aviso para leer sin entrar, la pantalla que lo pide a quien ya tenía cuenta o si hay
+  versión nueva, la constancia en «Profesionales» y los datos del responsable en Configuración → «Datos personales».
+- Fuentes leídas el 25/11 en argentina.gob.ar: Ley 25.326 (artículos 5, 6, 12, 14 y 16), Decreto 1558/2001 (artículo 12),
+  Resolución AAIP 14/2018 (el texto de la Agencia, tal cual) y la lista de países (Disposición 60/2016 y Resolución 34/2019:
+  Brasil y Estados Unidos no están). **Falta que lo revise una abogada.**
+- **Al publicar:** primero la base (control: f_public 61, con_sesion 36), y seguido la página: en esos minutos, con la página
+  vieja no se puede pedir acceso ni reservar. Quien ya tenga cuenta lo acepta la próxima vez que entra.
+- Para cambiar el texto: un renglón NUEVO en `interno.privacidad` con la versión que sigue; nunca editar el viejo.
+- Falta: los datos de Yani (responsable, domicilio y mail: Configuración lo avisa), un procedimiento de baja (hoy el borrado es a
+  mano) y, si corresponde, inscribir la base en el registro (es de la Doctora).
+- Revisión 7 de Codex (10 puntos): corregidos 2, 4 (el comentario), 5 y 6 (el texto dice lo que el sistema hace), 7, 8, 9 y 10;
+  1 y 3 sin cambio de fondo: la constancia prueba que esa cuenta mandó su aceptación de ese texto, no que lo haya leído.
+
 ## Decisiones tomadas al armar (sin consultar; se pueden cambiar)
 
 - Una profesional puede tener hasta 3 reservas sin pagar la seña a la vez (`max_sin_pagar`), para que nadie acapare turnos.

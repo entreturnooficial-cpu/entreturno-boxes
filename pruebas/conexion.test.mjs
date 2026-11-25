@@ -83,7 +83,7 @@ test('crear la cuenta y pedir acceso', async () => {
   // Con cuenta pero sin haber pedido acceso: ve la portada y sabe que todavía no es nadie acá
   const antes = await c.rpc('foto');
   assert.deepEqual([antes.me, antes.site.name, antes.bookings], [null, 'Consultorio Lavanda', undefined]);
-  const pedido = await c.rpc('pedir_acceso', { p_nombre: 'Ana Paz', p_profesion: 'Kinesióloga', p_categoria: antes.config.categories[1].id, p_telefono: '11 5555-0199', p_cuit: '' });
+  const pedido = await c.rpc('pedir_acceso', { p_nombre: 'Ana Paz', p_profesion: 'Kinesióloga', p_categoria: antes.config.categories[1].id, p_telefono: '11 5555-0199', p_cuit: '', p_privacidad: antes.site.privacy.hash, p_exterior: true });
   assert.equal(pedido.status, 'pendiente');
   const foto = await c.rpc('foto');
   assert.deepEqual(foto.users.map((u) => [u.name, u.status, u.email]), [['Ana Paz', 'pendiente', 'ana@lavanda.prueba']]);

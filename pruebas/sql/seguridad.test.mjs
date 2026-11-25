@@ -95,11 +95,12 @@ prueba('quien no es la dueña no puede usar ninguna función de la dueña', asyn
     ['mp_conexion_confirmar', { p_slug: 'lavanda', p_user_id: '1' }],
     ['mp_desconectar', { p_slug: 'lavanda' }],
     ['mp_devolucion_a_mano', { p_slug: 'lavanda', p_devolucion: ninguno }],
+    ['guardar_privacidad', { p_slug: 'lavanda', p_responsable: 'Yo', p_domicilio: 'Mi casa', p_contacto: 'yo@prueba.com' }],
   ];
   // Todas las funciones con sesión que no son de uso general tienen que estar en la lista de arriba
   // (las tres de Mercado Pago que usa cualquier profesional tienen sus pruebas en mercadopago.test.mjs)
   const generales = ['portada', 'foto', 'pedir_acceso', 'reservar', 'simular_pago', 'cancelar_reserva',
-    'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio'];
+    'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio', 'aceptar_privacidad'];
   assert.deepEqual(llamadas.map((l) => l[0]).sort(), FUNCIONES_CON_SESION.filter((n) => !generales.includes(n)).sort());
 
   const antes = JSON.stringify(await e.foto(esc, esc.admin));
@@ -156,7 +157,7 @@ prueba('pedir acceso: una vez por consultorio, con categoría de ese consultorio
   const a = await e.armar('lavanda');
   const b = await e.armar('nacar', { nombre: 'Espacio Nácar', duena: 'Inés' });
   const nueva = await e.crearUsuario('nueva@prueba.com');
-  const pedido = { p_slug: 'lavanda', p_nombre: '  Ana Paz ', p_profesion: 'Kinesióloga', p_categoria: a.estetica, p_telefono: '', p_cuit: '' };
+  const pedido = { p_slug: 'lavanda', p_nombre: '  Ana Paz ', p_profesion: 'Kinesióloga', p_categoria: a.estetica, p_telefono: '', p_cuit: '', ...(await e.aviso('lavanda')) };
   await esperarError(e.llamarComo(nueva, 'pedir_acceso', { ...pedido, p_categoria: b.estetica }), 'categoria_inexistente');
   await esperarError(e.llamarComo(nueva, 'pedir_acceso', { ...pedido, p_nombre: '   ' }), 'dato_invalido');
   await esperarError(e.llamarComo(nueva, 'pedir_acceso', { ...pedido, p_profesion: '' }), 'dato_invalido');
@@ -181,5 +182,5 @@ prueba('pedir acceso: una vez por consultorio, con categoría de ese consultorio
   assert.deepEqual([f.bookings, f.blocks, f.releases], [[], [], []]);
   assert.equal(f.config.billing, null);
   // La misma cuenta puede pedir acceso en otro consultorio
-  assert.equal((await e.llamarComo(nueva, 'pedir_acceso', { ...pedido, p_slug: 'nacar', p_categoria: b.estetica })).status, 'pendiente');
+  assert.equal((await e.llamarComo(nueva, 'pedir_acceso', { ...pedido, p_slug: 'nacar', p_categoria: b.estetica, ...(await e.aviso('nacar')) })).status, 'pendiente');
 });
