@@ -39,6 +39,20 @@ const sinPermiso = ['42501 (401)', '42501 (403)', 'PGRST'];
 await espera('aceptar el aviso sin sesión', conexion('yanina').rpc('aceptar_privacidad', { p_privacidad: 'x', p_exterior: true }), sinPermiso);
 await espera('cambiar los datos del aviso sin sesión', conexion('yanina').rpc('guardar_privacidad', { p_responsable: 'x', p_domicilio: 'x', p_contacto: 'x@example.com' }), sinPermiso);
 await espera('pedir acceso sin sesión', conexion('yanina').rpc('pedir_acceso', { p_nombre: 'x', p_profesion: 'x', p_categoria: '00000000-0000-0000-0000-000000000000', p_telefono: '', p_cuit: '', p_condicion_iva: 5, p_privacidad: 'x', p_exterior: true }), sinPermiso);
+// La copia de seguridad: los datos no se piden con la clave pública, y la función no entrega nada sin su clave
+for (const [nombre, opciones, estado] of [
+  ['pedir los datos de la copia con la clave pública', { method: 'POST', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: '{}', datos: true }, 401],
+  ['pedir la copia sin la clave', { method: 'POST' }, 401],
+  ['pedir la copia con una clave inventada', { method: 'POST', headers: { 'x-entreturno-copia': 'x'.repeat(64) } }, 401],
+  ['confirmar una copia sin la clave', { method: 'POST', headers: { 'x-entreturno-guardada': 'a'.repeat(64) } }, 401],
+  ['abrir la dirección de la copia en el navegador', { method: 'GET' }, 405],
+]) {
+  const r = await fetch(opciones.datos ? `${url}/rest/v1/rpc/copia_datos` : `${url}/functions/v1/copia`, opciones);
+  const cuerpo = await r.text();
+  const ok = r.status === estado && (opciones.datos ? cuerpo.includes('"42501"') : cuerpo.length < 60);
+  if (!ok) fallas++;
+  console.log(`  ${ok ? '[OK]   ' : '[FALLA]'} ${nombre.padEnd(52)} ${r.status} ${cuerpo.slice(0, 60)}`);
+}
 // Las funciones internas no están publicadas
 await espera('función interna', conexion('yanina').rpc('mantener_todos', {}), ['PGRST202 (404)']);
 // Las tablas no se pueden leer por la API

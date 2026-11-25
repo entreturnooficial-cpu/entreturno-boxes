@@ -24,7 +24,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **«Pedir acceso» con una cuenta nueva probado de verdad el 25/11** (mail, confirmación, pedido y aprobación). **Falta probar de verdad:** guardar una contraseña distinta |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
 | Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Cargado en Supabase y publicado el 23/11** (control 15 / 0 / 33 / 27 / 5; página TODO BIEN; `yanina` en modo prueba). **Secretos de ARCA pegados por Santiago el 23/11 a las 12:26 y comprobados por huella (5 de 5). «Probar la conexión con ARCA» salió bien desde la página a las 12:37** (modo prueba: ARCA responde, ticket vigente, punto de venta 0001). Falta el PDF con QR |
-| Copia de seguridad diaria | Falta (el plan gratis no la hace sola) |
+| Copia de seguridad diaria | **Andando desde el 25/11/2026**: cada noche GitHub pide la copia, que sale cifrada, y la guarda 30 días; si falta, llega un mail. La primera se abrió y se restauró en la compu. Ver «Copia de seguridad» |
 | «Crear cuenta» desde el panel de la dueña | Falta. Hoy cada profesional se registra sola y la dueña la aprueba |
 | Probarla en un celular real | Falta |
 
@@ -32,10 +32,10 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (219 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
+npm test                  (236 pruebas: base de datos + conexión + ARCA simulado + Mercado Pago simulado + copia de seguridad; un minuto y medio)
 npm run test:pantallas    (127 comprobaciones de la página en un Edge o Chrome sin ventana; al final dice dónde dejó las capturas)
 npm run test:pantallas-mp (60 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
-npm run test:real         (12 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
+npm run test:real         (17 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:real-mp      (16 comprobaciones de la función «mp» real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
 npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda» y pagos de prueba)
@@ -44,8 +44,8 @@ node pruebas/huellas.mjs  (escribe una consulta de SOLO LECTURA que compara la b
 
 `huellas.mjs` no se conecta a ningún lado: se pega su consulta en el SQL Editor del proyecto real. Con `--hasta <migración>`
 sirve para mirar, ANTES de cargar una migración nueva, que la base real sea la que se espera. El 25/11/2026 dio 456 de 456
-antes de cargar Mercado Pago, 543 de 543 después, 590 de 590 con el aviso de datos personales y 594 de 594 con el modo prueba
-corregido (lo único de más es
+antes de cargar Mercado Pago, 543 de 543 después, 590 de 590 con el aviso de datos personales, 594 de 594 con el modo prueba
+corregido y 615 de 615 con la copia de seguridad (lo único de más es
 `public.rls_auto_enable`, que es de Supabase).
 
 Para ver en la compu la página cobrando con el Mercado Pago simulado (en PowerShell):
@@ -588,6 +588,8 @@ control de `volver_a` de la tabla `interno.mp_estados`.
 
 ## Aviso de datos personales (cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago: «Sí, publicalo»)
 
+- **Versión vigente: la 2** (`20261125140000_aviso_v2.sql`, cargada el 25/11 con la copia de seguridad): nombra a GitHub, la copia cifrada en
+  Estados Unidos y los 30 días. Lo demás no cambia. Quien aceptó la 1 tiene que aceptar la 2 al entrar.
 - Lo promete el convenio (11.4). Base: `20261125110000_privacidad.sql` (texto con versión, huella, constancia en
   `interno.consentimientos`, `pedir_acceso` con dos datos más, `aceptar_privacidad`, `guardar_privacidad`; `reservar` lo exige).
   Página: dos casilleros al pedir acceso, el aviso para leer sin entrar, la pantalla que lo pide a quien ya tenía cuenta o si hay
@@ -608,6 +610,58 @@ control de `volver_a` de la tabla `interno.mp_estados`.
   mano) y, si corresponde, inscribir la base en el registro (es de la Doctora).
 - Revisión 7 de Codex (10 puntos): corregidos 2, 4 (el comentario), 5 y 6 (el texto dice lo que el sistema hace), 7, 8, 9 y 10;
   1 y 3 sin cambio de fondo: la constancia prueba que esa cuenta mandó su aceptación de ese texto, no que lo haya leído.
+
+## Copia de seguridad (cargada y andando desde el 25/11/2026, con el OK de Santiago: «Sí, cargalo así»)
+
+El convenio promete una copia por día y que se borren a los 30 días como mucho. El plan gratis de Supabase no hace ninguna.
+
+**Cómo es.** Todas las noches (03:23, con la demora que tenga GitHub) el flujo `.github/workflows/copia-diaria.yml` le pide la copia a la
+función `copia` de Supabase, con la clave `COPIA_CLAVE`. La función le pide los datos a la base (`copia_datos`: todo en una sola foto), los
+cifra con las llaves PÚBLICAS de `supabase/functions/_compartido/copia-llaves.ts` y entrega el archivo cerrado. GitHub comprueba que llegó
+igual, lo guarda 30 días («Artifacts» de esa corrida) y le confirma a la base que lo guardó (`copia_guardada`).
+- **Quién la puede leer:** solo quien tenga una llave privada y su frase. Ni GitHub, ni quien consiga `COPIA_CLAVE`, ni Supabase.
+- **Las llaves:** `copia/generar-llave.mjs`, en la compu de cada dueño. La privada queda con él (protegida con una frase de seis palabras);
+  la pública va al proyecto. Hoy hay una, la de Santiago (`santiago-aab9c821`; archivos en `Desktop\ENTRETURNO - COPIAS` y en
+  `E:\Entreturno boxes\copias`). **Conviene una segunda, de Tomás o Iván:** generan la suya, mandan SOLO la pública, se agrega a
+  `copia-llaves.ts`, se vuelve a armar y subir la función. Si se pierden todas las llaves o las frases, las copias no se abren más.
+- **Qué no va en la copia:** los pases de Mercado Pago y la clave de los mails (viven en el Vault), el ticket de ARCA, los candados y los
+  intentos de conexión, y los códigos de los mails de registro. Una columna nueva hace fallar una prueba hasta que alguien la revise
+  (`pruebas/copia-columnas.txt`).
+- **El vigía** (`interno.copias_vigilar`, reloj `entreturno-boxes-copia`, minuto 47 de cada hora): si hace más de 30 horas que GitHub no
+  confirma una copia guardada, manda un mail por día a la dirección de `interno.ajustes` «mail_soporte». También avisa, una vez por
+  semana, si los datos pasan los 15 MB (esta forma de copiar anda bien hasta unos 40: son los límites de la función y 8 segundos de la API;
+  después, copias por partes o el plan pago de Supabase). Hoy pesan 33 KB. GitHub además avisa por mail si el flujo falla.
+
+**Probar una copia** (cada tres meses): GitHub → Actions → «Copia diaria» → la corrida → «Artifacts» → bajar el `.ecopia` y arrastrarlo sobre
+`Desktop\ENTRETURNO - COPIAS\3 - PROBAR UNA COPIA.cmd` (`node copia/abrir.mjs <archivo>`). Pide la frase, la abre, la carga en una base nueva
+en la memoria de la compu (con las migraciones y las tablas de cuentas como las de Supabase), la compara fila por fila y abre cada
+consultorio con su dueña. No escribe datos en el disco.
+
+**Si se pierde el proyecto de Supabase (restaurar de cero):**
+1. Proyecto nuevo en Supabase (San Pablo). En el SQL Editor, todas las migraciones en orden, menos las tres de reloj.
+2. `node copia/abrir.mjs <archivo.ecopia> --sql restaurar.sql` y correr ese SQL en el proyecto nuevo (es todo o nada, y no hace nada si ya
+   hay consultorios). Tiene datos de personas: borrarlo después y no subirlo a ningún lado.
+3. `supabase/control.sql` y `pruebas/huellas.mjs`. Después las tres migraciones de reloj (cambiando la dirección del proyecto en la de `mp`).
+4. Funciones `facturar`, `mp` y `copia`, con «Verify JWT» apagado en `mp` y `copia`. Secretos: los pega Santiago (los de ARCA están en
+   `Desktop\ENTRETURNO - ARCA`; los de Mercado Pago, en su panel; la clave de los mails, en Resend, y va al Vault).
+5. Ajustes de Auth (mails, «Confirm email», direcciones de vuelta): ver «Los mails de registro». Dirección y clave pública nuevas en
+   `web/config.js`, en el flujo de la copia y en la aplicación de Mercado Pago. Publicar.
+6. Cada dueña conecta de nuevo su Mercado Pago (los pases no van en la copia: queda «desconectada»). Los mails viejos que esperaban salir
+   quedan descartados, para que no salgan dos veces. Las contraseñas de todas siguen siendo las mismas.
+
+**Cómo dio el 25/11/2026:** base cargada (control 15 / 0 / 64 / `public.portada` / 36 / 5 / 19 / 3 / false / 0 / 0; huellas 615 de 615), función
+`copia` (9.762 caracteres, huella `fef05ca769c8`, «Verify JWT» apagado con el OK de Santiago), secreto `COPIA_CLAVE` en Supabase y en GitHub
+(lo pegó él). Primera copia a mano a las 16:19: 15 segundos, 7.895 bytes, misma huella en GitHub y en la base, confirmada a las 16:19:28. Santiago
+la bajó, la abrió con su frase y dio «LA COPIA SIRVE: se abrió, se restauró y quedó igual». El mail del vigía se probó de verdad y llegó a
+Recibidos. En la compu: `npm test` 236 de 236, pantallas 127 y 60, y 40 roturas a propósito, las 40 detectadas.
+
+**Revisión 9 de Codex (8 puntos):** 2 (el vigía mira que esté guardada, no que haya salido), 3 (avisa aunque nunca haya salido ninguna, y
+reintenta si el mail no sale), 4 (Mercado Pago queda desconectado al restaurar), 7 (cada columna nueva se revisa) y 8 (la frase no se ve al
+escribirla) corregidos; 1 era esperable (la llave todavía no estaba); 5 en parte (el ensayo usa las tablas de cuentas como las de Supabase y
+`postgres` puede usar `session_replication_role`, comprobado en el real); 6 con aviso temprano.
+
+**Lo que no está probado:** la corrida de la madrugada sola (la primera es la del 26/11 a las 03:23), restaurar en un proyecto de Supabase de
+verdad (hace falta crear uno para el ensayo y borrarlo) y entrar ahí con una contraseña restaurada.
 
 ## Decisiones tomadas al armar (sin consultar; se pueden cambiar)
 
@@ -637,8 +691,9 @@ control de `volver_a` de la tabla `interno.mp_estados`.
    (producción y las tres claves ya están desde el 25/11) Yani como dueña, `select interno.mp_pasar_a('yanina', 'real');`, que conecte
    su cuenta desde Configuración y un primer pago de verdad, chico, con su devolución.
 6. Aviso de datos personales: publicado el 25/11. Falta la revisión de una abogada, los datos de Yani y un procedimiento de baja.
-7. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
-8. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
+7. Copia diaria: andando desde el 25/11. Falta una segunda llave (Tomás o Iván) y ensayar la restauración en un proyecto de Supabase de verdad.
+8. «Crear cuenta» desde el panel y prueba en celulares reales.
+9. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
 
 ## Pendientes de la revisión de la página (revisiones\respuesta-codex-2.md)
 

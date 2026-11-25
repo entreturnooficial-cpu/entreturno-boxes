@@ -71,6 +71,12 @@ Los pasos completos están en `LEEME.md`. Si no estás seguro, avisá en el grup
 - `revisiones/` — las revisiones del código.
 - `LEEME.md` — cómo está hoy cada parte, por qué se hizo así y qué sigue. **Empezar por ahí.**
 
+## La copia de seguridad
+
+Sale sola todas las noches: pestaña **Actions** de este repositorio, «Copia diaria». Va cifrada y GitHub la guarda 30 días. Para abrirla hace
+falta una llave privada con su frase (hoy la tiene Santiago; conviene que haya otra: `node copia/generar-llave.mjs`, y mandar SOLO la pública).
+Está explicado en el LEEME, «Copia de seguridad».
+
 ## Cuidados
 
 - Acá no hay ninguna clave secreta y no tiene que haberla. La de `web/config.js` es pública: va adentro de la página.
