@@ -2095,7 +2095,7 @@ function mpPanel() {
   }
   const otroModo = a.env !== mp.env;
   return `${modo}<ul class="list"><li class="li"><div class="main">${cuenta}</div><span class="pill ${otroModo ? "pill-warning" : "pill-positive"}">${otroModo ? "Hay que reconectar" : "Conectada"}</span></li></ul>
-    ${otroModo ? `<div class="note warn">Esta cuenta se conectó en modo ${a.env === "prueba" ? "prueba" : "real"} y hoy el consultorio cobra en modo ${real ? "real" : "prueba"}. Conectala de nuevo.</div>` : ""}
+    ${otroModo ? `<div class="note warn">Esta cuenta se conectó en modo ${a.env === "prueba" ? "prueba" : "real"} y hoy el consultorio cobra en modo ${real ? "real" : "prueba"}. Conectala de nuevo.</div>` : real ? "" : `<p class="muted">En modo prueba esta cuenta no se usa para cobrar: sirve para ensayar la conexión. Al pasar a cobrar de verdad hay que conectarla de nuevo.</p>`}
     <div class="acts"><button class="btn" data-action="mp-quitar">Desconectar</button>${otroModo ? `<button class="btn btn-dark" data-action="mp-conectar">Conectar de nuevo</button>` : ""}</div>`;
 }
 
@@ -2562,6 +2562,7 @@ const MOTIVOS_MP = {
   cancelado: "No se conectó ninguna cuenta: en Mercado Pago elegiste no autorizar.",
   pais: "Esa cuenta de Mercado Pago no es de Argentina. Conectá una cuenta argentina.",
   ambiente: "Esa cuenta es de prueba y este consultorio cobra de verdad. Conectá la cuenta real.",
+  "ambiente-prueba": "No se guardó la cuenta: Mercado Pago dio un permiso que cobra de verdad y este consultorio está en modo prueba.",
   rechazado: "Mercado Pago no aceptó la conexión. Probá de nuevo.",
   sin_respuesta: "Mercado Pago no contestó. Probá de nuevo en un momento.",
   pendientes: "No se cambió de cuenta: con la anterior todavía hay cobros abiertos o devoluciones saliendo. Probá cuando terminen.",
@@ -2578,7 +2579,7 @@ function atenderConexionDeMp(como) {
 function openMpConfirm() {
   const a = S.config.mp && S.config.mp.account;
   if (!a || a.status !== "por_confirmar") return;
-  openSheet(`${sheetHead("¿Es tu cuenta de Mercado Pago?", "La plata de las reservas va a entrar acá")}
+  openSheet(`${sheetHead("¿Es tu cuenta de Mercado Pago?", mpDePrueba() ? "Es un ensayo: en modo prueba no se cobra en esta cuenta" : "La plata de las reservas va a entrar acá")}
   <div class="sheet-b">
     <div class="summary"><b>${esc(a.name || "Cuenta de Mercado Pago")}</b><span class="r muted num">N.º ${esc(a.userId)}</span>${a.email ? `<span class="muted">${esc(a.email)}</span>` : ""}</div>
     <p class="muted" style="margin-top:12px">Fijate que sea la cuenta donde querés cobrar. Si no es la tuya, quitala y conectá la correcta.</p>
@@ -2923,7 +2924,7 @@ document.addEventListener("click", async (e) => {
     case "mp-confirmar": {
       const r = await accion("mp_conexion_confirmar", { p_user_id: ds.cuenta });     // la cuenta que vio en la hoja, no «la que haya»
       closeSheet(); render();
-      if (r) toast(S.site.payments === "mercadopago" ? "Cuenta confirmada. Ya se puede cobrar con Mercado Pago." : "Cuenta confirmada. Entreturno prende el cobro de verdad cuando esté todo probado.");
+      if (r) toast(mpDePrueba() ? "Cuenta confirmada. En modo prueba no se usa para cobrar." : S.site.payments === "mercadopago" ? "Cuenta confirmada. Ya se puede cobrar con Mercado Pago." : "Cuenta confirmada. Entreturno prende el cobro de verdad cuando esté todo probado.");
       break;
     }
     case "mp-quitar": {

@@ -15,9 +15,11 @@ const resultado = (e, pago, orden, estado, extra = {}) => servicio(e, 'mp_pago_r
 const avisosDe = async (e, miembro) => (await e.sql(`select asunto from public.avisos where miembro_id = $1 order by creado_en, id`, [miembro])).map((a) => a.asunto);
 
 let cuenta = 0;
-const ordenNueva = () => `ORD01TEST${String(++cuenta).padStart(18, '0')}`;
+let modo = 'real';                  // el del consultorio de la prueba (lo cambia conMercadoPago): las órdenes de prueba se numeran ORDTST…
+const ordenNueva = () => `${modo === 'prueba' ? 'ORDTST01' : 'ORD01'}${String(++cuenta).padStart(20, '0')}`;
 
 async function conMercadoPago(e, esc, ambiente = 'real') {
+  modo = ambiente;
   await e.sql(`update public.consultorios set pagos_modo = 'mercadopago', mp_ambiente = $2 where id = $1`, [esc.id, ambiente]);
 }
 
@@ -157,6 +159,146 @@ prueba('en modo prueba se puede cobrar sin cuenta propia; en modo simulado Merca
   await conMercadoPago(e, esc, 'real');
   assert.equal((await e.foto(esc, esc.lucia)).site.mp.ready, false);
   assert.equal((await servicio(e, 'mp_credencial', { p_consultorio: esc.id })).acceso, null);
+});
+
+prueba('en modo prueba no se entrega el pase de la cuenta conectada ni se renueva', async (e) => {
+  const esc = await e.armar();
+  await conMercadoPago(e, esc, 'prueba');
+  await conectar(e, esc);
+  const cred = () => servicio(e, 'mp_credencial', { p_consultorio: esc.id, p_con_renovar: true });
+  let c = await cred();
+  assert.deepEqual([c.ambiente, c.cuenta.estado, c.cuenta.userId, c.acceso, c.renovar], ['prueba', 'conectada', CUENTA, null, null]);
+  // por vencer: la de prueba no se renueva (sin el pase de renovar quedaría «caída» y la dueña recibiría un mail sin sentido)
+  const porVencer = () => e.sql(`update interno.mp_cuentas set vence = now() + interval '5 days', renovada_en = null where consultorio_id = $1`, [esc.id]);
+  const renovar = async () => (await servicio(e, 'mp_pendientes')).renovar;
+  await porVencer();
+  assert.deepEqual(await renovar(), []);
+  // una real se entrega y se renueva, pero no mientras el consultorio está en prueba
+  await conMercadoPago(e, esc, 'real');
+  assert.deepEqual(await renovar(), []);                                      // todavía es la de prueba
+  await conectar(e, esc, { userId: '777' });
+  await porVencer();
+  c = await cred();
+  assert.deepEqual([c.ambiente, c.cuenta.userId, c.acceso, c.renovar], ['real', '777', 'APP_USR-acceso-lavanda', 'TG-renovar-lavanda']);
+  assert.deepEqual(await renovar(), [esc.id]);
+  await conMercadoPago(e, esc, 'prueba');
+  assert.deepEqual([(await cred()).acceso, await renovar()], [null, []]);
+});
+
+prueba('una orden no queda anotada si no es del modo del consultorio', async (e) => {
+  const esc = await e.armar();
+  const dia = await e.diaHabil(3);
+  await conMercadoPago(e, esc, 'prueba');
+  const r = await e.reservar(esc, esc.lucia, { fecha: dia });
+  const p = await preparar(e, esc, esc.lucia, r.id, 'sena');
+  await esperarError(anotarOrden(e, p.pago, 'ORD01M89VH4MQ8183RWWEMV12K8XK'), 'mp_otro_ambiente');
+  await esperarError(resultado(e, p.pago, 'ORD01M89VH4MQ8183RWWEMV12K8XK', 'processed', { p_pagado: 20000, p_transaccion: 'PAY1' }), 'mp_otro_ambiente');
+  assert.deepEqual(await e.uno(`select estado, proveedor_id from public.pagos where id = $1`, [p.pago]), { estado: 'pendiente', proveedor_id: null });
+  await anotarOrden(e, p.pago, 'ORDTST01M89VH4MQ8183RWWEMV12K8XK');
+  assert.equal((await resultado(e, p.pago, 'ORDTST01M89VH4MQ8183RWWEMV12K8XK', 'processed', { p_pagado: 20000, p_transaccion: 'PAY1' })).estado, 'aprobado');
+
+  await conMercadoPago(e, esc, 'real');
+  await conectar(e, esc);
+  const r2 = await e.reservar(esc, esc.caro, { fecha: dia, box: 1 });
+  const p2 = await preparar(e, esc, esc.caro, r2.id, 'sena');
+  await esperarError(anotarOrden(e, p2.pago, 'ORDTST01OTRA000000000000000000'), 'mp_otro_ambiente');
+  await anotarOrden(e, p2.pago, ordenNueva());
+  // lo que ya estaba anotado de antes no se traba al cambiar de modo (ni volviendo a escribir el mismo número)
+  await e.sql(`update public.pagos set actualizado_en = now(), error = null where id = $1`, [p.pago]);
+  await e.sql(`update public.pagos set proveedor_id = proveedor_id, estado = estado where id = $1`, [p.pago]);
+});
+
+prueba('si cambió el modo con una orden abierta, su enlace no se entrega más y no se aprueba: queda para revisar', async (e) => {
+  const esc = await e.armar();
+  const dia = await e.diaHabil(3);
+  await conMercadoPago(e, esc, 'real');
+  await conectar(e, esc);
+  const r = await e.reservar(esc, esc.lucia, { fecha: dia });
+  const p = await preparar(e, esc, esc.lucia, r.id, 'sena');
+  const orden = ordenNueva();
+  await anotarOrden(e, p.pago, orden);
+  assert.deepEqual((await preparar(e, esc, esc.lucia, r.id, 'sena')).enlace, ENLACE(orden));      // en el mismo modo se reusa
+  // alguien cambia el modo a mano, sin pasar por mp_pasar_a
+  await conMercadoPago(e, esc, 'prueba');
+  await esperarError(resultado(e, p.pago, orden, 'processed', { p_pagado: 20000, p_transaccion: 'PAY1' }), 'mp_otro_ambiente');
+  assert.equal((await e.uno(`select estado from public.reservas where id = $1`, [r.id])).estado, 'pago');
+  const q = await preparar(e, esc, esc.lucia, r.id, 'sena');
+  assert.deepEqual([q.nuevo, q.enlace, q.cerrar, q.ambiente], [true, undefined, null, 'prueba']);
+  assert.notEqual(q.pago, p.pago);
+  assert.deepEqual(await e.uno(`select estado, error from public.pagos where id = $1`, [p.pago]), { estado: 'revisar', error: 'la orden es del otro modo (prueba o real)' });
+  assert.equal((await avisosDe(e, esc.adminMiembro ?? (await e.uno(`select id from public.miembros where consultorio_id = $1 and rol = 'admin'`, [esc.id])).id)).filter((a) => a === 'Un pago para revisar').length, 1);
+  await anotarOrden(e, q.pago, ordenNueva());
+});
+
+prueba('pasar un consultorio a cobrar de verdad, o volver a prueba: solo si no queda nada colgado del otro modo', async (e) => {
+  const esc = await e.armar();
+  const pasar = async (ambiente) => {
+    const r = (await e.uno(`select interno.mp_pasar_a($1, $2) as r`, [esc.slug, ambiente])).r;
+    modo = ambiente;
+    return r;
+  };
+  const comoEsta = () => e.uno(`select pagos_modo, mp_ambiente from public.consultorios where id = $1`, [esc.id]);
+  await esperarError(pasar('cualquiera'), 'dato_invalido');
+  await esperarError(pasar(null), 'dato_invalido');
+  await esperarError(e.sql(`select interno.mp_pasar_a('no-existe', 'real')`), 'consultorio_inexistente');
+  // ni la página ni las funciones de Supabase lo pueden llamar
+  for (const rol of ['anon', 'authenticated', 'service_role']) {
+    await assert.rejects(e.comoRol(rol, null, (c) => c.sql(`select interno.mp_pasar_a('lavanda', 'real')`)), /permission denied/);
+  }
+
+  // un turno por venir pagado con el pago simulado
+  const dia = await e.diaHabil(3);
+  const simulada = await e.reservar(esc, esc.lucia, { fecha: dia });
+  await e.pagar(esc, esc.lucia, simulada.id, 'sena');
+  await esperarError(pasar('real'), 'hay_turnos_pagados_en_el_otro_modo');
+  assert.equal(await pasar('prueba'), 'lavanda cobra con Mercado Pago en modo prueba');
+  assert.deepEqual(await comoEsta(), { pagos_modo: 'mercadopago', mp_ambiente: 'prueba' });
+  assert.equal(await pasar('prueba'), 'lavanda ya cobraba con Mercado Pago en modo prueba: no se cambió nada');
+  await cancelar(e, esc, esc.admin, simulada.id);
+
+  /** Hace salir la devolución que espera, como lo haría el reloj. */
+  const devolver = async () => {
+    await e.sql(`update public.pagos set actualizado_en = now() - interval '1 minute' where tipo = 'devolucion' and estado = 'pendiente'`);
+    const { devolucion } = (await servicio(e, 'mp_pendientes')).devoluciones[0];
+    for (const parte of (await servicio(e, 'mp_devolucion_tomar', { p_devolucion: devolucion })).partes) {
+      await servicio(e, 'mp_devolucion_parte', { p_devolucion: devolucion, p_n: parte.n, p_hecha: true, p_referencia: 'REF1', p_error: null, p_definitivo: false });
+    }
+  };
+  // de prueba a real, y después de real a prueba: lo mismo en los dos sentidos
+  for (const [hoy, destino, box] of [['prueba', 'real', 1], ['real', 'prueba', 2]]) {
+    if (hoy === 'real') await conectar(e, esc);
+    const r = await e.reservar(esc, esc.caro, { fecha: dia, box });
+    await esperarError(pasar(destino), 'hay_reservas_esperando_pago');
+    const p = await preparar(e, esc, esc.caro, r.id, 'sena');
+    await esperarError(pasar(destino), 'mp_con_pendientes');                                     // intento todavía sin número
+    const orden = ordenNueva();
+    await anotarOrden(e, p.pago, orden);
+    await esperarError(pasar(destino), 'mp_con_pendientes');                                     // orden abierta
+    await resultado(e, p.pago, orden, 'processed', { p_pagado: p.monto, p_transaccion: `PAY-${hoy}` });
+    await esperarError(pasar(destino), 'hay_turnos_pagados_en_el_otro_modo');
+    const saldo = await preparar(e, esc, esc.caro, r.id, 'saldo');
+    await esperarError(pasar(destino), 'mp_con_pendientes');                                     // el saldo, a medio pedir
+    await anotarOrden(e, saldo.pago, ordenNueva());
+    await cancelar(e, esc, esc.admin, r.id);
+    await esperarError(pasar(destino), 'mp_con_pendientes');                                     // la devolución todavía no salió
+    await devolver();
+    await esperarError(pasar(destino), 'mp_con_pendientes');                                     // falta cerrar la orden del saldo en Mercado Pago
+    assert.equal((await e.uno(`select estado from public.pagos where id = $1`, [saldo.pago])).estado, 'vencido');
+    await servicio(e, 'mp_pago_cerrado', { p_pago: saldo.pago });
+    for (const [que, vuelta] of [[`datos = datos || '{"sin_comprobar": true}'`, `datos = datos - 'sin_comprobar'`], [`estado = 'revisar'`, `estado = 'vencido'`],
+      [`estado = 'sobrante'`, `estado = 'vencido'`]]) {
+      await e.sql(`update public.pagos set ${que} where id = $1`, [saldo.pago]);
+      await esperarError(pasar(destino), 'mp_con_pendientes');
+      await e.sql(`update public.pagos set ${vuelta} where id = $1`, [saldo.pago]);
+    }
+    assert.equal(await pasar(destino), destino === 'real' ? 'lavanda cobra con Mercado Pago en modo real: falta que la dueña conecte su cuenta desde Configuración'
+      : 'lavanda cobra con Mercado Pago en modo prueba');
+    assert.deepEqual(await comoEsta(), { pagos_modo: 'mercadopago', mp_ambiente: destino });
+    if (destino === 'real') assert.equal((await e.foto(esc, esc.lucia)).site.mp.ready, false);
+  }
+  // de vuelta a real: la cuenta real que ya estaba conectada sirve
+  assert.equal(await pasar('real'), 'lavanda cobra con Mercado Pago en modo real');
+  assert.equal((await e.foto(esc, esc.lucia)).site.mp.ready, true);
 });
 
 prueba('pagar la seña y después el saldo: se acredita una sola vez aunque Mercado Pago avise varias veces', async (e) => {

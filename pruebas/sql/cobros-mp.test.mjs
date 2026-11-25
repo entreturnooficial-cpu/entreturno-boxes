@@ -68,7 +68,7 @@ prueba('conectar la cuenta pasando por Mercado Pago: la dirección, el código d
   await assert.rejects(iniciarConexion(dependencias(e, mp, esc.lucia), esc.slug, VOLVER), /solo_admin/);
 
   const { url, q, fin } = await conectar(e, esc, mp, '111222333', false);
-  assert.ok(url.startsWith('https://auth.mercadopago.com/authorization?'));
+  assert.ok(url.startsWith('https://auth.mercadopago.com.ar/authorization?'));
   assert.deepEqual([q.get('client_id'), q.get('response_type'), q.get('platform_id'), q.get('redirect_uri'), q.get('code_challenge_method')],
     [mp.clientId, 'code', 'mp', REDIRECT, 'S256']);
   assert.match(q.get('state'), /^[A-Za-z0-9_-]{43}$/);
@@ -167,6 +167,111 @@ prueba('en modo prueba sin cuenta conectada se cobra con el pase de prueba de En
   const sinPase = dependencias(e, mp, esc.caro);
   sinPase.app.paseDePrueba = '';
   await esperarCobro(pagar(sinPase, esc.slug, r2.id, 'sena', VOLVER), 'falta_configurar');
+});
+
+prueba('en modo prueba se cobra con el pase de prueba aunque haya una cuenta conectada (lo que pasó el 25/11/2026)', async (e) => {
+  const esc = await e.armar();
+  await conMercadoPago(e, esc, 'prueba');
+  const mp = crearMpSimulado();
+  await conectar(e, esc, mp);                                             // la cuenta de la dueña, confirmada
+  assert.equal((await e.foto(esc, esc.admin)).config.mp.account.status, 'conectada');
+  const { res, orden, reserva } = await reservarYPagar(e, esc, mp, esc.lucia, { fecha: await e.diaHabil(3) });
+  assert.deepEqual(res, { estado: 'aprobado', que: 'aprobado' });
+  assert.match(orden, /^ORDTST/);
+  assert.equal(mp.ordenes.get(orden).user_id, '900900900');               // la cuenta de ensayo de la aplicación, no la conectada
+  assert.equal([...mp.ordenes.values()].filter((o) => o.user_id !== '900900900').length, 0);
+  // la devolución sale con el mismo pase
+  await cancelar(e, esc, esc.admin, reserva);
+  await despachar(dependencias(e, mp, esc.admin), esc.slug);
+  assert.equal(mp.ordenes.get(orden).status, 'refunded');
+  // ni cobrando, ni con el reloj, ni con un aviso sobre esa cuenta se pidió otro pase: solo el de conectarla
+  await e.sql(`update interno.mp_cuentas set vence = now() + interval '5 days'`);
+  const dep = dependencias(e, mp, null);
+  await vueltaDelReloj(dep);
+  mp.revocar('111222333');
+  await avisoDeMp(dep, { tipo: 'mp-connect', dato: '111222333', cuerpo: { user_id: 111222333 } });
+  assert.equal(mp.cuantos('pases'), 1);
+  assert.equal((await e.foto(esc, esc.admin)).config.mp.account.status, 'conectada');
+  // y aunque la base le entregara el pase de una cuenta, la función en modo prueba no lo usa
+  const real = mp.cuenta('555', { nombre: 'De Verdad' });
+  const r = await e.reservar(esc, esc.caro, { fecha: await e.diaHabil(3), box: 1 });
+  const normal = dependencias(e, mp, esc.caro);
+  const entregado = { ...normal, rpcServicio: (fn, args) => fn === 'mp_credencial'
+    ? Promise.resolve({ ambiente: 'prueba', acceso: real.acceso, renovar: real.renovar, cuenta: { userId: '555', estado: 'conectada' } }) : normal.rpcServicio(fn, args) };
+  const otra = new URL((await pagar(entregado, esc.slug, r.id, 'sena', VOLVER)).enlace).searchParams.get('order_id');
+  assert.equal(mp.ordenes.get(otra).user_id, '900900900');
+});
+
+prueba('al conectar, el pase tiene que ser del modo del consultorio: ni uno de verdad en prueba, ni uno de prueba en real', async (e) => {
+  const esc = await e.armar();
+  const mp = crearMpSimulado();
+  const guardados = async () => (await e.uno(`select count(*)::int as n from vault.secrets where name like 'mp\_%'`)).n;
+  await conMercadoPago(e, esc, 'prueba');
+  mp.fallar('pases', 'real');
+  assert.deepEqual((await conectar(e, esc, mp, '777', false)).fin, { volverA: VOLVER, ok: false, motivo: 'ambiente-prueba' });
+  mp.fallar('pases', 'estado', { status: 200, cuerpo: { access_token: 'APP_USR-no-se-sabe', expires_in: 15552000, user_id: 777, refresh_token: 'TG-x' } });
+  assert.deepEqual((await conectar(e, esc, mp, '777', false)).fin, { volverA: VOLVER, ok: false, motivo: 'ambiente-prueba' });
+  await conMercadoPago(e, esc, 'real');
+  mp.fallar('pases', 'de-prueba');
+  assert.deepEqual((await conectar(e, esc, mp, '777', false)).fin, { volverA: VOLVER, ok: false, motivo: 'ambiente' });
+  assert.deepEqual([(await e.foto(esc, esc.admin)).config.mp.account, await guardados()], [null, 0]);
+  // y si al renovarlo viniera uno de prueba, la cuenta real queda caída en lugar de «cobrar» de mentira
+  await conectar(e, esc, mp, '777');
+  mp.revocar('777', { tambienRenovar: false });
+  mp.fallar('pases', 'de-prueba');
+  const r = await e.reservar(esc, esc.lucia, { fecha: await e.diaHabil(3) });
+  await esperarCobro(pagar(dependencias(e, mp, esc.lucia), esc.slug, r.id, 'sena', VOLVER), 'mp_sin_cuenta');
+  assert.equal((await e.foto(esc, esc.admin)).config.mp.account.status, 'caida');
+  assert.equal(mp.ordenes.size, 0);
+});
+
+prueba('una orden que no es del modo del consultorio se cierra enseguida y nadie recibe dónde pagarla', async (e) => {
+  for (const ambiente of ['prueba', 'real']) {
+    const esc = await e.armar(`lavanda-${ambiente}`);
+    await conMercadoPago(e, esc, ambiente);
+    const mp = crearMpSimulado();
+    if (ambiente === 'real') await conectar(e, esc, mp);
+    const dep = dependencias(e, mp, esc.lucia);
+    const r = await e.reservar(esc, esc.lucia, { fecha: await e.diaHabil(3) });
+    mp.fallar('crear', 'otro-ambiente');
+    await esperarCobro(pagar(dep, esc.slug, r.id, 'sena', VOLVER), 'mp_rechazo');
+    const mala = [...mp.ordenes.values()].at(-1);
+    assert.equal(mala.id.startsWith('ORDTST'), ambiente === 'real');
+    assert.equal(mala.status, 'canceled');
+    const p = await e.uno(`select proveedor_id, enlace, error from public.pagos where reserva_id = $1`, [r.id]);
+    assert.deepEqual([p.proveedor_id, p.enlace], [null, null]);
+    assert.equal(p.error, `otro_ambiente: la orden ${mala.id} no es del modo de este consultorio (cerrada)`);
+    // el próximo intento, ya del modo que corresponde, anda
+    const { enlace } = await pagar(dep, esc.slug, r.id, 'sena', VOLVER);
+    assert.equal(enlace.includes('order_id=ORDTST'), ambiente === 'prueba');
+    // si además no se deja cerrar, tampoco se entrega: queda anotado cuál fue
+    const r2 = await e.reservar(esc, esc.caro, { fecha: await e.diaHabil(3), box: 1 });
+    mp.fallar('crear', 'otro-ambiente');
+    mp.fallar('cancelar', 'cortar');
+    await esperarCobro(pagar(dependencias(e, mp, esc.caro), esc.slug, r2.id, 'sena', VOLVER), 'mp_rechazo');
+    const abierta = [...mp.ordenes.values()].at(-1);
+    const p2 = await e.uno(`select proveedor_id, enlace, error from public.pagos where reserva_id = $1`, [r2.id]);
+    assert.deepEqual(p2, { proveedor_id: null, enlace: null, error: `otro_ambiente: la orden ${abierta.id} no es del modo de este consultorio (quedó sin cerrar)` });
+  }
+});
+
+prueba('un pago hecho en una orden del otro modo no confirma la reserva: queda para revisar', async (e) => {
+  const esc = await e.armar();
+  await conMercadoPago(e, esc, 'real');
+  const mp = crearMpSimulado();
+  await conectar(e, esc, mp);
+  const r = await e.reservar(esc, esc.lucia, { fecha: await e.diaHabil(3) });
+  const { pago } = await e.llamarComo(esc.lucia, 'mp_pago_preparar', { p_slug: esc.slug, p_reserva: r.id, p_tipo: 'sena' });
+  // alguien con un pase de la misma cuenta crea una orden de prueba con nuestra referencia y la «paga»
+  mp.fallar('crear', 'otro-ambiente');
+  const creada = await (await mp.fetchFn('https://api.mercadopago.com/v1/orders', {
+    method: 'POST', headers: { authorization: `Bearer ${mp.cuentas.get('111222333').acceso}`, 'x-idempotency-key': 'otra' },
+    body: JSON.stringify({ type: 'online', processing_mode: 'manual', total_amount: '20000.00', external_reference: pago }),
+  })).json();
+  assert.match(creada.id, /^ORDTST/);
+  await avisoDeMp(dependencias(e, mp, null), mp.pagar(creada.id));
+  assert.deepEqual(await e.uno(`select estado, proveedor_id from public.pagos where id = $1`, [pago]), { estado: 'revisar', proveedor_id: null });
+  assert.equal((await reservaDe(e, r.id)).estado, 'pago');
 });
 
 prueba('si se corta al crear la orden, repetir no crea otra; si Mercado Pago la rechaza, el próximo pedido va con otra clave', async (e) => {

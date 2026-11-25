@@ -160,6 +160,7 @@ prueba('todo lo que cambia la agenda o la configuración pasa por el candado del
     'cambiar_categoria_profesional', 'guardar_turnos', 'guardar_pago', 'guardar_politica', 'guardar_reglamento', 'guardar_box',
     'guardar_foto_box', 'guardar_categoria', 'quitar_categoria', 'guardar_maquina', 'quitar_maquina', 'guardar_facturacion', 'guardar_privacidad',
     'cambiar_datos_fiscales_profesional', 'facturacion_preparar',
+    'mp_pago_preparar',         // armar un cobro: no se tiene que cruzar con un cambio de modo (interno.mp_pasar_a)
     'mp_pago_resultado'];       // acreditar un pago de Mercado Pago: puede confirmar o revivir una reserva (candados: consultorio → reserva → pago)
   const filas = await e.sql(`select proname from pg_proc where pronamespace = 'public'::regnamespace and prosrc like '%interno.candado(%'`);
   assert.deepEqual(filas.map((f) => f.proname).sort(), [...debe].sort());

@@ -7,11 +7,13 @@
 // Nunca pone un pase ni una clave en un mensaje de error.
 //
 // Leído en la documentación de Mercado Pago el 24/11/2026 (mercadopago.com.ar/developers):
-//   Autorizar:  https://auth.mercadopago.com/authorization?client_id=…&response_type=code&platform_id=mp&state=…&redirect_uri=…
+//   Autorizar:  https://auth.mercadopago.com.ar/authorization?client_id=…&response_type=code&platform_id=mp&state=…&redirect_uri=…
 //               (con PKCE: &code_challenge=…&code_challenge_method=S256). El código dura 10 minutos.
 //   Pases:      POST /oauth/token  { client_id, client_secret, grant_type, code | refresh_token, redirect_uri, code_verifier }
-//               El pase dura 180 días; al renovarlo cambia también el de renovar. test_token: true da pases de prueba.
-//   Orden:      POST /v1/orders (con X-Idempotency-Key) · GET /v1/orders/{id} · POST /v1/orders/{id}/cancel
+//               El pase dura 180 días; al renovarlo cambia también el de renovar. test_token: true da pases de prueba, que NO sirven
+//               para /v1/orders (visto el 25/11/2026: los rechaza, y el pase renovado con refresh_token viene REAL).
+//   Orden:      (las de prueba se numeran ORDTST…; las de verdad, ORD01…)
+//               POST /v1/orders (con X-Idempotency-Key) · GET /v1/orders/{id} · POST /v1/orders/{id}/cancel
 //               POST /v1/orders/{id}/refund (sin cuerpo: todo; con { transactions: [{ id, amount }] }: una parte)
 //   Aviso:      POST <nuestra dirección>?data.id=ORD…&type=order, con x-signature: ts=…,v1=… y x-request-id.
 //               v1 = HMAC-SHA256(firma secreta, "id:<data.id>;request-id:<x-request-id>;ts:<ts>;") en hexadecimal.
@@ -20,7 +22,8 @@
 type Json = any;
 
 export const API_MP = "https://api.mercadopago.com";
-export const AUTORIZAR_MP = "https://auth.mercadopago.com/authorization";
+// La de Argentina: con auth.mercadopago.com (sin país) aparece antes una pantalla que pide elegir el país (visto el 25/11/2026).
+export const AUTORIZAR_MP = "https://auth.mercadopago.com.ar/authorization";
 
 /** Algo que Mercado Pago no aceptó o no contestó. `definitivo`: dijo que no (repetir el mismo pedido no sirve). */
 export class ErrorMp extends Error {
@@ -179,6 +182,7 @@ export function urlAutorizar(p: { clientId: string; estado: string; redirectUri:
   return `${AUTORIZAR_MP}?${q}`;
 }
 
+/** `real`: si el pase cobra de verdad (true), si es de prueba (false) o si Mercado Pago no lo dijo (null). */
 export type Pases = { acceso: string; renovar: string; segundos: number; usuario: string; real: boolean | null };
 
 function pasesDe(j: Json): Pases {
@@ -189,7 +193,7 @@ function pasesDe(j: Json): Pases {
   }
   return {
     acceso: j.access_token, renovar: typeof j.refresh_token === "string" ? j.refresh_token : "", segundos: Math.floor(segundos), usuario,
-    real: typeof j.live_mode === "boolean" ? j.live_mode : null,
+    real: typeof j.live_mode === "boolean" ? j.live_mode : j.access_token.startsWith("TEST-") ? false : null,
   };
 }
 
@@ -248,6 +252,9 @@ export type Orden = {
   /** al crearla: Mercado Pago no aceptó el plazo en minutos y quedó sin vencimiento propio (la cierra el reloj) */
   sinVencimiento?: boolean;
 };
+
+/** ¿Esa orden es de prueba? Mercado Pago numera ORDTST… las de prueba. */
+export const esOrdenDePrueba = (id: string) => id.startsWith("ORDTST");
 
 const numero = (v: unknown) => {
   const n = Number(v);

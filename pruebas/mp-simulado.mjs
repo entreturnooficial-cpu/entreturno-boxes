@@ -11,7 +11,15 @@
 //   mp.fallar('crear', 'procesar-y-cortar')              llega y se procesa, pero la respuesta se pierde
 //   mp.fallar('devolver', 'estado', { status: 400, cuerpo: {…} })   contesta eso
 //   mp.fallar('crear', 'sin-minutos')                    no acepta el vencimiento en minutos
+//   mp.fallar('crear', 'otro-ambiente')                  crea la orden con el número del otro ambiente
+//   mp.fallar('pases', 'real')                           da un pase que cobra de verdad aunque se le pidió uno de prueba
+//   mp.fallar('pases', 'de-prueba')                      da un pase de prueba aunque se le pidió uno de verdad
 // Tipos de pedido: pases, quien, crear, leer, cancelar, devolver.
+//
+// Cómo es el modo prueba de Mercado Pago (visto el 25/11/2026 contra el de verdad):
+//   - La aplicación tiene un pase de prueba (de una cuenta de ensayo, acá la 900900900): con ese las órdenes salen ORDTST….
+//   - Con test_token: true, la cuenta que se conecta da un pase TEST-… que las órdenes rechazan (401).
+//   - Al renovarlo con refresh_token (sin test_token) viene uno APP_USR-… que cobra de verdad: la orden sale ORD01….
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 
 const json = (estado, cuerpo) => new Response(JSON.stringify(cuerpo), { status: estado, headers: { 'Content-Type': 'application/json' } });
@@ -23,7 +31,8 @@ export function crearMpSimulado({
   clientId = '8772548647196351', clientSecret = 'secreto-de-la-aplicacion', secretoAvisos = 'firma-secreta-de-los-avisos',
   paginaDePago = 'https://www.mercadopago.com.ar/checkout/v1/redirect',
 } = {}) {
-  const cuentas = new Map();      // número de cuenta → { usuario, nombre, email, acceso, renovar, sinSaldo, real }
+  // número de cuenta → { usuario, nombre, email, acceso, renovar, sinSaldo, ensayo (cuenta de prueba de Mercado Pago), real (su pase cobra de verdad) }
+  const cuentas = new Map();
   const codigos = new Map();      // código → { usuario, desafio, redirectUri }
   const ordenes = new Map();      // número de orden → la orden
   const claves = new Map();       // clave de idempotencia → { huella, estado, cuerpo }
@@ -33,13 +42,14 @@ export function crearMpSimulado({
 
   const porAcceso = (acceso) => [...cuentas.values()].find((c) => c.acceso === acceso) ?? null;
   const porRenovar = (renovar) => [...cuentas.values()].find((c) => c.renovar === renovar) ?? null;
-  const pasesNuevos = (c) => {
-    c.acceso = `APP_USR-${randomBytes(12).toString('hex')}-${c.usuario}`;
+  const pasesNuevos = (c, dePrueba = false) => {
+    c.real = !c.ensayo && !dePrueba;
+    c.acceso = `${dePrueba && !c.ensayo ? 'TEST' : 'APP_USR'}-${randomBytes(12).toString('hex')}-${c.usuario}`;
     c.renovar = `TG-${randomBytes(12).toString('hex')}-${c.usuario}`;
   };
   function cuenta(usuario, { nombre = 'Vendedora De Prueba', email = `cuenta${usuario}@mp.prueba`, real = true } = {}) {
     if (!cuentas.has(usuario)) {
-      const c = { usuario: String(usuario), nombre, email, real, sinSaldo: false, acceso: '', renovar: '' };
+      const c = { usuario: String(usuario), nombre, email, ensayo: !real, real, sinSaldo: false, acceso: '', renovar: '' };
       pasesNuevos(c);
       cuentas.set(String(usuario), c);
     }
@@ -61,7 +71,7 @@ export function crearMpSimulado({
       tipo: 'order', dato: id, pedido, firma: firmar(id, pedido),
       cuerpo: {
         action: accion ?? `order.${o.status}`, api_version: 'v1', application_id: clientId, date_created: new Date().toISOString(),
-        live_mode: cuentas.get(o.user_id)?.real ?? true, type: 'order', user_id: o.user_id,
+        live_mode: !cuentas.get(o.user_id)?.ensayo, type: 'order', user_id: o.user_id,
         data: { id, external_reference: o.external_reference, status: o.status, status_detail: o.status_detail,
           total_amount: o.total_amount, total_paid_amount: o.total_paid_amount, type: 'online' },
       },
@@ -101,7 +111,7 @@ export function crearMpSimulado({
       if (!/^P(\d+D|T\d+[HM])$/.test(cuerpo.expiration_time)) return errorDeOrden(400, 'property_value', 'expiration_time: formato inválido');
     }
     if (cuerpo.payer && !/^[^\s@]+@[^\s@]+$/.test(cuerpo.payer.email ?? '')) return errorDeOrden(400, 'required_properties', 'payer.email es obligatorio');
-    const id = idLargo('ORD');
+    const id = idLargo(c.ensayo === (falla?.tipo !== 'otro-ambiente') ? 'ORDTST' : 'ORD01');
     const ahora = new Date().toISOString();
     const o = {
       id, type: 'online', processing_mode: 'manual', status: 'created', status_detail: 'created',
@@ -162,9 +172,8 @@ export function crearMpSimulado({
         } else {
           codigos.delete(cuerpo.code);                    // sirve una sola vez
           const c = cuentas.get(dato.usuario);
-          pasesNuevos(c);
+          pasesNuevos(c, falla?.tipo === 'de-prueba' || (cuerpo.test_token === true && falla?.tipo !== 'real'));
           c.revocada = false;                             // volvió a autorizar: la aplicación tiene permiso de nuevo
-          c.real = cuerpo.test_token !== true;
           respuesta = json(200, { access_token: c.acceso, token_type: 'bearer', expires_in: 15552000, scope: 'offline_access read write',
             user_id: Number(c.usuario), refresh_token: c.renovar, public_key: 'APP_USR-publica', live_mode: c.real });
         }
@@ -173,7 +182,7 @@ export function crearMpSimulado({
         if (!c || c.revocada) {
           respuesta = json(400, { message: 'invalid refresh token', error: 'invalid_grant', status: 400, cause: [] });
         } else {
-          pasesNuevos(c);
+          pasesNuevos(c, falla?.tipo === 'de-prueba' || cuerpo.test_token === true);
           respuesta = json(200, { access_token: c.acceso, token_type: 'bearer', expires_in: 15552000, scope: 'offline_access read write',
             user_id: Number(c.usuario), refresh_token: c.renovar, public_key: 'APP_USR-publica', live_mode: c.real });
         }
@@ -188,6 +197,8 @@ export function crearMpSimulado({
         const [nombre, ...resto] = c.nombre.split(' ');
         respuesta = json(200, { id: Number(c.usuario), nickname: c.nombre.toUpperCase().replace(/\s+/g, ''), email: c.email,
           first_name: nombre, last_name: resto.join(' '), site_id: c.pais ?? 'MLA' });
+      } else if (acceso.startsWith('TEST-')) {
+        respuesta = errorDeOrden(401, 'invalid_credentials', 'Las credenciales de prueba TEST no sirven para las órdenes');
       } else if (que === 'crear') {
         if (!clave) respuesta = errorDeOrden(400, 'empty_required_header', 'El header X-Idempotency-Key es requerido');
         else {

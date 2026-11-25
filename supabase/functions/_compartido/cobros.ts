@@ -15,6 +15,8 @@
 // - Lo que se cobró con una cuenta se devuelve con esa cuenta: si el consultorio cambió de cuenta, se dice y no se intenta.
 // - Si Mercado Pago rechaza el pase, se prueba renovarlo una vez; si tampoco, la cuenta queda «caída» y la dueña
 //   recibe un aviso para conectarla de nuevo.
+// - En modo prueba se cobra siempre con el pase de prueba de la aplicación, nunca con el de una cuenta conectada; y una orden que
+//   no es del ambiente del consultorio se cierra y no se le manda a nadie (el 25/11/2026 una «de prueba» salió de verdad).
 
 import {
   ErrorMp,
@@ -26,6 +28,7 @@ import {
   desafioDe,
   devolverOrden,
   esDireccionDePago,
+  esOrdenDePrueba,
   leerOrden,
   quienSoy,
   renovarPase,
@@ -47,7 +50,7 @@ export type DependenciasMp = {
     clientSecret: string;
     /** A dónde vuelve Mercado Pago después de autorizar: la dirección de esta función, siempre la misma. */
     redirectUri: string;
-    /** El pase de prueba de la aplicación: con ese se cobra en «prueba» si el consultorio no conectó su cuenta. */
+    /** El pase de prueba de la aplicación: con ese se cobra en «prueba», haya o no una cuenta conectada. */
     paseDePrueba: string;
     /** Solo en el servidor de prueba de la compu: se acepta que la «pantalla de pago» esté en localhost. */
     pagoLocal?: boolean;
@@ -73,14 +76,14 @@ const codigoDeLaBase = (e: unknown) => String((e as Dato)?.codigo ?? (e as Dato)
 
 type Credencial = { acceso: string; usuario: string | null; propia: boolean; ambiente: string };
 
-/** Con qué pase se cobra en ese consultorio: el de su cuenta o, en «prueba» y sin cuenta, el de prueba de Entreturno. */
+/** Con qué pase se cobra en ese consultorio: el de su cuenta o, en «prueba», siempre el de prueba de Entreturno. */
 async function credencialDe(dep: DependenciasMp, consultorio: string): Promise<Credencial> {
   const c = await dep.rpcServicio("mp_credencial", { p_consultorio: consultorio });
-  if (c?.acceso) return { acceso: c.acceso, usuario: c.cuenta?.userId ?? null, propia: true, ambiente: c.ambiente };
   if (c?.ambiente === "prueba") {
     if (!dep.app.paseDePrueba) throw new ErrorDeCobro("falta_configurar");
     return { acceso: dep.app.paseDePrueba, usuario: null, propia: false, ambiente: "prueba" };
   }
+  if (c?.ambiente === "real" && c.acceso) return { acceso: c.acceso, usuario: c.cuenta?.userId ?? null, propia: true, ambiente: "real" };
   throw new ErrorDeCobro("mp_sin_cuenta");
 }
 
@@ -93,6 +96,7 @@ async function renovar(dep: DependenciasMp, consultorio: string): Promise<boolea
   }
   try {
     const p = await renovarPase({ clientId: dep.app.clientId, clientSecret: dep.app.clientSecret, renovar: c.renovar, fetchFn: dep.fetchFn });
+    if (p.real === false) throw new ErrorMp("ambiente", 200, true, "Mercado Pago devolvió un pase de prueba");
     await dep.rpcServicio("mp_cuenta_renovada", { p_consultorio: consultorio, p_acceso: p.acceso, p_renovar: p.renovar, p_segundos: p.segundos });
     return true;
   } catch (e) {
@@ -147,8 +151,10 @@ export async function terminarConexion(
       clientId: dep.app.clientId, clientSecret: dep.app.clientSecret, codigo: vuelta.codigo, redirectUri: dep.app.redirectUri,
       verificador: t.verificador, prueba: t.ambiente === "prueba", fetchFn: dep.fetchFn,
     });
-    // en «real» no sirve un pase de prueba
-    if (t.ambiente === "real" && p.real === false) return { volverA: t.volverA, ok: false, motivo: "ambiente" };
+    // en «real» no sirve un pase de prueba, y en «prueba» no se guarda uno que cobra de verdad (ni uno que no se sabe)
+    if (t.ambiente === "real" ? p.real === false : p.real !== false) {
+      return { volverA: t.volverA, ok: false, motivo: t.ambiente === "real" ? "ambiente" : "ambiente-prueba" };
+    }
     let quien = { usuario: p.usuario, nombre: "", email: "", pais: "" };
     try {
       quien = await quienSoy(p.acceso, dep.fetchFn);
@@ -191,14 +197,27 @@ export async function pagar(dep: DependenciasMp, slug: string, reserva: string, 
   }
   let orden: Orden;
   try {
-    orden = await conPase(dep, prep.consultorio, (c) => crearOrden({
-      acceso: c.acceso, clave: prep.clave, fetchFn: dep.fetchFn,
-      cuerpo: cuerpoDeOrden({
-        monto: prep.monto, referencia: prep.pago, titulo: prep.titulo, descripcion: prep.descripcion,
-        email: c.ambiente === "real" ? prep.email : null,        // en prueba, Mercado Pago pide el mail en su pantalla
-        minutos: prep.minutos, volverA,
-      }),
-    }));
+    orden = await conPase(dep, prep.consultorio, async (c) => {
+      const nueva = await crearOrden({
+        acceso: c.acceso, clave: prep.clave, fetchFn: dep.fetchFn,
+        cuerpo: cuerpoDeOrden({
+          monto: prep.monto, referencia: prep.pago, titulo: prep.titulo, descripcion: prep.descripcion,
+          email: c.ambiente === "real" ? prep.email : null,        // en prueba, Mercado Pago pide el mail en su pantalla
+          minutos: prep.minutos, volverA,
+        }),
+      });
+      if (esOrdenDePrueba(nueva.id) !== (c.ambiente === "prueba")) {
+        // una de verdad en modo prueba (o al revés): se cierra enseguida y la página no llega a recibir dónde pagarla
+        let comoQuedo = "cerrada";
+        try {
+          await cancelarOrden({ acceso: c.acceso, orden: nueva.id, fetchFn: dep.fetchFn });
+        } catch {
+          comoQuedo = "quedó sin cerrar";        // nadie tiene la dirección para pagarla; el número queda anotado para mirarla a mano
+        }
+        throw new ErrorMp("otro_ambiente", 200, true, `la orden ${nueva.id} no es del modo de este consultorio (${comoQuedo})`);
+      }
+      return nueva;
+    });
     if (!esDireccionDePago(orden.enlace, dep.app.pagoLocal === true) || !/^\d{1,20}$/.test(orden.usuario)) {
       throw new ErrorMp("respuesta_rara", 200, false, "Mercado Pago no devolvió dónde se paga");
     }
@@ -225,10 +244,10 @@ type PagoUbicado = { pago: string; consultorio: string; orden: string | null; mo
 export async function conciliar(dep: DependenciasMp, info: PagoUbicado, avisada?: string): Promise<Dato> {
   const id = info.orden ?? avisada;
   if (!id) return { estado: info.estado ?? "pendiente" };
-  let leida: { o: Orden; usuario: string | null };
+  let leida: { o: Orden; usuario: string | null; ambiente: string };
   try {
     leida = await conPase(dep, info.consultorio, async (c) => ({
-      o: await leerOrden({ acceso: c.acceso, orden: id, fetchFn: dep.fetchFn }), usuario: c.usuario,
+      o: await leerOrden({ acceso: c.acceso, orden: id, fetchFn: dep.fetchFn }), usuario: c.usuario, ambiente: c.ambiente,
     }));
   } catch (e) {
     if (e instanceof ErrorMp && e.estado === 404) return { estado: info.estado ?? "pendiente", sinOrden: true };
@@ -236,7 +255,7 @@ export async function conciliar(dep: DependenciasMp, info: PagoUbicado, avisada?
   }
   const o = leida.o;
   const esDeEstePago = o.referencia === info.pago && o.moneda === "ARS" && Math.round(o.total) === info.monto
-    && (leida.usuario === null || o.usuario === leida.usuario);
+    && (leida.usuario === null || o.usuario === leida.usuario) && esOrdenDePrueba(o.id) === (leida.ambiente === "prueba");
   if (!esDeEstePago && o.estado !== "processed") return { estado: info.estado ?? "pendiente", ajena: true };   // nadie pagó nada: se ignora
   return await dep.rpcServicio("mp_pago_resultado", {
     p_pago: info.pago, p_orden: esDeEstePago ? o.id : "", p_estado: o.estado, p_detalle: o.detalle, p_pagado: o.pagado,

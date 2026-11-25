@@ -83,7 +83,7 @@ test('el desafío de PKCE da lo que dice la norma, y los textos al azar no se re
   assert.match(aleatorio(48), /^[A-Za-z0-9_-]{64}$/);
   assert.notEqual(a, aleatorio(32));
   const u = new URL(urlAutorizar({ clientId: '123', estado: a, redirectUri: 'https://x.supabase.co/functions/v1/mp', desafio: 'D' }));
-  assert.equal(`${u.origin}${u.pathname}`, 'https://auth.mercadopago.com/authorization');
+  assert.equal(`${u.origin}${u.pathname}`, 'https://auth.mercadopago.com.ar/authorization');
   assert.deepEqual(Object.fromEntries(u.searchParams), { client_id: '123', response_type: 'code', platform_id: 'mp', state: a,
     redirect_uri: 'https://x.supabase.co/functions/v1/mp', code_challenge: 'D', code_challenge_method: 'S256' });
 });

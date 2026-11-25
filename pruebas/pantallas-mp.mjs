@@ -281,6 +281,19 @@ try {
   await entrar(DUENA);
   await menu('config');
   ver('la dueña ve el modo prueba', await texto('#cfg-mp'), (v) => v.includes('Mercado Pago está en modo prueba') && v.includes('no se mueve plata de verdad'));
+  // ensayar la conexión en modo prueba: un permiso que cobra de verdad no se guarda; uno de prueba sí, y no se usa para cobrar
+  s.mp.fallar('pases', 'real');
+  await salirHacia('[data-action="mp-conectar"]', '/__mp/autorizar');
+  await enMp('autorizar');
+  await hasta(`document.querySelector('#toast').classList.contains('show')`);
+  ver('en prueba, un permiso que cobra de verdad no se guarda', [await aviso(), await texto('#cfg-mp')], (v) => v[0].includes('No se guardó la cuenta') && v[1].includes('Todavía no hay ninguna cuenta conectada'));
+  await salirHacia('[data-action="mp-conectar"]', '/__mp/autorizar');
+  await enMp('autorizar');
+  ver('en prueba, la hoja dice que es un ensayo', await hojaDice('¿Es tu cuenta de Mercado Pago?'), (v) => v.includes('Es un ensayo: en modo prueba no se cobra en esta cuenta') && !v.includes('va a entrar acá'));
+  await boton('Sí, es mi cuenta');
+  ver('en prueba, conectada no quiere decir que cobra', [await aviso(), await texto('#cfg-mp')], (v) => v[0] === 'Cuenta confirmada. En modo prueba no se usa para cobrar.' && v[1].includes('Conectada') && v[1].includes('En modo prueba esta cuenta no se usa para cobrar'));
+  await js(`document.querySelector('#cfg-mp').scrollIntoView({ block: 'center' }); 1`);
+  await foto('config-ensayo-en-prueba');
 
   console.log('--- celular y modo oscuro ---');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });

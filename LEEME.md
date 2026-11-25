@@ -32,9 +32,9 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (211 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
+npm test                  (218 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
 npm run test:pantallas    (127 comprobaciones de la página en un Edge o Chrome sin ventana; al final dice dónde dejó las capturas)
-npm run test:pantallas-mp (57 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
+npm run test:pantallas-mp (60 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
 npm run test:real         (12 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:real-mp      (16 comprobaciones de la función «mp» real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
@@ -382,7 +382,7 @@ La aplicación de Mercado Pago se llama «Entreturno» y está en la cuenta pers
 Checkout Pro y «API de Orders»); por esa cuenta no pasa la plata de ningún consultorio.
 
 **Lo que se usa de Mercado Pago** (leído en mercadopago.com.ar/developers el 24/11/2026; el resumen está en la cabecera de `mp.ts`):
-- Conectar la cuenta: OAuth con PKCE. La dueña va a `auth.mercadopago.com/authorization` y vuelve a la función con un código
+- Conectar la cuenta: OAuth con PKCE. La dueña va a `auth.mercadopago.com.ar/authorization` y vuelve a la función con un código
   que se cambia por los pases (`POST /oauth/token`). El pase dura 180 días y se renueva solo.
 - Cobrar: Checkout Pro por la API de Orders. `POST /v1/orders` devuelve `checkout_url`, que es a donde va a pagar la profesional.
 - Enterarse: Mercado Pago avisa a la función (webhook del evento «Order (Mercado Pago)», firmado con `x-signature`).
@@ -426,8 +426,12 @@ Checkout Pro y «API de Orders»); por esa cuenta no pasa la plata de ningún co
 
 **Ambientes, por consultorio** (se cambian solo desde el SQL Editor, nunca desde la página):
 - `pagos_modo`: «simulado» (el pago de prueba de siempre, sin Mercado Pago) o «mercadopago».
-- `mp_ambiente`: «prueba» (órdenes de prueba: tarjetas de prueba, no se mueve plata; si el consultorio no conectó su cuenta
-  se cobra con el pase de prueba de la aplicación) o «real». Una cuenta conectada en un ambiente no sirve para el otro.
+- `mp_ambiente`: «prueba» (órdenes de prueba: tarjetas de prueba, no se mueve plata; se cobra SIEMPRE con el pase de prueba de la
+  aplicación, haya o no una cuenta conectada) o «real». Una cuenta conectada en un ambiente no sirve para el otro.
+- Se cambia con `select interno.mp_pasar_a('yanina', 'real');` (o `'prueba'`): no deja si quedan cobros abiertos, devoluciones sin
+  salir, reservas esperando el pago o (para pasar a real) turnos por venir pagados de mentira. Después, la dueña conecta su cuenta.
+- **En modo prueba la cuenta conectada no cobra:** sirve para ensayar la conexión. Y una orden que no es del modo del consultorio
+  (las de prueba se numeran ORDTST…) se cierra enseguida, no se le muestra a nadie y la base no la deja anotar.
 
 **El reloj.** Cada minuto la base mira si hay algo para hacer (`interno.mp_reloj`): órdenes abiertas cuyo aviso no llegó,
 órdenes viejas para cerrar, devoluciones que esperan, pases que vencen en menos de 30 días. Si hay, despierta a la función
@@ -452,13 +456,25 @@ con una clave que vive en el Vault. Si no hay nada, no llama a nadie.
 - Cancelada como Soporte a las 12:43:07: la devolución entera salió sola a las 12:44:03 (el reloj) y llegaron 4 avisos reales
   («MercadoPago WebHook v1.0 order»), los 4 contestados 200: **la firma de los avisos de verdad se comprueba bien.**
 
+**Segunda prueba (25/11/2026 a la tarde, con el OK de Santiago: «Sí, sigamos»): producción activada y la conexión ensayada.**
+- Producción activada por Santiago en la aplicación (rubro «Servicio de informática», `entreturno.com.ar`). Avisos de producción
+  guardados en el panel (misma dirección, «Order» y «Vinculación de aplicaciones»); la firma se generó bien.
+- Secretos pegados por él y comprobados por huella: `MP_CLIENT_ID`, `MP_CLIENT_SECRET` (32 letras) y `MP_WEBHOOK_SECRETO_REAL`.
+- **Firma de producción comprobada:** «Simular notificación» en producción, contestado 200 (14:08:45). `test:real-mp` TODO BIEN.
+- **Conectar una cuenta: anduvo** con la cuenta de Santiago, en modo prueba (autorizar, volver, ver la cuenta y confirmarla).
+  `auth.mercadopago.com` muestra antes una pantalla para elegir el país: ahora se usa la de Argentina, que va directo.
+- El aviso de datos se aceptó con una cuenta de verdad (14:18) y quedó la constancia en «Profesionales».
+- **Salió mal y se corrigió: en modo prueba se creó una orden DE VERDAD** (`ORD01…`, $ 50.000, en la cuenta de Santiago). Nadie la
+  pagó (Mercado Pago rechazó al comprador de prueba: «una de las partes es de prueba») y se cerró sola a las 14:35. Por qué: el pase
+  que da Mercado Pago con `test_token` no sirve para las órdenes; el sistema lo renovó solo y el renovado vino real. La cuenta se
+  desconectó a las 14:37. Corrección: `20261125120000_prueba_de_verdad.sql`, la función `mp` y los textos de la página (detalle en
+  «Ambientes», arriba), con 7 pruebas nuevas y 18 roturas a propósito.
+
 **Lo que todavía NO se comprobó contra el Mercado Pago de verdad:**
 - Que un pago se acredite solo con el aviso, sin volver a la página (esta vez la página preguntó antes).
 - El cuerpo exacto de la devolución de una parte y el texto del error cuando la cuenta no tiene saldo.
-- Conectar una cuenta (hace falta activar producción y pegar `MP_CLIENT_ID` y `MP_CLIENT_SECRET`), `test_token`, que los avisos
-  de las órdenes de una dueña conectada lleguen a la aplicación, y el aviso de «le quitó el permiso».
-- La firma de los avisos de PRODUCCIÓN. La aplicación de prueba tiene otro número (2527279472896723, la de verdad es
-  3063961245855320), así que lo más probable es que la firma sea otra: va en `MP_WEBHOOK_SECRETO_REAL`.
+- Conectar una cuenta en modo real, cobrar de verdad con ella, que los avisos de sus órdenes lleguen a la aplicación, y el aviso de
+  «le quitó el permiso».
 - Si Mercado Pago acepta direcciones de vuelta que no sean https (en la compu son http://localhost).
 
 **Encontrado en esa prueba y corregido el mismo día** (con el OK de Santiago: «cargalo en supabase githbu y donde sea necesario

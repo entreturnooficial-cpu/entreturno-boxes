@@ -174,7 +174,7 @@ test('conectar la cuenta: la dueña sale a Mercado Pago y vuelve por la función
   const ini = await pedir({ accion: 'conectar', slug: 'lavanda' }, { token: duena });
   assert.equal(ini.estado, 200, JSON.stringify(ini.cuerpo));
   const q = new URL(ini.cuerpo.url).searchParams;
-  assert.ok(ini.cuerpo.url.startsWith('https://auth.mercadopago.com/authorization?'));
+  assert.ok(ini.cuerpo.url.startsWith('https://auth.mercadopago.com.ar/authorization?'));
   assert.equal(q.get('redirect_uri'), `${s.url}/functions/v1/mp`);
   s.mp.cuenta('424242', { nombre: 'Laura Lavanda' });
   const codigo = s.mp.autorizar('424242', { desafio: q.get('code_challenge'), redirectUri: q.get('redirect_uri') });
