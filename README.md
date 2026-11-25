@@ -1,6 +1,6 @@
 # Entreturno · Boxes, el sistema real
 
-El sistema de alquiler de boxes por turnos. Hoy lo usa un consultorio: https://yanina.entreturno.com.ar
+El sistema de alquiler de boxes por turnos. Hoy lo usa un consultorio, Punto Almagro: https://puntoalmagro.entreturno.com.ar
 
 > **Subir es publicar.** Todo lo que se sube a `main` sale solo en la página de Yani en unos 20 segundos.
 > Probalo en tu compu antes de subirlo.
@@ -31,9 +31,10 @@ El sistema de alquiler de boxes por turnos. Hoy lo usa un consultorio: https://y
    npm test
    npm run test:pantallas
    npm run test:pantallas-mp
+   npm run test:pantallas-almagro
    ```
 
-   Las dos de pantalla usan Edge o Chrome sin abrir ninguna ventana. Las tres tienen que terminar sin fallas.
+   Las tres de pantalla usan Edge o Chrome sin abrir ninguna ventana. Las cuatro tienen que terminar sin fallas.
 5. Subilo. Esto también lo publica:
 
    ```
@@ -42,7 +43,7 @@ El sistema de alquiler de boxes por turnos. Hoy lo usa un consultorio: https://y
    git push
    ```
 
-6. Esperá un minuto y mirá la página: https://yanina.entreturno.com.ar
+6. Esperá un minuto y mirá la página: https://puntoalmagro.entreturno.com.ar
    - Si tenés Python: `python -X utf8 publicar/comprobar_publicado.py --esperar` compara lo publicado con lo tuyo y tiene que
      terminar en TODO BIEN (antes corré `python -X utf8 publicar/armar_para_publicar.py`).
 

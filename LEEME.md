@@ -17,14 +17,15 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Revisión independiente de la base (Codex, 20/11) | 10 puntos: 9 corregidos con su prueba; el otro es comprobar en el Supabase real |
 | Revisión independiente de la página (Codex, 20/11) | 9 puntos: 6 corregidos con su prueba; 3 anotados más abajo. No encontró forma de meter código |
 | Revisión independiente de los mails de registro (Codex, 20/11) | 10 puntos: 6 corregidos, 2 comprobados y 2 que dependen de la prueba real (detalle más abajo). No encontró forma de meter código |
-| Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('yanina', '<su mail>', 'Yani')` |
-| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. **Primera prueba real (ambiente de prueba de Mercado Pago) el 25/11: pago, confirmación, avisos firmados y devolución, todo bien** (ver «Cobro con Mercado Pago»); desde ese día el consultorio está en `mercadopago` / `prueba` y solo sirven tarjetas de prueba. **Producción activada el 25/11 a la tarde**, con las tres claves y los avisos reales comprobados; conectar una cuenta también anduvo (en esa prueba salió una orden de verdad en modo prueba: corregido y publicado). Falta: Yani como dueña, `interno.mp_pasar_a('yanina', 'real')`, que conecte su cuenta y un primer pago real chico. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
+| Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('puntoalmagro', '<su mail>', 'Yani')` |
+| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. **Primera prueba real (ambiente de prueba de Mercado Pago) el 25/11: pago, confirmación, avisos firmados y devolución, todo bien** (ver «Cobro con Mercado Pago»); desde ese día el consultorio está en `mercadopago` / `prueba` y solo sirven tarjetas de prueba. **Producción activada el 25/11 a la tarde**, con las tres claves y los avisos reales comprobados; conectar una cuenta también anduvo (en esa prueba salió una orden de verdad en modo prueba: corregido y publicado). Falta: Yani como dueña, `interno.mp_pasar_a('puntoalmagro', 'real')`, que conecte su cuenta y un primer pago real chico. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
 | Aviso de datos personales (Ley 25.326) | **Cargado y publicado el 25/11/2026.** Se lee sin entrar; hay que aceptarlo para pedir acceso y para reservar, y queda la constancia. Faltan: que lo revise una abogada y los datos de Yani (responsable, domicilio y mail). Ver «Aviso de datos personales» |
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **«Pedir acceso» con una cuenta nueva probado de verdad el 25/11** (mail, confirmación, pedido y aprobación). **Falta probar de verdad:** guardar una contraseña distinta |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
 | Facturas con ARCA | **«Facturar todo el mes» hecho y probado en la compu (23/11)**: base, función de Supabase y página, con dos revisiones de Codex (4 y 5). `npm test` 143 de 143, `test:pantallas` 103 de 103 y `test:arca` 10 de 10 contra el ambiente de prueba de ARCA. **Cargado en Supabase y publicado el 23/11** (control 15 / 0 / 33 / 27 / 5; página TODO BIEN; `yanina` en modo prueba). **Secretos de ARCA pegados por Santiago el 23/11 a las 12:26 y comprobados por huella (5 de 5). «Probar la conexión con ARCA» salió bien desde la página a las 12:37** (modo prueba: ARCA responde, ticket vigente, punto de venta 0001). Falta el PDF con QR |
 | Copia de seguridad diaria | **Andando desde el 25/11/2026**: cada noche GitHub pide la copia, que sale cifrada, y la guarda 30 días; si falta, llega un mail. La primera se abrió y se restauró en la compu. Ver «Copia de seguridad» |
+| Reglas de «Punto Almagro» (lo que respondió Yani) | **Cargadas y publicadas el 25/11/2026** (OK de Santiago: «Sí, todo»): lema, seña que no se devuelve, ningún turno señado sin pagar, cambiar un turno de día, datos de Yani y dirección `puntoalmagro.entreturno.com.ar` (la de yanina sigue andando y lleva ahí). Ver «Las reglas de Punto Almagro» |
 | «Crear cuenta» desde el panel de la dueña | Falta. Hoy cada profesional se registra sola y la dueña la aprueba |
 | Probarla en un celular real | Falta |
 
@@ -32,10 +33,11 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (236 pruebas: base de datos + conexión + ARCA simulado + Mercado Pago simulado + copia de seguridad; un minuto y medio)
+npm test                  (247 pruebas: base de datos + conexión + ARCA simulado + Mercado Pago simulado + copia de seguridad; un minuto y medio)
 npm run test:pantallas    (127 comprobaciones de la página en un Edge o Chrome sin ventana; al final dice dónde dejó las capturas)
 npm run test:pantallas-mp (60 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
-npm run test:real         (17 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
+npm run test:pantallas-almagro (33 comprobaciones de las reglas de Punto Almagro, con direcciones como las de verdad)
+npm run test:real         (21 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:real-mp      (16 comprobaciones de la función «mp» real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
 npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda» y pagos de prueba)
@@ -45,7 +47,7 @@ node pruebas/huellas.mjs  (escribe una consulta de SOLO LECTURA que compara la b
 `huellas.mjs` no se conecta a ningún lado: se pega su consulta en el SQL Editor del proyecto real. Con `--hasta <migración>`
 sirve para mirar, ANTES de cargar una migración nueva, que la base real sea la que se espera. El 25/11/2026 dio 456 de 456
 antes de cargar Mercado Pago, 543 de 543 después, 590 de 590 con el aviso de datos personales, 594 de 594 con el modo prueba
-corregido y 615 de 615 con la copia de seguridad (lo único de más es
+corregido, 615 de 615 con la copia de seguridad y 651 de 651 con las reglas de Punto Almagro (lo único de más es
 `public.rls_auto_enable`, que es de Supabase).
 
 Para ver en la compu la página cobrando con el Mercado Pago simulado (en PowerShell):
@@ -82,11 +84,11 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
 ## Publicar (y por qué los archivos llevan una marca)
 
 **Desde el 25/11/2026 a las 11:13, un `push` a `main` ES la publicación.** Cloudflare (proyecto de Pages `entreturno-boxes`,
-conectado a GitHub) arma la página y la publica sola en `yanina.entreturno.com.ar`. Ya no se sube nada a mano. Lo conectó la
+conectado a GitHub) arma la página y la publica sola en `puntoalmagro.entreturno.com.ar` y `yanina.entreturno.com.ar`. Ya no se sube nada a mano. Lo conectó la
 sesión «Paso a paso» por pedido de Santiago; ese día se comprobó acá: 30 pedidos de 30 bien y todo igual a lo armado.
 
 ```
-npm test · npm run test:pantallas · npm run test:pantallas-mp    (antes de subir)
+npm test · npm run test:pantallas · npm run test:pantallas-mp · npm run test:pantallas-almagro    (antes de subir)
    … si la página nueva necesita algo de la base o de una función: cargar Supabase PRIMERO y correr control.sql
 python -X utf8 publicar\armar_para_publicar.py                   (arma publicar\yanina, para comparar después)
 git pull --ff-only · git add -A · git commit -F <archivo> · git push
@@ -104,7 +106,7 @@ python -X utf8 publicar\comprobar_publicado.py --esperar         (espera hasta 3
   aceptan `*.entreturno.com.ar`, `*-entreturno.pages.dev` y localhost. Para probar eso, usar la dirección real.
 
 
-En la dirección propia (`yanina.entreturno.com.ar`), Cloudflare le dice al navegador que guarde **4 horas** los `.js`, aunque
+En la dirección propia (`*.entreturno.com.ar`), Cloudflare le dice al navegador que guarde **4 horas** los `.js`, aunque
 el `_headers` del sitio pida lo contrario (en `…pages.dev` sí lo respeta). El 20/11/2026 eso rompió la primera prueba real:
 Santiago tenía guardado un `conexion.js` de antes de los mails, la página nueva lo usó y «Olvidé mi contraseña» falló sin
 llegar a salir de su compu. Por eso el index publicado pide `config.js?v=…` y `conexion.js?v=…` con una marca del contenido:
@@ -136,7 +138,8 @@ que está por señar). Al llegar a ese número:
 - si alguno de esos saldos es de un turno que **ya pasó**, no puede reservar nada hasta pagarlo;
 - si está al día, puede seguir reservando, pero el turno nuevo lo paga **completo** (o salda uno antes).
 
-El número lo elige la dueña en Configuración → «Seña y pago»: uno solo (el modo estricto), 2, 3, 5 o sin tope
+El número lo elige la dueña en Configuración → «Seña y pago»: ninguno (desde el 25/11/2026: hasta terminar de pagar el que señó no reserva
+otro, ni pagándolo entero; es lo que usa Punto Almagro), uno solo, 2, 3, 5 o sin tope
 (`consultorios.max_saldos`). El saldo de un turno ya usado se puede pagar desde «Mis reservas», donde aparece arriba de todo.
 La dueña ve en «Profesionales» quién debe y cuánto, y en el Inicio el total de saldos por cobrar.
 
@@ -170,7 +173,7 @@ Lo configurado en el panel de Supabase (Authentication):
   «Secure password change» y «Require current password» apagados (si se prenden, hay que revisar «olvidé mi contraseña»).
 - Emails → SMTP Settings: `smtp.resend.com`, puerto 465, usuario `resend`, la clave de Resend (la pegó Santiago).
 - Emails → Templates: «Confirm sign up» y «Reset password» en castellano (`supabase\mails\`). Las demás, de fábrica.
-- URL Configuration: Site URL `https://yanina.entreturno.com.ar`; Redirect URLs: esa misma dirección y con `/**`.
+- URL Configuration: Site URL `https://puntoalmagro.entreturno.com.ar` (desde el 25/11/2026); Redirect URLs: esa y la de yanina, solas y con `/**`.
   **Al sumar otro consultorio hay que agregar su dirección a Redirect URLs** (si no, sus mails llevarían a la página de Yani).
 - Rate Limits: 30 mails de registro por hora en todo el proyecto y uno por minuto por persona. Resend gratis: 100 mails por día
   y 3.000 por mes, sumando avisos y registro.
@@ -228,7 +231,8 @@ Cómo trabaja la página:
 - Los boxes se nombran por su número (1, 2, 3); todo lo demás lleva un identificador largo.
 - Cada reserva trae `deposit` (la seña que se le informó al reservar) y `categoryName`: se usan esos, no se recalcula.
 - Las reservas ajenas llegan con `status: "ocupado"` y `userId: null`.
-- El consultorio sale de la dirección (`yanina.entreturno.com.ar` → `yanina`), salvo que `config.js` lo fije.
+- El consultorio sale de la dirección (`puntoalmagro.entreturno.com.ar` → `puntoalmagro`). Fuera de `*.entreturno.com.ar` (la dirección de prueba de
+  Cloudflare, la compu) es el que fija `config.js`.
 
 ## Facturas con ARCA (en curso desde el 23/11/2026)
 
@@ -429,7 +433,7 @@ Checkout Pro y «API de Orders»); por esa cuenta no pasa la plata de ningún co
 - `pagos_modo`: «simulado» (el pago de prueba de siempre, sin Mercado Pago) o «mercadopago».
 - `mp_ambiente`: «prueba» (órdenes de prueba: tarjetas de prueba, no se mueve plata; se cobra SIEMPRE con el pase de prueba de la
   aplicación, haya o no una cuenta conectada) o «real». Una cuenta conectada en un ambiente no sirve para el otro.
-- Se cambia con `select interno.mp_pasar_a('yanina', 'real');` (o `'prueba'`), **nunca con un update a mano**. No deja si quedan
+- Se cambia con `select interno.mp_pasar_a('puntoalmagro', 'real');` (o `'prueba'`), **nunca con un update a mano**. No deja si quedan
   cobros abiertos o sin cerrar en Mercado Pago, devoluciones sin salir, pagos para revisar, reservas esperando el pago, o turnos por
   venir pagados en el otro modo. Después, la dueña conecta su cuenta.
 - **En modo prueba la cuenta conectada no cobra:** sirve para ensayar la conexión. Y una orden que no es del modo del consultorio
@@ -663,6 +667,57 @@ escribirla) corregidos; 1 era esperable (la llave todavía no estaba); 5 en part
 **Lo que no está probado:** la corrida de la madrugada sola (la primera es la del 26/11 a las 03:23), restaurar en un proyecto de Supabase de
 verdad (hace falta crear uno para el ensayo y borrarlo) y entrar ahí con una contraseña restaurada.
 
+## Las reglas de Punto Almagro (cargadas y publicadas el 25/11/2026, con el OK de Santiago: «Sí, todo»)
+
+Yani respondió lo que se le había pedido y Santiago decidió lo que faltaba («Hasta pagar, no reserva otro», «Hasta 3 días antes», «Sí: puntoalmagro»,
+«Se lo pregunto a Yani» por el precio de psicólogos y demás). Son opciones de cada consultorio: con los valores de fábrica, todo sigue como estaba.
+Base: `20261125150000_reglas_almagro.sql`.
+
+- **Lema** (`consultorios.lema`): la frase que va debajo del nombre y en el título.
+- **La seña no se devuelve** (`sena_no_vuelve`): si cancela la profesional, el porcentaje corre sobre lo que pagó de más que la seña (con 100 %
+  es «todo menos la seña», sea cual sea el porcentaje de seña). Si cancela la dueña se devuelve todo, como siempre: es la forma de hacer una excepción.
+- **Ningún turno señado sin pagar** (`max_saldos` = 0): mientras haya uno señado sin terminar de pagar (o por señar) no reserva ningún otro.
+- **Cambiar un turno de día** (`repro_max` veces, hasta `repro_dias` días antes; `reprogramar_reserva`): solo turnos confirmados, si hay lugar, que
+  duren lo mismo y, si es otro box, que cueste lo que se cobró por hora. Lo pagado sigue valiendo, las máquinas se mueven con el turno y se
+  enteran las dos. La dueña puede mover cualquiera, sin gastarle el cambio a la profesional. Cada cambio queda en `interno.reprogramaciones`.
+- **Mover no sirve para esquivar la política:** al cancelar, los días se cuentan desde la fecha más temprana que tuvo el turno por cambios de
+  ella (`reservas.politica_desde`); los cambios que hace la dueña no la perjudican.
+- **Dirección:** el consultorio sale de la dirección (`consultorioDe`), y `consultorios.slugs_viejos` guarda las que tuvo. Si se entra por una vieja,
+  la página sigue en la nueva. `slug` fijo en `config.js` solo vale fuera de `*.entreturno.com.ar` (la dirección de prueba de Cloudflare).
+- `guardar_politica` guarda todo en un paso; lo que la página anterior no manda queda como está.
+- **Datos de Yani** (nombre, espacios, precios, reglamento, facturación, aviso): se cargan con un SQL que NO está acá porque tiene datos
+  personales (`E:\Entreturno boxes\datos-punto-almagro.sql`); el cambio de dirección, con `direccion-punto-almagro.sql`, al lado.
+
+**Para cambiar la dirección de un consultorio:** 1) agregar la nueva en Cloudflare (proyecto `entreturno-boxes` → Custom domains) y esperar que
+esté activa; 2) sumarla en Supabase → Authentication → URL Configuration; 3) `update consultorios set slug = …, slugs_viejos = …`; 4) comprobar las dos.
+La sesión no pasa de una dirección a la otra: hay que volver a entrar.
+
+En la compu: `npm test` 247 de 247, pantallas 127, 60 y 33, y 48 roturas a propósito, las 48 detectadas.
+
+**Cómo dio en el real (25/11/2026 a la tarde):** huellas 615 de 615 antes y 651 de 651 después; control 15 / 0 / 65 / `public.portada` / 37 / 5 / 19 / 3 /
+false / 0 / 0. Página publicada (`140df38`) igual en las tres direcciones (9 de 9). Con una prueba en la base real que se deshizo sola: la profesional
+no puede reservar otro turno con uno señado (ni pagándolo entero), no mueve uno sin pagar, lo mueve una vez y la segunda se la rechaza, la dueña lo
+mueve igual, la profesional no puede cambiar la política y al cancelar no vuelve la seña. `test:real` 21 de 21 y `test:real-mp` TODO BIEN. Vista como
+visitante en la compu y en 375 de ancho: entrando por la dirección vieja sigue en la nueva, y el aviso nombra a la responsable. Supabase Auth: Site
+URL `https://puntoalmagro.entreturno.com.ar` y cuatro Redirect URLs (las dos direcciones, solas y con `/**`).
+
+**No mirado:** la página por dentro con una cuenta de verdad, en la dirección nueva (Santiago tiene que volver a entrar), y un mail de registro que
+vuelva a la dirección nueva.
+
+**A la espera de Yani** (`Desktop\YANI - lo que falta preguntarle (WhatsApp).txt`): si los precios son por hora, la duración del turno, la seña, qué pagan
+psicólogos y demás, qué incluye cada categoría, si alquila máquinas, reglas de uso y fotos. Mientras tanto, dos cosas de la página no coinciden con
+lo que dijo: el plano dibujado es el de la demo (muestra una camilla en el Consultorio 1, que no tiene) y el menú «Máquinas» y el renglón «Equipos para
+sumar a tu turno» se muestran aunque no haya ninguna cargada.
+
+**Revisión 10 de Codex (5 puntos, todos corregidos con su prueba):** 1 el precio al mover se comparaba con el de hoy y no con lo que se cobró;
+2 con más de un cambio se podía mejorar la devolución; 3 la página ofrecía horarios con la máquina ocupada; 4 la política se guardaba en dos
+pasos; 5 el texto no decía desde qué fecha se cuentan los días. Además, revisando: la página publicada trae fijo el consultorio y no habría
+seguido a la dirección nueva (corregido y probado con direcciones como las de verdad).
+
+**Revisión 11 de Codex (4 puntos, todos corregidos con su prueba):** 1 si dos consultorios tuvieron la misma dirección, se elegía uno (ahora ninguno); 2 la
+página y la base no miraban igual un rato libre con la propia reserva adentro; 3 el selector mostraba hasta 45 días; 4 el texto de cancelar no decía
+desde qué fecha se cuenta cuando la seña se devuelve.
+
 ## Decisiones tomadas al armar (sin consultar; se pueden cambiar)
 
 - Una profesional puede tener hasta 3 reservas sin pagar la seña a la vez (`max_sin_pagar`), para que nadie acapare turnos.
@@ -684,11 +739,11 @@ verdad (hace falta crear uno para el ensayo y borrarlo) y entrar ahí con una co
 2. Hecho el 20/11: avisos por mail andando y mails de registro (confirmar cuenta, olvidé mi contraseña) publicados,
    con «Confirm email» prendido. «Olvidé mi contraseña» y «Pedir acceso» ya se probaron de verdad (20/11 y 25/11).
 3. Yani: que cree su cuenta desde la página y dejarla como dueña (`interno.alta_admin`).
-4. Datos reales de Yani: horarios, reglamento, descripción de los boxes, máquinas y fotos (depósito de archivos + subir
-   desde Configuración).
+4. Datos reales de Yani: cargados el 25/11/2026 (horarios, reglamento, espacios, precios, facturación y aviso). Faltan máquinas, fotos (depósito
+   de archivos + subir desde Configuración) y lo que conteste.
 5. Mercado Pago real: hecho el 24/11, cargado y publicado el 25/11, y **probado de verdad el 25/11 en el ambiente de prueba de
    Mercado Pago** (pago, avisos y devolución; ver «Cobro con Mercado Pago»). Falta:
-   (producción y las tres claves ya están desde el 25/11) Yani como dueña, `select interno.mp_pasar_a('yanina', 'real');`, que conecte
+   (producción y las tres claves ya están desde el 25/11) Yani como dueña, `select interno.mp_pasar_a('puntoalmagro', 'real');`, que conecte
    su cuenta desde Configuración y un primer pago de verdad, chico, con su devolución.
 6. Aviso de datos personales: publicado el 25/11. Falta la revisión de una abogada, los datos de Yani y un procedimiento de baja.
 7. Copia diaria: andando desde el 25/11. Falta una segunda llave (Tomás o Iván) y ensayar la restauración en un proyecto de Supabase de verdad.
