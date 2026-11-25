@@ -18,7 +18,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Revisión independiente de la página (Codex, 20/11) | 9 puntos: 6 corregidos con su prueba; 3 anotados más abajo. No encontró forma de meter código |
 | Revisión independiente de los mails de registro (Codex, 20/11) | 10 puntos: 6 corregidos, 2 comprobados y 2 que dependen de la prueba real (detalle más abajo). No encontró forma de meter código |
 | Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('yanina', '<su mail>', 'Yani')` |
-| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. **Primera prueba real (ambiente de prueba de Mercado Pago) el 25/11: pago, confirmación, avisos firmados y devolución, todo bien** (ver «Cobro con Mercado Pago»); desde ese día el consultorio está en `mercadopago` / `prueba` y solo sirven tarjetas de prueba. Falta: activar producción, conectar la cuenta de Yani y `mp_ambiente = 'real'`. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
+| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. La función contesta bien desde afuera: `npm run test:real-mp` 16 de 16. **Primera prueba real (ambiente de prueba de Mercado Pago) el 25/11: pago, confirmación, avisos firmados y devolución, todo bien** (ver «Cobro con Mercado Pago»); desde ese día el consultorio está en `mercadopago` / `prueba` y solo sirven tarjetas de prueba. **Producción activada el 25/11 a la tarde**, con las tres claves y los avisos reales comprobados; conectar una cuenta también anduvo (en esa prueba salió una orden de verdad en modo prueba: corregido y publicado). Falta: Yani como dueña, `interno.mp_pasar_a('yanina', 'real')`, que conecte su cuenta y un primer pago real chico. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
 | Aviso de datos personales (Ley 25.326) | **Cargado y publicado el 25/11/2026.** Se lee sin entrar; hay que aceptarlo para pedir acceso y para reservar, y queda la constancia. Faltan: que lo revise una abogada y los datos de Yani (responsable, domicilio y mail). Ver «Aviso de datos personales» |
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **«Pedir acceso» con una cuenta nueva probado de verdad el 25/11** (mail, confirmación, pedido y aprobación). **Falta probar de verdad:** guardar una contraseña distinta |
@@ -32,7 +32,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (218 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
+npm test                  (219 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
 npm run test:pantallas    (127 comprobaciones de la página en un Edge o Chrome sin ventana; al final dice dónde dejó las capturas)
 npm run test:pantallas-mp (60 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
 npm run test:real         (12 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
@@ -44,7 +44,8 @@ node pruebas/huellas.mjs  (escribe una consulta de SOLO LECTURA que compara la b
 
 `huellas.mjs` no se conecta a ningún lado: se pega su consulta en el SQL Editor del proyecto real. Con `--hasta <migración>`
 sirve para mirar, ANTES de cargar una migración nueva, que la base real sea la que se espera. El 25/11/2026 dio 456 de 456
-antes de cargar Mercado Pago, 543 de 543 después, y 590 de 590 con el aviso de datos personales (lo único de más es
+antes de cargar Mercado Pago, 543 de 543 después, 590 de 590 con el aviso de datos personales y 594 de 594 con el modo prueba
+corregido (lo único de más es
 `public.rls_auto_enable`, que es de Supabase).
 
 Para ver en la compu la página cobrando con el Mercado Pago simulado (en PowerShell):
@@ -428,10 +429,12 @@ Checkout Pro y «API de Orders»); por esa cuenta no pasa la plata de ningún co
 - `pagos_modo`: «simulado» (el pago de prueba de siempre, sin Mercado Pago) o «mercadopago».
 - `mp_ambiente`: «prueba» (órdenes de prueba: tarjetas de prueba, no se mueve plata; se cobra SIEMPRE con el pase de prueba de la
   aplicación, haya o no una cuenta conectada) o «real». Una cuenta conectada en un ambiente no sirve para el otro.
-- Se cambia con `select interno.mp_pasar_a('yanina', 'real');` (o `'prueba'`): no deja si quedan cobros abiertos, devoluciones sin
-  salir, reservas esperando el pago o (para pasar a real) turnos por venir pagados de mentira. Después, la dueña conecta su cuenta.
+- Se cambia con `select interno.mp_pasar_a('yanina', 'real');` (o `'prueba'`), **nunca con un update a mano**. No deja si quedan
+  cobros abiertos o sin cerrar en Mercado Pago, devoluciones sin salir, pagos para revisar, reservas esperando el pago, o turnos por
+  venir pagados en el otro modo. Después, la dueña conecta su cuenta.
 - **En modo prueba la cuenta conectada no cobra:** sirve para ensayar la conexión. Y una orden que no es del modo del consultorio
-  (las de prueba se numeran ORDTST…) se cierra enseguida, no se le muestra a nadie y la base no la deja anotar.
+  (las de prueba se numeran ORDTST…) se cierra enseguida, no se le muestra a nadie y la base no la deja anotar ni aprobar. Si quedara
+  abierta una del otro modo, su enlace no se entrega más: pasa a «revisar».
 
 **El reloj.** Cada minuto la base mira si hay algo para hacer (`interno.mp_reloj`): órdenes abiertas cuyo aviso no llegó,
 órdenes viejas para cerrar, devoluciones que esperan, pases que vencen en menos de 30 días. Si hay, despierta a la función
@@ -468,7 +471,16 @@ con una clave que vive en el Vault. Si no hay nada, no llama a nadie.
   pagó (Mercado Pago rechazó al comprador de prueba: «una de las partes es de prueba») y se cerró sola a las 14:35. Por qué: el pase
   que da Mercado Pago con `test_token` no sirve para las órdenes; el sistema lo renovó solo y el renovado vino real. La cuenta se
   desconectó a las 14:37. Corrección: `20261125120000_prueba_de_verdad.sql`, la función `mp` y los textos de la página (detalle en
-  «Ambientes», arriba), con 7 pruebas nuevas y 18 roturas a propósito.
+  «Ambientes», arriba).
+- **Corrección cargada y publicada el 25/11 a las 15:22** (con el OK de Santiago: «Sí, cargala»; `23b5fdb`): base (control 15 / 0 / 61 /
+  `public.portada` / 36 / 5 / 19 / false / 0 / 0, huellas 594 de 594), función `mp` (51.688 caracteres, huella `6ffb485db8ea`, «Verify
+  JWT» apagado) y página TODO BIEN. En la base real, con una prueba que se deshizo sola: con una cuenta conectada en prueba el pase no se
+  entrega ni se renueva, una orden de verdad no se anota, y no se puede pasar a real con algo abierto. En la compu: `npm test` 219 de
+  219, pantallas 127 y 60, y roturas a propósito: las 26 de esta corrección y las 37 de antes, todas detectadas.
+- Revisión 8 de Codex (7 puntos): 1, 2, 3, 4 y 5 corregidos (enlaces del otro modo, qué mira el cambio de modo, candado del consultorio
+  al preparar un pago); 6 en parte (si la orden equivocada no se deja cerrar, queda anotado su número; nadie tiene la dirección); 7 con
+  pruebas, menos las de dos conexiones a la vez, que acá no se pueden hacer.
+- No se repitió la compra con una cuenta conectada: sin el pase de la cuenta, es el mismo camino que anduvo a la mañana.
 
 **Lo que todavía NO se comprobó contra el Mercado Pago de verdad:**
 - Que un pago se acredite solo con el aviso, sin volver a la página (esta vez la página preguntó antes).
@@ -622,8 +634,8 @@ control de `volver_a` de la tabla `interno.mp_estados`.
    desde Configuración).
 5. Mercado Pago real: hecho el 24/11, cargado y publicado el 25/11, y **probado de verdad el 25/11 en el ambiente de prueba de
    Mercado Pago** (pago, avisos y devolución; ver «Cobro con Mercado Pago»). Falta:
-   activar producción en la aplicación (Santiago), pegar `MP_CLIENT_ID`, `MP_CLIENT_SECRET` y `MP_WEBHOOK_SECRETO_REAL`, que Yani
-   conecte su cuenta y `mp_ambiente = 'real'`.
+   (producción y las tres claves ya están desde el 25/11) Yani como dueña, `select interno.mp_pasar_a('yanina', 'real');`, que conecte
+   su cuenta desde Configuración y un primer pago de verdad, chico, con su devolución.
 6. Aviso de datos personales: publicado el 25/11. Falta la revisión de una abogada, los datos de Yani y un procedimiento de baja.
 7. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
 8. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
