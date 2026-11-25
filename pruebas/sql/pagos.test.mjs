@@ -140,13 +140,14 @@ prueba('una profesional pausada conserva sus reservas y las puede cancelar', asy
   assert.equal((await cancelar(e, esc, esc.lucia, r.id)).amount, 20000);
 });
 
-prueba('con Mercado Pago conectado, la devolución queda pendiente hasta que Mercado Pago la confirma', async (e) => {
+prueba('al pasar a Mercado Pago, lo que se había pagado de prueba no deja devoluciones esperando', async (e) => {
   const esc = await e.armar();
   const r = await e.reservar(esc, esc.lucia, { fecha: await e.diaHabil(10) });
   await e.pagar(esc, esc.lucia, r.id, 'sena');
   await e.sql(`update public.consultorios set pagos_modo = 'mercadopago' where id = $1`, [esc.id]);
   await cancelar(e, esc, esc.lucia, r.id);
-  assert.deepEqual(await e.uno(`select monto, estado, proveedor from public.pagos where tipo = 'devolucion'`), { monto: 20000, estado: 'pendiente', proveedor: 'mercadopago' });
+  // ese pago era de prueba: no hay plata que devolver por Mercado Pago (las devoluciones de verdad están en mercadopago.test.mjs)
+  assert.deepEqual(await e.uno(`select monto, estado, proveedor from public.pagos where tipo = 'devolucion'`), { monto: 20000, estado: 'aprobado', proveedor: 'simulado' });
   const b = (await e.foto(esc, esc.lucia)).bookings[0];
-  assert.deepEqual(b.refund, { amount: 20000, pct: 100, done: false });
+  assert.deepEqual(b.refund, { amount: 20000, pct: 100, done: true });
 });

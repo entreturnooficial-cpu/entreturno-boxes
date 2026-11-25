@@ -5,11 +5,12 @@
   "description": "Entreturno · Boxes: sistema real para alquilar boxes y máquinas por turnos (base de datos en Supabase + página)",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1 \"pruebas/sql/*.test.mjs\" pruebas/conexion.test.mjs pruebas/arca.test.mjs pruebas/funcion.test.mjs",
+    "test": "node --test --test-concurrency=1 \"pruebas/sql/*.test.mjs\" pruebas/conexion.test.mjs pruebas/arca.test.mjs pruebas/funcion.test.mjs pruebas/mp.test.mjs pruebas/funcion-mp.test.mjs",
     "test:arca": "node pruebas/arca-real.mjs",
     "test:sql": "node --test --test-concurrency=1 \"pruebas/sql/*.test.mjs\"",
     "test:conexion": "node --test pruebas/conexion.test.mjs",
     "test:pantallas": "node pruebas/pantallas.mjs",
+    "test:pantallas-mp": "node pruebas/pantallas-mp.mjs",
     "test:real": "node pruebas/real.mjs",
     "servidor": "node pruebas/servidor-local.mjs"
   },

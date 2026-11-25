@@ -20,10 +20,16 @@ export const FUNCIONES_CON_SESION = [
   'guardar_turnos', 'guardar_pago', 'guardar_politica', 'guardar_reglamento', 'guardar_box', 'guardar_foto_box',
   'guardar_categoria', 'quitar_categoria', 'guardar_maquina', 'quitar_maquina', 'guardar_facturacion',
   'facturacion_preparar', 'facturacion_estado',
+  'mp_conexion_iniciar', 'mp_conexion_confirmar', 'mp_desconectar', 'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio',
+  'mp_devolucion_a_mano',
 ];
 
-/** Las que solo puede llamar la función de ARCA (service_role). */
-export const FUNCIONES_DE_SERVICIO = ['arca_ticket', 'arca_guardar_ticket', 'arca_candado', 'arca_anotar', 'arca_resultado'];
+/** Las que solo pueden llamar las funciones de Supabase de ARCA y de Mercado Pago (service_role). */
+export const FUNCIONES_DE_SERVICIO = ['arca_ticket', 'arca_guardar_ticket', 'arca_candado', 'arca_anotar', 'arca_resultado',
+  'mp_conexion_tomar', 'mp_cuenta_guardar', 'mp_credencial', 'mp_cuenta_renovada', 'mp_cuenta_reintento', 'mp_cuenta_caida',
+  'mp_cuentas_de', 'mp_pago_orden', 'mp_pago_fallo', 'mp_pago_ubicar', 'mp_pago_resultado', 'mp_pago_cerrado',
+  'mp_pago_sin_comprobar', 'mp_devolucion_tomar', 'mp_devolucion_parte', 'mp_sobrante_tomar', 'mp_sobrante_resultado',
+  'mp_pendientes', 'mp_reloj_clave'];
 
 let plantilla = null;
 after(async () => {

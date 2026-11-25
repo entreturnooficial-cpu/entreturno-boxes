@@ -524,6 +524,8 @@ button.choice:active{transform:scale(.985)}
 .success .ok-ic .icon{width:28px;height:28px;stroke-width:2.2}
 .success h3{font-family:var(--serif);font-size:23px;font-weight:400;letter-spacing:-.01em;line-height:1.25}
 .success p{color:var(--muted);margin-top:8px}
+/* mientras se espera la confirmación de Mercado Pago: un aro que gira (quieto si la persona pidió menos movimiento) */
+.success .spinner{width:44px;height:44px;border-radius:999px;border:3px solid var(--raised);border-top-color:var(--text);margin:0 auto 16px}
 /* seguimiento: es una secuencia real, por eso los puntos van unidos */
 .track{list-style:none;padding:0;margin:18px 0 0;text-align:left}
 .track li{position:relative;display:flex;gap:12px;align-items:center;padding:8px 0;font-size:14.5px;color:var(--muted)}
@@ -628,6 +630,7 @@ button.choice:active{transform:scale(.985)}
   .cal.fx-in .lane:nth-child(3) .seg{animation-delay:35ms}
   .cal.fx-in .lane:nth-child(4) .seg{animation-delay:70ms}
   .success .ok-ic{animation:ok-pop .32s var(--ease-out) backwards}
+  .success .spinner{animation:gira .8s linear infinite}
   .success .ok-ic .icon path{stroke-dasharray:22 30;stroke-dashoffset:24;animation:ok-draw .36s var(--ease-out) .16s forwards}
 }
 @keyframes plan-draw{from{stroke-dashoffset:1;opacity:0}6%{opacity:1}to{stroke-dashoffset:0;opacity:1}}
@@ -635,6 +638,7 @@ button.choice:active{transform:scale(.985)}
 @keyframes seg-in{from{opacity:0;transform:translateY(5px)}}
 @keyframes ok-pop{from{opacity:0;transform:scale(.9)}}
 @keyframes ok-draw{to{stroke-dashoffset:0}}
+@keyframes gira{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){
   /* menos movimiento, no cero: quedan los fundidos, se van los desplazamientos */
   .sheet{transform:none !important;opacity:0 !important;transition:opacity .15s ease !important}
@@ -833,6 +837,24 @@ function mirarDireccion() {
     return true;
   } catch (e) { return false; }       // si el navegador no deja tocar la dirección, se sigue igual
 }
+/* La vuelta de Mercado Pago. Después de pagar (o de no pagar) vuelve a esta dirección con datos en la barra, y después de
+   conectar la cuenta vuelve con «#mp=…». Se toma enseguida y se saca de la barra. A lo que dice la barra no se le cree:
+   solo sirve para saber por qué pago preguntarle al servidor. */
+let vueltaDeMp = null;      // { pago, dijo } al volver de pagar · { conexion } al volver de conectar la cuenta
+function mirarVueltaDeMp() {
+  try {
+    const q = new URLSearchParams(location.search), h = new URLSearchParams(location.hash.slice(1));
+    if (q.has("mp")) {
+      const pago = q.get("external_reference") || "";
+      vueltaDeMp = { pago: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(pago) ? pago : null, dijo: q.get("mp") };
+      history.replaceState(null, "", location.pathname + location.hash);
+    } else if (h.has("mp") && !servidor.hayEnlace(location.hash)) {
+      vueltaDeMp = { conexion: String(h.get("mp")).slice(0, 40) };
+      history.replaceState(null, "", location.pathname);
+    }
+  } catch (e) { /* si el navegador no deja tocar la dirección, se sigue igual */ }
+}
+mirarVueltaDeMp();
 mirarDireccion();
 let pasoDeIngreso = null;   // lo que muestra el ingreso en lugar de los formularios: { tipo: "olvide" | "confirmar" | "recuperar" | "vencido", mail }
 let eligiendoClave = false; // volvió del mail de «olvidé mi contraseña» y todavía no eligió la nueva
@@ -900,6 +922,17 @@ const MENSAJES = {
   pago_vencido: "Se terminó el plazo para pagar y el turno se liberó. Si sigue libre, reservalo de nuevo.",
   nada_que_pagar: "Esa reserva ya está paga.",
   pagos_no_simulados: "El pago de prueba ya no está disponible.",
+  pagos_simulados: "Este consultorio todavía no cobra con Mercado Pago.",
+  mp_sin_cuenta: "El consultorio no puede cobrar con Mercado Pago en este momento. Avisale a la administradora.",
+  mp_rechazo: "Mercado Pago no aceptó el pedido. Probá de nuevo en un momento.",
+  mp_sin_respuesta: "Mercado Pago no contestó. Probá de nuevo en un momento: no se cobró nada.",
+  pago_en_curso: "Ya se está abriendo el pago. Esperá unos segundos.",
+  pago_inexistente: "No encontramos ese pago.",
+  origen_no_permitido: "Desde esta dirección no se puede pagar. Entrá por la página del consultorio.",
+  mp_con_pendientes: "Con esta cuenta todavía hay cobros abiertos o devoluciones saliendo. Esperá a que terminen y probá de nuevo.",
+  mp_cuenta_cambio: "La cuenta conectada cambió recién. Mirá de nuevo cuál es antes de confirmar.",
+  mp_en_curso: "El sistema la está intentando en este momento. Probá de nuevo en un par de minutos.",
+  solo_miembros: "Eso es solo para quienes alquilan en este consultorio.",
   horario_invalido: "Ese horario no es válido. Revisá las horas.",
   fuera_de_bloqueo: "El rato libre tiene que estar dentro del horario bloqueado.",
   rato_superpuesto: "Ya hay un rato libre publicado en ese horario.",
@@ -915,7 +948,7 @@ const MENSAJES = {
   faltan_datos_facturacion: "Faltan los datos de facturación: completá la CUIT en Configuración.",
   periodo_futuro: "Ese mes todavía no empezó.",
   factura_inexistente: "Esa factura ya cambió. Actualizamos la pantalla.",
-  falta_configurar: "Falta configurar el certificado de ARCA en el servidor. Avisale a Entreturno.",
+  falta_configurar: "Falta terminar de configurar esto en el servidor. Avisale a Entreturno.",
   certificado_invalido: "El certificado de ARCA guardado en el servidor no sirve. Avisale a Entreturno.",
   clave_no_corresponde: "El certificado de ARCA guardado en el servidor no sirve. Avisale a Entreturno.",
   certificado_vencido: "El certificado de ARCA venció. Avisale a Entreturno.",
@@ -1227,9 +1260,16 @@ function algoVencio() {
 }
 
 /* Cómo se paga: Mercado Pago o, mientras no esté conectado, un pago de prueba */
+const mpDePrueba = () => S.site.payments === "mercadopago" && S.site.mp && S.site.mp.env === "prueba";
 const payLine = () => S.site.payments === "simulado"
   ? `<div class="mp-head is-line"><div class="mp-logo">MP</div><div><b>Modo de prueba</b><div class="muted small">El pago es simulado: no se cobra plata de verdad.</div></div></div>`
-  : `<div class="mp-head is-line"><div class="mp-logo">MP</div><div><b>Mercado Pago: tarjeta o dinero en cuenta</b><div class="muted small">Se confirma al instante.</div></div></div>`;
+  : mpDePrueba()
+    ? `<div class="mp-head is-line"><div class="mp-logo">MP</div><div><b>Mercado Pago, en modo prueba</b><div class="muted small">No se cobra plata de verdad: se paga con una tarjeta de prueba.</div></div></div>`
+    : `<div class="mp-head is-line"><div class="mp-logo">MP</div><div><b>Mercado Pago: tarjeta o dinero en cuenta</b><div class="muted small">Se confirma al instante.</div></div></div>`;
+/* Solo se manda a la gente a pagar o a autorizar a Mercado Pago (en el servidor de prueba, a su Mercado Pago simulado) */
+const esDeMercadoPago = (u) => /^https:\/\/([a-z0-9-]+\.)*mercadopago\.(com|com\.ar)\//.test(String(u)) || (CFG.prueba === true && String(u).startsWith(location.origin + "/__mp/"));
+/* Plata que Mercado Pago cobró de más en una reserva (un pago repetido o que llegó tarde) y que todavía no se devolvió */
+const sobranteOf = (b) => (b.surplus || []).filter(x => !x.done).reduce((a, x) => a + x.amount, 0);
 
 /* =========================================================
    Render: shell
@@ -1673,6 +1713,8 @@ function bookingCard(b) {
   else if (b.status === "confirmada") pay = bal ? `Pagaste ${money(paid)} de seña · saldo <b class="num">${money(bal)}</b> antes del turno` : b.total ? `Pagaste el total: <b class="num">${money(paid)}</b>` : "Sin cargo";
   else if (b.status === "cumplida") pay = bal ? `Pagaste ${money(paid)} · <b class="num">te falta el saldo: ${money(bal)}</b>` : `Pagado ${money(paid)}`;
   else if (b.status === "cancelada") pay = b.cancelledBy === "vencida" ? "Se liberó porque no se registró el pago a tiempo." : b.refund?.amount ? `Devolución ${money(b.refund.amount)} (${b.refund.pct} %)${b.refund.done ? "" : " · en camino"}` : "Sin devolución";
+  // un pago que entró de más (repetido, o que llegó cuando el turno ya no estaba): se devuelve entero, solo
+  if (sobranteOf(b)) pay += `${pay ? " · " : ""}Te devolvemos <b class="num">${money(sobranteOf(b))}</b> que pagaste de más (puede tardar unos días)`;
   const acts = [];
   if (b.status === "pago") {
     acts.push(`<button class="btn btn-primary btn-sm" data-action="pay-now" data-id="${b.id}">Pagar ${money(b.plan === "sena" ? depositOf(b) : b.total)}</button>`);
@@ -1952,13 +1994,65 @@ function viewReservas() {
   ` : `<div class="panel"><div class="empty"><b>No hay reservas con estos filtros</b>Probá con otra pestaña o borrá la búsqueda.</div></div>`}`;
 }
 
+/* Por qué no salió una devolución, dicho en criollo (lo que anota el servidor viene con las palabras de Mercado Pago) */
+function notaDeMp(t) {
+  if (!t) return "";
+  if (/^otra_cuenta/.test(t)) return " · no sale sola: ese pago se cobró con otra cuenta de Mercado Pago. Devolvela desde esa cuenta y anotala como hecha";
+  if (/insufficient|saldo/i.test(t)) return " · no salió: la cuenta de Mercado Pago no tiene saldo disponible";
+  if (/no está conectada|configurar/i.test(t)) return " · no salió: la cuenta de Mercado Pago no está conectada";
+  if (/sin_respuesta/i.test(t)) return " · Mercado Pago no contestó: se intenta de nuevo";
+  if (/cancelada|vencido|hecho/i.test(t)) return ` · ${esc(t)}`;         // el motivo de un pago que entró de más
+  return " · no salió: Mercado Pago no la aceptó";
+}
+
+/* La cuenta de Mercado Pago del consultorio, en Configuración (solo la ve la dueña) */
+function mpPanel() {
+  const mp = S.config.mp || {}, a = mp.account, real = mp.env === "real";
+  const modo = mp.mode !== "mercadopago"
+    ? `<div class="note">Hoy los pagos de la página son <b>de prueba</b>: no se cobra plata. Cuando tu cuenta esté conectada, Entreturno prende el cobro de verdad.</div>`
+    : real ? "" : `<div class="note acc">Mercado Pago está en <b>modo prueba</b>: se paga con tarjetas de prueba y no se mueve plata de verdad.</div>`;
+  const cuenta = a ? `<b>${esc(a.name || "Cuenta de Mercado Pago")}</b><div class="s">${a.email ? esc(a.email) + " · " : ""}N.º <span class="num">${esc(a.userId)}</span></div>` : "";
+  if (!a) {
+    return `${modo}<p class="muted">Todavía no hay ninguna cuenta conectada.</p>
+      <div class="acts"><button class="btn btn-dark" data-action="mp-conectar">Conectar Mercado Pago</button></div>`;
+  }
+  if (a.status === "por_confirmar") {
+    return `${modo}<ul class="list"><li class="li"><div class="main">${cuenta}</div><span class="pill pill-warning">Falta confirmar</span></li></ul>
+      <p class="muted">Mercado Pago ya autorizó esta cuenta. Falta que confirmes que es la tuya.</p>
+      <div class="acts"><button class="btn" data-action="mp-quitar">Quitarla</button><button class="btn btn-dark" data-action="mp-revisar">Confirmar la cuenta</button></div>`;
+  }
+  if (a.status === "caida") {
+    return `${modo}<ul class="list"><li class="li"><div class="main">${cuenta}</div><span class="pill pill-negative">Desconectada</span></li></ul>
+      <div class="note warn">La cuenta dejó de estar conectada (pasa si se le quita el permiso a Entreturno en Mercado Pago o si se cambia la contraseña). Hasta conectarla de nuevo no se puede cobrar ni devolver.</div>
+      <div class="acts"><button class="btn" data-action="mp-quitar">Quitarla</button><button class="btn btn-dark" data-action="mp-conectar">Conectar de nuevo</button></div>`;
+  }
+  const otroModo = a.env !== mp.env;
+  return `${modo}<ul class="list"><li class="li"><div class="main">${cuenta}</div><span class="pill ${otroModo ? "pill-warning" : "pill-positive"}">${otroModo ? "Hay que reconectar" : "Conectada"}</span></li></ul>
+    ${otroModo ? `<div class="note warn">Esta cuenta se conectó en modo ${a.env === "prueba" ? "prueba" : "real"} y hoy el consultorio cobra en modo ${real ? "real" : "prueba"}. Conectala de nuevo.</div>` : ""}
+    <div class="acts"><button class="btn" data-action="mp-quitar">Desconectar</button>${otroModo ? `<button class="btn btn-dark" data-action="mp-conectar">Conectar de nuevo</button>` : ""}</div>`;
+}
+
 function viewPagos() {
   const hist = [];
   S.bookings.forEach(b => b.payments.forEach(p => { if (p.status === "aprobado") hist.push({ b, p }); }));
   hist.sort((x, y) => y.p.at - x.p.at);
   const amt = (p) => `${p.kind === "devolucion" ? "− " : ""}${money(p.amount)}`;
+  // Lo que todavía hay que devolver por Mercado Pago: devoluciones de cancelaciones y pagos que entraron de más
+  const esperan = [];
+  S.bookings.forEach(b => {
+    b.payments.forEach(p => { if (p.kind === "devolucion" && p.status === "pendiente") esperan.push({ b, id: p.id, monto: p.amount, que: "Devolución por cancelación", nota: p.note }); });
+    (b.surplus || []).forEach(x => { if (!x.done) esperan.push({ b, id: x.id, monto: x.amount, que: "Pago que entró de más", nota: x.note }); });
+  });
   return `
-  <div class="title-row"><div><h1>Pagos</h1><p class="sub">${S.site.payments === "simulado" ? "Modo de prueba: los pagos son simulados, todavía no se cobra plata de verdad." : "Los cobros y las devoluciones pasan por Mercado Pago y se registran solos."}</p></div></div>
+  <div class="title-row"><div><h1>Pagos</h1><p class="sub">${S.site.payments === "simulado" ? "Modo de prueba: los pagos son simulados, todavía no se cobra plata de verdad." : mpDePrueba() ? "Mercado Pago en modo prueba: se paga con tarjetas de prueba y no se mueve plata de verdad." : "Los cobros y las devoluciones pasan por Mercado Pago y se registran solos."}</p></div></div>
+  ${esperan.length ? `<div class="panel" id="devoluciones-esperan"><div class="panel-b">
+    <div class="group-l">Devoluciones que están saliendo</div>
+    <p class="muted" style="margin:4px 0 10px">El sistema las hace solo desde tu cuenta de Mercado Pago. Si alguna no sale (lo más común: la cuenta no tiene saldo disponible), la sigue intentando. Si la hacés vos por tu cuenta, marcala como hecha.</p>
+    <ul class="list">${esperan.map(x => `<li class="li"><div class="main"><div class="t">${esc(userById(x.b.userId).name)} · <span class="num">${money(x.monto)}</span></div>
+      <div class="s">${x.que} · ${esc(boxById(x.b.boxId).name)}, ${fmtDayShort(x.b.date)}${notaDeMp(x.nota)}</div></div>
+      ${x.nota ? `<div class="acts"><button class="btn btn-sm" data-action="mp-a-mano" data-id="${x.id}">Ya la devolví yo</button></div>` : ""}</li>`).join("")}</ul>
+    <div class="acts"><button class="btn" data-action="mp-despachar">Intentar ahora</button></div>
+  </div></div>` : ""}
   <div class="panel"><div class="panel-b" style="padding-top:8px">${hist.length ? `
     <div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Profesional</th><th>Concepto</th><th class="num">Monto</th></tr></thead><tbody>
     ${hist.map(({ b, p }) => `<tr><td class="num">${fmtWhen(p.at)}</td><td>${esc(userById(b.userId).name)}</td><td>${KIND[p.kind]}<div class="s">${esc(boxById(b.boxId).name)}, ${fmtDayShort(b.date)}</div></td><td class="num">${amt(p)}</td></tr>`).join("")}</tbody></table></div>
@@ -2092,6 +2186,10 @@ function viewConfig() {
         <div class="acts"><button class="btn" data-action="cat-add">Agregar categoría</button></div>
       </div>
     </section>
+    <section class="set-sec" id="cfg-mp">
+      <div><h2>Mercado Pago</h2><p class="desc">La cuenta donde entra la plata de las reservas. La conectás vos desde Mercado Pago, sin pasarle tu contraseña a nadie, y le podés quitar el permiso cuando quieras.</p></div>
+      <div class="set-panel">${mpPanel()}</div>
+    </section>
     <section class="set-sec">
       <div><h2>Seña y pago ${tag}</h2><p class="desc">Cuánto se paga al reservar y cuánto tiempo queda guardado el turno mientras se paga.</p></div>
       <form class="set-panel" data-form="cfg-precio">
@@ -2193,7 +2291,8 @@ function openSheet(html, { wide = false } = {}) {
   document.body.style.overflow = "hidden";
   requestAnimationFrame(() => overlayEl && overlayEl.classList.add("open"));
   const f = overlayEl.querySelector("[autofocus], .sheet-b input, .sheet-b button, .sheet-f .btn-primary");
-  setTimeout(() => (f || overlayEl.querySelector(".sheet")).focus?.(), 60);
+  // (para entonces la hoja pudo haberse cerrado o cambiado de contenido: se enfoca solo lo que siga estando)
+  setTimeout(() => { const foco = f && document.contains(f) ? f : overlayEl && overlayEl.querySelector(".sheet"); if (foco) foco.focus?.(); }, 60);
   overlayEl.addEventListener("mousedown", (e) => { if (e.target === overlayEl) closeSheet(); });
 }
 function closeSheet(instant = false) {
@@ -2293,9 +2392,18 @@ function openMp(b, kind) {
     <div class="amount num">${money(amount)}</div>
     ${b.status === "pago" ? `<p class="muted" style="margin-top:6px">Tu turno queda guardado <span class="timer" data-countdown="${b.expiresAt}"></span>. Si no se paga, se libera solo.</p>` : ""}`;
   if (S.site.payments !== "simulado") {
-    openSheet(`${sheetHead("Pagar con Mercado Pago")}
-    <div class="sheet-b">${resumen}<div class="note warn">El pago con Mercado Pago todavía se está conectando. Avisale a ${OW()} para coordinar el pago.</div></div>
-    <div class="sheet-f"><button class="btn" data-action="close-sheet">Cerrar</button></div>`);
+    if (!(S.site.mp && S.site.mp.ready)) {
+      openSheet(`${sheetHead("Pagar con Mercado Pago")}
+      <div class="sheet-b">${resumen}<div class="note warn">Por ahora el consultorio no puede cobrar con Mercado Pago. Avisale a ${OW()} para coordinar el pago.</div></div>
+      <div class="sheet-f"><button class="btn" data-action="close-sheet">Cerrar</button></div>`);
+    } else {
+      openSheet(`${sheetHead("Pagar con Mercado Pago", mpDePrueba() ? "Modo prueba: no se cobra plata de verdad" : "")}
+      <div class="sheet-b">${resumen}
+        <p class="muted" style="margin-top:10px">Te llevamos a Mercado Pago para pagar con tarjeta o con dinero en cuenta. Al terminar volvés acá y la reserva queda confirmada.</p>
+        ${mpDePrueba() ? `<div class="note acc">Modo prueba de Mercado Pago: usá una tarjeta de prueba. No se cobra plata de verdad.</div>` : ""}
+      </div>
+      <div class="sheet-f"><button class="btn" data-action="close-sheet">Ahora no</button><button class="btn btn-primary" data-action="mp-ir" data-id="${b.id}" data-kind="${kind}">Ir a pagar ${money(amount)}</button></div>`);
+    }
   } else {
     openSheet(`${sheetHead("Pagar", "Modo de prueba: el pago es simulado, no se cobra plata de verdad")}
     <div class="sheet-b">${resumen}</div>
@@ -2309,6 +2417,103 @@ async function mpApprove(id, kind) {
   const b = findB(id);
   if (!r || !b) { if (ultimoError !== "sin_conexion") closeSheet(); return; }
   showSuccess(b, kind === "saldo" ? "¡Listo! Pagaste el saldo" : "¡Reserva confirmada!", kind === "saldo" ? "Tu turno está pago completo." : "Te vamos a recordar el turno el día anterior.");
+}
+
+/* Pagar de verdad: el servidor crea el cobro en Mercado Pago y devuelve a dónde ir a pagarlo */
+const esperar = (ms) => new Promise((listo) => setTimeout(listo, ms));
+async function mpIr(id, kind) {
+  let r = await accionFuncion("mp", { accion: "pagar", reserva: id, tipo: kind });
+  if (!r && ultimoError === "pago_en_curso") { await esperar(3000); r = await accionFuncion("mp", { accion: "pagar", reserva: id, tipo: kind }); }
+  if (!r) { if (ultimoError !== "sin_conexion" && !["mp_rechazo", "mp_sin_respuesta", "pago_en_curso"].includes(ultimoError)) { closeSheet(); render(); } return; }
+  if (!esDeMercadoPago(r.enlace)) { toast("No pudimos abrir Mercado Pago. Probá de nuevo en un momento."); return; }
+  document.body.classList.add("is-busy");           // se va de la página: que no se pueda tocar nada más
+  location.assign(r.enlace);
+}
+
+/* Volvió de Mercado Pago después de pagar (o de no pagar). Se le pregunta al servidor cómo quedó ese pago: si recién
+   pagó, la confirmación de Mercado Pago puede tardar unos segundos, así que se pregunta varias veces. */
+async function atenderVueltaDeMp() {
+  const v = vueltaDeMp;
+  if (!v || fase !== "lista") return;
+  if (!servidor.sesion) return;                       // todavía no entró: se atiende cuando entre
+  vueltaDeMp = null;
+  if (v.conexion) return atenderConexionDeMp(v.conexion);
+  if (!v.pago) { if (v.dijo !== "ok") toast("No se hizo ningún pago."); return; }
+  openSheet(`${sheetHead("Volviste de Mercado Pago")}<div class="sheet-b"><div class="success"><div class="spinner" aria-hidden="true"></div><h3>Estamos confirmando tu pago…</h3><p>Tarda unos segundos. No cierres esta página.</p></div></div>`);
+  let res = null;
+  for (let i = 0; i < 8; i++) {
+    try { res = await servidor.funcion("mp", { accion: "verificar", pago: v.pago }); }
+    catch (e) { res = null; if (e.code !== "sin_conexion") break; }
+    if (res && (res.estado !== "pendiente" || v.dijo !== "ok")) break;
+    await esperar(2500);
+  }
+  try { await cargar(); } catch (e) { ultimaCarga = 0; }
+  render();
+  const b = res && findB(res.reserva);
+  const cerrar = `<div class="sheet-f"><button class="btn" data-action="close-sheet">Cerrar</button><button class="btn btn-primary" data-action="go-mis">Ver mis reservas</button></div>`;
+  const cartel = (titulo, texto, pie) => openSheet(`${sheetHead("")}<div class="sheet-b"><div class="success"><h3>${titulo}</h3><p>${texto}</p></div></div>${pie || cerrar}`);
+  if (res && res.estado === "aprobado" && b) {
+    const saldo = b.payments.length > 1 && !balanceOf(b);
+    return showSuccess(b, saldo ? "¡Listo! Pagaste el saldo" : "¡Reserva confirmada!", saldo ? "Tu turno está pago completo." : "Te vamos a recordar el turno el día anterior.");
+  }
+  if (res && (res.estado === "sobrante" || res.estado === "devuelto")) {
+    return cartel("Te devolvemos ese pago", "El pago llegó cuando el turno ya no estaba disponible, o ya estaba hecho. Te lo devolvemos entero por el mismo medio con el que pagaste; puede tardar unos días. No tenés que hacer nada.");
+  }
+  if (res && res.estado === "revisar") return cartel("Tu pago quedó para revisar", `Algo no coincidió con lo que esperábamos de Mercado Pago. Avisale a ${OW()}: tu plata no se pierde.`);
+  // no se pudo preguntar (sin conexión, o el servidor no contestó), o Mercado Pago todavía no lo confirmó: no se afirma nada
+  if (!res || (res.estado === "pendiente" && v.dijo === "ok")) {
+    return cartel(res ? "Todavía no nos llegó la confirmación" : "No pudimos confirmar tu pago ahora", "Si pagaste, en unos minutos tu reserva va a aparecer confirmada sola y te va a llegar un mail. No pagues de nuevo.");
+  }
+  // no pagó, la tarjeta fue rechazada o el plazo venció
+  const sigue = b && (b.status === "pago" || (["confirmada", "cumplida"].includes(b.status) && balanceOf(b)));
+  cartel("El pago no se hizo", res && res.estado === "rechazado" ? "Mercado Pago rechazó el pago. Podés probar con otro medio de pago." : "No se cobró nada.",
+    sigue ? `<div class="sheet-f"><button class="btn" data-action="close-sheet">Ahora no</button><button class="btn btn-primary" data-action="${b.status === "pago" ? "pay-now" : "pay-balance"}" data-id="${b.id}">Intentar de nuevo</button></div>` : cerrar);
+}
+
+/* Pide que salgan ya las devoluciones que esperan. No frena a la persona: si no sale ahora, la hace el reloj del servidor. */
+function despacharMp() {
+  servidor.funcion("mp", { accion: "despachar" })
+    .then(() => cargar()).then(() => { if (puedeDibujar()) render(); else pendienteDeDibujar = true; })
+    .catch(() => { /* la hace el reloj */ });
+}
+
+/* Volvió de Mercado Pago después de autorizar (o no) la cuenta del consultorio */
+const MOTIVOS_MP = {
+  cancelado: "No se conectó ninguna cuenta: en Mercado Pago elegiste no autorizar.",
+  pais: "Esa cuenta de Mercado Pago no es de Argentina. Conectá una cuenta argentina.",
+  ambiente: "Esa cuenta es de prueba y este consultorio cobra de verdad. Conectá la cuenta real.",
+  rechazado: "Mercado Pago no aceptó la conexión. Probá de nuevo.",
+  sin_respuesta: "Mercado Pago no contestó. Probá de nuevo en un momento.",
+  pendientes: "No se cambió de cuenta: con la anterior todavía hay cobros abiertos o devoluciones saliendo. Probá cuando terminen.",
+};
+function atenderConexionDeMp(como) {
+  if (!isAdmin()) return;
+  S.ui.view = "config"; render();
+  const tarjeta = document.getElementById("cfg-mp");
+  if (tarjeta) tarjeta.scrollIntoView({ block: "center" });
+  if (como === "conectada") openMpConfirm();
+  else toast(MOTIVOS_MP[como.replace(/^error-/, "")] || "No se pudo conectar la cuenta. Probá de nuevo.");
+}
+/* La dueña mira qué cuenta quedó autorizada y confirma que es la suya: recién ahí se cobra con ella */
+function openMpConfirm() {
+  const a = S.config.mp && S.config.mp.account;
+  if (!a || a.status !== "por_confirmar") return;
+  openSheet(`${sheetHead("¿Es tu cuenta de Mercado Pago?", "La plata de las reservas va a entrar acá")}
+  <div class="sheet-b">
+    <div class="summary"><b>${esc(a.name || "Cuenta de Mercado Pago")}</b><span class="r muted num">N.º ${esc(a.userId)}</span>${a.email ? `<span class="muted">${esc(a.email)}</span>` : ""}</div>
+    <p class="muted" style="margin-top:12px">Fijate que sea la cuenta donde querés cobrar. Si no es la tuya, quitala y conectá la correcta.</p>
+  </div>
+  <div class="sheet-f"><button class="btn" data-action="mp-quitar-ok">No es mi cuenta: quitarla</button><button class="btn btn-primary" data-action="mp-confirmar" data-cuenta="${esc(a.userId)}">Sí, es mi cuenta</button></div>`);
+}
+/* «Ya la devolví yo»: antes de anotarla, que la dueña mire en Mercado Pago que no haya salido sola (si no, saldría dos veces) */
+function openDevolucionAMano(id, monto, quien) {
+  openSheet(`${sheetHead("¿Ya hiciste vos esta devolución?")}
+  <div class="sheet-b">
+    <div class="summary"><b>${esc(quien)}</b><span class="r num">${money(monto)}</span></div>
+    <p style="margin-top:12px">Si la anotás como hecha, el sistema <b>deja de intentarla</b>.</p>
+    <p class="muted" style="margin-top:8px">Antes fijate en tu Mercado Pago que no haya salido sola: si ya figura devuelta ahí, no la hagas otra vez.</p>
+  </div>
+  <div class="sheet-f"><button class="btn" data-action="close-sheet">Todavía no</button><button class="btn btn-primary" data-action="mp-a-mano-ok" data-id="${esc(id)}">Sí, ya la devolví</button></div>`);
 }
 
 function showSuccess(b, title, text) {
@@ -2612,6 +2817,7 @@ document.addEventListener("click", async (e) => {
     case "pay-now": { const b = findB(ds.id); if (b) openMp(b, b.plan); break; }
     case "pay-balance": { const b = findB(ds.id); if (b) openMp(b, "saldo"); break; }
     case "mp-approve": await mpApprove(ds.id, ds.kind); break;
+    case "mp-ir": await mpIr(ds.id, ds.kind); break;
     case "cancel": openCancel(findB(ds.id), "pro"); break;
     case "admin-cancel": openCancel(findB(ds.id), "admin"); break;
     case "confirm-cancel": {
@@ -2619,6 +2825,56 @@ document.addEventListener("click", async (e) => {
       if (!r && ultimoError === "sin_conexion") break;
       closeSheet(); render();
       if (r) toast(r.amount ? `Reserva cancelada. Devolución: ${money(r.amount)}.` : "Reserva cancelada. El horario quedó libre.");
+      // con Mercado Pago, la devolución (y cerrar el cobro que haya quedado abierto) sale ya, sin esperar al reloj del servidor
+      if (r && S.site.payments === "mercadopago") despacharMp();
+      break;
+    }
+    // Mercado Pago: la cuenta del consultorio (administradora)
+    case "mp-conectar": {
+      const r = await accionFuncion("mp", { accion: "conectar" });
+      if (!r) break;
+      if (!/^https:\/\/auth\.mercadopago\.com\//.test(String(r.url)) && !esDeMercadoPago(r.url)) { toast("No pudimos abrir Mercado Pago. Probá de nuevo en un momento."); break; }
+      document.body.classList.add("is-busy");
+      location.assign(r.url);
+      break;
+    }
+    case "mp-revisar": openMpConfirm(); break;
+    case "mp-confirmar": {
+      const r = await accion("mp_conexion_confirmar", { p_user_id: ds.cuenta });     // la cuenta que vio en la hoja, no «la que haya»
+      closeSheet(); render();
+      if (r) toast(S.site.payments === "mercadopago" ? "Cuenta confirmada. Ya se puede cobrar con Mercado Pago." : "Cuenta confirmada. Entreturno prende el cobro de verdad cuando esté todo probado.");
+      break;
+    }
+    case "mp-quitar": {
+      const a = S.config.mp && S.config.mp.account;
+      openSheet(`${sheetHead("¿Quitar la cuenta de Mercado Pago?")}
+      <div class="sheet-b"><p>${a && a.status === "conectada" && S.site.payments === "mercadopago" ? "Mientras no haya una cuenta conectada <b>no se van a poder cobrar reservas ni hacer devoluciones</b>." : "Después podés conectar otra cuenta."}</p>
+        <p class="muted" style="margin-top:8px">Para quitarle del todo el permiso a Entreturno, hacelo también desde tu cuenta de Mercado Pago.</p></div>
+      <div class="sheet-f"><button class="btn" data-action="close-sheet">Dejarla</button><button class="btn btn-danger" data-action="mp-quitar-ok">Quitar la cuenta</button></div>`);
+      break;
+    }
+    case "mp-quitar-ok": {
+      const r = await accion("mp_desconectar", {});
+      closeSheet(); render();
+      if (r) toast("La cuenta de Mercado Pago quedó desconectada.");
+      break;
+    }
+    case "mp-a-mano": {
+      const b = S.bookings.find(x => x.payments.some(p => p.id === ds.id) || (x.surplus || []).some(p => p.id === ds.id));
+      const p = b && (b.payments.find(x => x.id === ds.id) || b.surplus.find(x => x.id === ds.id));
+      if (p) openDevolucionAMano(ds.id, p.amount, userById(b.userId).name);
+      break;
+    }
+    case "mp-a-mano-ok": {
+      const r = await accion("mp_devolucion_a_mano", { p_devolucion: ds.id });
+      closeSheet(); render();
+      if (r) toast("Listo: quedó anotada como devuelta.");
+      break;
+    }
+    case "mp-despachar": {
+      const r = await accionFuncion("mp", { accion: "despachar" });
+      render();
+      if (r) toast(r.fallas ? "Alguna devolución todavía no pudo salir. El sistema lo sigue intentando." : "Listo: las devoluciones salieron.");
       break;
     }
     // Administradora
@@ -2722,6 +2978,7 @@ document.addEventListener("submit", async (e) => {
       if (await entrarCon(() => servidor.entrar(mail, String(fd.get("password") ?? "")))) {
         S.ui.view = null; S.ui.calPicked = false; render(); window.scrollTo(0, 0);
         await despuesDeEntrar(false);
+        await atenderVueltaDeMp();      // había vuelto de Mercado Pago con la sesión cerrada
       } else if (ultimoError === "email_not_confirmed") { pasoDeIngreso = { tipo: "confirmar", mail }; render(); window.scrollTo(0, 0); }
       break;
     }
@@ -2921,9 +3178,17 @@ async function iniciarUnaVez() {
   }
   if ((por === "recovery" || por === "invite") && servidor.sesion) { eligiendoClave = true; render(); return; }
   await despuesDeEntrar((por === "email" || por === "signup") && !!servidor.sesion);
+  await atenderVueltaDeMp();        // ¿volvió de Mercado Pago (de pagar, o de conectar la cuenta)?
 }
 /* Si el enlace del mail se abre en una pestaña que ya tenía la página, la dirección cambia sin recargar */
 window.addEventListener("hashchange", () => { if (mirarDireccion()) iniciar(); });
+/* Si salió a Mercado Pago y volvió con «Atrás», el navegador puede mostrar la página tal como la dejó (trabada, porque se
+   estaba yendo): se destraba y se traen los datos de nuevo */
+window.addEventListener("pageshow", (e) => {
+  if (!e.persisted) return;
+  document.body.classList.remove("is-busy");
+  if (fase === "lista" && servidor.sesion) refrescar();
+});
 
 paintTheme();
 iniciar();

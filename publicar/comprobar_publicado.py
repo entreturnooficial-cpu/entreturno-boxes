@@ -11,6 +11,10 @@ from pathlib import Path
 
 LOCAL = Path(__file__).resolve().parent / 'yanina'
 SITIOS = ('https://yanina.entreturno.com.ar', 'https://yanina-entreturno.pages.dev')
+# Con --github mira, en cambio, la dirección de prueba que publica sola cada «push» a main (proyecto de Pages «entreturno-boxes»).
+# Se corre DESPUÉS del push: antes muestra lo anterior. Cuando el dominio se mueva a ese proyecto, pasa a ser el segundo sitio.
+if '--github' in sys.argv[1:]:
+    SITIOS = ('https://entreturno-boxes.pages.dev',)
 
 
 def bajar(url):

@@ -91,9 +91,15 @@ prueba('quien no es la dueña no puede usar ninguna función de la dueña', asyn
     ['guardar_facturacion', { p_slug: 'lavanda', p_nombre: 'Yo', p_cuit: '20-1-1', p_condicion: 'Monotributo', p_punto_venta: 1 }],
     ['facturacion_preparar', { p_slug: 'lavanda', p_periodo: '2026-11' }],
     ['facturacion_estado', { p_slug: 'lavanda' }],
+    ['mp_conexion_iniciar', { p_slug: 'lavanda', p_estado: 'e'.repeat(43), p_verificador: 'v'.repeat(43), p_volver_a: 'https://lavanda.entreturno.com.ar/' }],
+    ['mp_conexion_confirmar', { p_slug: 'lavanda', p_user_id: '1' }],
+    ['mp_desconectar', { p_slug: 'lavanda' }],
+    ['mp_devolucion_a_mano', { p_slug: 'lavanda', p_devolucion: ninguno }],
   ];
   // Todas las funciones con sesión que no son de uso general tienen que estar en la lista de arriba
-  const generales = ['portada', 'foto', 'pedir_acceso', 'reservar', 'simular_pago', 'cancelar_reserva'];
+  // (las tres de Mercado Pago que usa cualquier profesional tienen sus pruebas en mercadopago.test.mjs)
+  const generales = ['portada', 'foto', 'pedir_acceso', 'reservar', 'simular_pago', 'cancelar_reserva',
+    'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio'];
   assert.deepEqual(llamadas.map((l) => l[0]).sort(), FUNCIONES_CON_SESION.filter((n) => !generales.includes(n)).sort());
 
   const antes = JSON.stringify(await e.foto(esc, esc.admin));

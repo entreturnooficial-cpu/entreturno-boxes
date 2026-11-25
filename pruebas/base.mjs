@@ -10,7 +10,7 @@ import { btree_gist } from '@electric-sql/pglite/contrib/btree_gist';
 const CARPETA_MIGRACIONES = new URL('../supabase/migrations/', import.meta.url);
 /** El archivo del reloj (pg_cron) no va acá: solo existe en el proyecto real. */
 export const MIGRACIONES = ['20261120100000_tablas.sql', '20261120100100_funciones.sql', '20261120100300_mails.sql',
-  '20261123100000_facturas_arca.sql'];
+  '20261123100000_facturas_arca.sql', '20261124100000_mercadopago.sql'];
 export const ZONA = 'America/Argentina/Buenos_Aires';
 
 /** Dueño de tablas y funciones (en Supabase es `postgres`, que NO es superusuario). */
@@ -57,11 +57,27 @@ const PREPARAR_SUPABASE = `
   grant usage on schema net to ${DUENO};
   grant execute on function net.http_post(text, jsonb, jsonb, jsonb, int) to ${DUENO};
   grant select on net._http_response to ${DUENO};
-  -- El Vault simulado: donde se guarda la clave del servicio de mails
+  -- El Vault simulado: donde se guardan la clave del servicio de mails y los pases de Mercado Pago de cada consultorio.
+  -- Tiene lo que se usa del de Supabase: la vista decrypted_secrets y las funciones create_secret y update_secret.
   create schema vault;
-  create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
+  create table vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, description text not null default '',
+                              secret text not null);
+  create view vault.decrypted_secrets as select id, name, description, secret as decrypted_secret from vault.secrets;
+  create function vault.create_secret(new_secret text, new_name text default null, new_description text default '') returns uuid
+  language sql security definer as $$
+    insert into vault.secrets (secret, name, description) values (new_secret, new_name, new_description) returning id
+  $$;
+  create function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null,
+                                      new_description text default null) returns void
+  language sql security definer as $$
+    update vault.secrets set secret = coalesce(new_secret, secret), name = coalesce(new_name, name),
+                             description = coalesce(new_description, description)
+     where id = secret_id
+  $$;
   grant usage on schema vault to ${DUENO};
   grant select on vault.decrypted_secrets to ${DUENO};
+  grant select, delete on vault.secrets to ${DUENO};
+  grant execute on function vault.create_secret(text, text, text), vault.update_secret(uuid, text, text, text) to ${DUENO};
 
   -- Privilegios por defecto de Supabase: todo lo nuevo en public queda abierto para la API.
   do $$ begin execute format('grant create on database %I to ${DUENO}', current_database()); end $$;

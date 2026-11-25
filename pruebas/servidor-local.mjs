@@ -25,9 +25,12 @@ import { createServer } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { avisoDeMp, despachar, iniciarConexion, pagar, terminarConexion, verificar, vueltaDelReloj } from '../supabase/functions/_compartido/cobros.ts';
 import { facturarMes, probarConexion } from '../supabase/functions/_compartido/facturar.ts';
+import { AUTORIZAR_MP, firmaValida } from '../supabase/functions/_compartido/mp.ts';
 import { crearArcaSimulado } from './arca-simulado.mjs';
 import { armarBase, comoRol, crearCuenta } from './base.mjs';
+import { crearMpSimulado } from './mp-simulado.mjs';
 import { BOXES, CATEGORIAS, CLAVE_DE_PRUEBA, CONSULTORIO, DUENA, MAQUINAS, PROFESIONALES } from './datos-de-ejemplo.mjs';
 
 const CARPETA_WEB = fileURLToPath(new URL('../web/', import.meta.url));
@@ -40,9 +43,11 @@ export const CLAVE_SECRETA = 'sb_secret_de_prueba';
 
 const b64 = (x) => Buffer.from(x).toString('base64url');
 
-export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar = true, confirmarMail = false } = {}) {
+/** `pagos`: «simulado» (el pago de prueba de siempre) o «mercadopago» (con el Mercado Pago simulado, en `mpAmbiente` «prueba» o «real»). */
+export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar = true, confirmarMail = false, pagos = 'simulado', mpAmbiente = 'prueba' } = {}) {
   const pg = await armarBase();
   const arca = crearArcaSimulado();  // la función de facturar habla con este ARCA de mentira
+  const mp = crearMpSimulado();      // y la de cobros, con este Mercado Pago de mentira (con sus pantallas en /__mp/…)
   const secreto = randomBytes(32);
   const cuentas = new Map();        // mail → { id, email, sal, hash }
   const renovaciones = new Map();   // código para renovar → id de la cuenta
@@ -129,6 +134,94 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
     }
   }
 
+  // ---------- la función de Supabase «mp» (supabase/functions/mp), con el Mercado Pago simulado
+  const baseComo = async (fn, args, rol, sub) => {
+    const [estado, salida] = await llamar(fn, args, rol, sub);
+    if (estado !== 200) throw Object.assign(new Error(salida.code === 'P0001' ? salida.message : salida.code), { estado });
+    return salida;
+  };
+  const depMp = (host, sub = null) => ({
+    rpcUsuario: (fn, args) => baseComo(fn, args, 'authenticated', sub),
+    rpcServicio: (fn, args) => baseComo(fn, args, 'service_role', null),
+    app: { clientId: mp.clientId, clientSecret: mp.clientSecret, redirectUri: `http://${host}/functions/v1/mp`, paseDePrueba: mp.paseDePrueba,
+      pagoLocal: true },          // acá la «pantalla de pago» de Mercado Pago es una página de este mismo servidor
+    fetchFn: mp.fetchFn,
+  });
+  const html = (res, estado, titulo, cuerpo) => {
+    res.writeHead(estado, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,"><title>${titulo}</title><body style="font: 16px system-ui; max-width: 420px; margin: 40px auto; padding: 0 16px">
+<p style="color:#555">Mercado Pago <b>simulado</b> (servidor de prueba): acá no se mueve plata.</p><h1 style="font-size:22px">${titulo}</h1>${cuerpo}</body></html>`);
+  };
+  const escH = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  /** Las pantallas de «Mercado Pago» y la vuelta a la función. Devuelve true si atendió el pedido. */
+  async function pantallasDeMp(req, res, url) {
+    const host = req.headers.host;
+    if (url.pathname === '/functions/v1/mp') {                    // Mercado Pago vuelve después de autorizar
+      const fin = await terminarConexion(depMp(host), { codigo: url.searchParams.get('code') ?? '', estado: url.searchParams.get('state') ?? '' });
+      if (!fin.volverA) { html(res, 400, 'Ese enlace ya no sirve', '<p>Volvé a la página del consultorio y tocá «Conectar» de nuevo.</p>'); return true; }
+      res.writeHead(302, { Location: `${fin.volverA}#mp=${fin.ok ? 'conectada' : `error-${fin.motivo ?? 'falla'}`}`, 'Cache-Control': 'no-store' });
+      res.end();
+      return true;
+    }
+    if (url.pathname === '/__mp/autorizar') {
+      const q = url.searchParams.toString();
+      html(res, 200, '¿Autorizás a Entreturno a cobrar por vos?',
+        `<p><a data-accion="autorizar" href="/__mp/autorizar/ok?${escH(q)}">Autorizar</a> · <a data-accion="no-autorizar" href="/__mp/autorizar/no?${escH(q)}">Cancelar</a></p>`);
+      return true;
+    }
+    if (url.pathname === '/__mp/autorizar/ok' || url.pathname === '/__mp/autorizar/no') {
+      const volver = new URL(url.searchParams.get('redirect_uri') ?? `http://${host}/functions/v1/mp`);
+      volver.searchParams.set('state', url.searchParams.get('state') ?? '');
+      if (url.pathname.endsWith('/ok')) {
+        mp.cuenta('111222333', { nombre: 'Laura Lavanda', email: 'cobros@lavanda.prueba' });
+        volver.searchParams.set('code', mp.autorizar('111222333', { desafio: url.searchParams.get('code_challenge'), redirectUri: url.searchParams.get('redirect_uri') }));
+      } else volver.searchParams.set('error', 'access_denied');
+      res.writeHead(302, { Location: volver.toString() });
+      res.end();
+      return true;
+    }
+    if (url.pathname === '/__mp/pagar') {
+      const id = url.searchParams.get('order_id') ?? '';
+      const o = mp.ordenes.get(id);
+      if (!o) { html(res, 404, 'Esa orden no existe', ''); return true; }
+      if (o.status !== 'created') { html(res, 200, 'Esta orden ya no se puede pagar', `<p>Está «${escH(o.status)}». <a data-accion="volver" href="/__mp/pagar/volver?order_id=${escH(id)}">Volver al sitio</a></p>`); return true; }
+      html(res, 200, `Pagar $ ${Number(o.total_amount).toLocaleString('es-AR')}`,
+        `<p>${escH(o.items?.[0]?.title ?? o.description)}</p><p><a data-accion="pagar" href="/__mp/pagar/ok?order_id=${escH(id)}">Pagar</a> · `
+        + `<a data-accion="pagar-sin-aviso" href="/__mp/pagar/ok?order_id=${escH(id)}&amp;sin_aviso=1">Pagar (y que el aviso no llegue)</a> · `
+        + `<a data-accion="rechazar" href="/__mp/pagar/rechazo?order_id=${escH(id)}">Tarjeta rechazada</a> · `
+        + `<a data-accion="volver" href="/__mp/pagar/volver?order_id=${escH(id)}">Volver sin pagar</a></p>`);
+      return true;
+    }
+    const paso = /^\/__mp\/pagar\/(ok|rechazo|volver)$/.exec(url.pathname)?.[1];
+    if (paso) {
+      const id = url.searchParams.get('order_id') ?? '';
+      const o = mp.ordenes.get(id);
+      if (!o) { html(res, 404, 'Esa orden no existe', ''); return true; }
+      let estado = 'null';
+      if (paso !== 'volver' && o.status === 'created') {
+        const aviso = mp.pagar(id, paso === 'ok' ? 'aprobado' : 'rechazado');
+        estado = paso === 'ok' ? 'approved' : 'rejected';
+        if (!url.searchParams.has('sin_aviso')) {                  // el aviso, como lo manda Mercado Pago: firmado y a la función
+          await fetch(`http://${host}/functions/v1/mp?data.id=${aviso.dato}&type=order`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'x-signature': aviso.firma, 'x-request-id': aviso.pedido },
+            body: JSON.stringify(aviso.cuerpo),
+          });
+        }
+      }
+      const config = o.config?.online ?? {};
+      const volver = new URL((paso === 'ok' ? config.success_url : config.failure_url) || `http://${host}/`);
+      const pago = o.transactions.payments[0]?.id ?? 'null';
+      for (const [k, v] of Object.entries({ collection_id: pago, collection_status: estado, payment_id: pago, status: estado,
+        external_reference: o.external_reference, payment_type: 'credit_card', merchant_order_id: 'null', preference_id: 'null', site_id: 'MLA',
+        processing_mode: 'manual', merchant_account_id: 'null', order_id: id })) volver.searchParams.set(k, v);
+      res.writeHead(302, { Location: volver.toString() });
+      res.end();
+      return true;
+    }
+    return false;
+  }
+
   // ---------- datos de ejemplo
   if (sembrar) {
     const c = (await pg.query(
@@ -160,6 +253,9 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
       if (p.estado === 'aprobado') {
         await llamar('cambiar_estado_profesional', { p_slug: CONSULTORIO.slug, p_miembro: pedido.id, p_estado: 'aprobado' }, 'authenticated', duena.id);
       }
+    }
+    if (pagos === 'mercadopago') {
+      await pg.query(`update public.consultorios set pagos_modo = 'mercadopago', mp_ambiente = $2 where id = $1`, [c, mpAmbiente]);
     }
   }
 
@@ -202,6 +298,7 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
           res.writeHead(302, { Location: `${volver}#access_token=${ses.access_token}&expires_at=${ses.expires_at}&expires_in=${ses.expires_in}&refresh_token=${ses.refresh_token}&token_type=bearer&type=${dato.tipo}` });
           return res.end();
         }
+        if ((url.pathname === '/functions/v1/mp' || url.pathname.startsWith('/__mp/')) && await pantallasDeMp(req, res, url)) return undefined;
         if (url.pathname === '/config.js') {
           res.writeHead(200, { 'Content-Type': TIPOS['.js'], 'Cache-Control': 'no-store' });
           return res.end(`window.ENTRETURNO = ${JSON.stringify({ url: `http://${req.headers.host}`, key: CLAVE_PUBLICA, slug: CONSULTORIO.slug, prueba: true })};\n`);
@@ -236,6 +333,20 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
         return responder(res, 200, { id: cuenta.id, email: cuenta.email, user_metadata: cuenta.datos ?? {} });
       }
       if (req.method !== 'POST') return responder(res, 405, { message: 'método no permitido' });
+      // La función «mp» cuando no le habla la página: un aviso de Mercado Pago (vale por la firma) o el reloj de la base (por su clave)
+      if (url.pathname === '/functions/v1/mp' && (req.headers['x-signature'] !== undefined || req.headers['x-entreturno-reloj'] !== undefined)) {
+        const aviso = await leerCuerpo(req);
+        const dep = depMp(req.headers.host);
+        if (req.headers['x-entreturno-reloj'] !== undefined) {
+          if (!(await dep.rpcServicio('mp_reloj_clave', { p_clave: String(req.headers['x-entreturno-reloj']) }))) return responder(res, 401, { code: 'sin_permiso' });
+          return responder(res, 200, await vueltaDelReloj(dep));
+        }
+        const dato = url.searchParams.get('data.id') ?? '';
+        const firmaOk = await firmaValida({ firma: String(req.headers['x-signature']), pedido: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null, dato, secreto: mp.secretoAvisos, maxAntiguedadSeg: 2 * 86400 });
+        if (!firmaOk) return responder(res, 401, { code: 'firma_invalida' });
+        await avisoDeMp(dep, { tipo: String(url.searchParams.get('type') ?? aviso.type ?? ''), dato, cuerpo: aviso });
+        return responder(res, 200, { ok: true });
+      }
       if (req.headers.apikey !== CLAVE_PUBLICA && req.headers.apikey !== CLAVE_SECRETA) return responder(res, 401, { message: 'No API key found in request' });
       const cuerpo = await leerCuerpo(req);
       const pase = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
@@ -332,6 +443,28 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
           return responder(res, e.estado === 401 ? 401 : 400, { code: String(e.message) });
         }
       }
+      // La función de Supabase «mp» cuando le habla la página (con el pase de quien está adentro)
+      if (url.pathname === '/functions/v1/mp') {
+        const datos = leerPase(pase);
+        if (!datos || datos.exp <= Math.floor(Date.now() / 1000)) return responder(res, 401, { code: 'sin_sesion' });
+        const host = req.headers.host;
+        const dep = depMp(host, datos.sub);
+        const volverA = `http://${host}/`;
+        const slug = String(cuerpo.slug ?? '');
+        try {
+          if (cuerpo.accion === 'conectar') {
+            // la dirección de Mercado Pago se cambia por la pantalla simulada de este servidor
+            const { url: destino } = await iniciarConexion(dep, slug, volverA);
+            return responder(res, 200, { url: destino.replace(AUTORIZAR_MP, `http://${host}/__mp/autorizar`) });
+          }
+          if (cuerpo.accion === 'pagar') return responder(res, 200, await pagar(dep, slug, String(cuerpo.reserva ?? ''), String(cuerpo.tipo ?? ''), volverA));
+          if (cuerpo.accion === 'verificar') return responder(res, 200, await verificar(dep, slug, String(cuerpo.pago ?? '')));
+          if (cuerpo.accion === 'despachar') return responder(res, 200, await despachar(dep, slug));
+          return responder(res, 400, { code: 'dato_invalido' });
+        } catch (e) {
+          return responder(res, e.estado === 401 ? 401 : 400, { code: String(e.codigo ?? e.message) });
+        }
+      }
       const rpc = /^\/rest\/v1\/rpc\/([^/]+)$/.exec(url.pathname);
       if (rpc) {
         let rol = 'anon';
@@ -356,9 +489,12 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
 
   await new Promise((listo) => servidor.listen(puerto, '127.0.0.1', listo));
   const direccion = `http://localhost:${servidor.address().port}`;
+  mp.paginaDePago = `${direccion}/__mp/pagar`;        // «pagar» en el Mercado Pago simulado es una pantalla de este servidor
   return {
     url: direccion,
     pg,
+    /** El Mercado Pago simulado con el que habla la función de cobros (para mirar lo que recibió o pedirle fallas). */
+    mp,
     /** Hace vencer ya mismo todos los pases emitidos de ahora en más (para probar la renovación). */
     set duracionPase(segundos) { duracionPase = segundos; },
     /** Prende o apaga «hay que confirmar el mail para entrar» (como la opción de Supabase). */
@@ -377,7 +513,8 @@ export async function crearServidor({ puerto = 0, duracionPase = 3600, sembrar =
 
 // Corrido directo (node pruebas/servidor-local.mjs): queda prendido hasta que se lo corta con Ctrl + C
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const s = await crearServidor({ puerto: Number(process.env.PUERTO || 8092) });
-  console.log(`Servidor de prueba listo en ${s.url}  (consultorio de ejemplo: ${CONSULTORIO.slug})`);
+  // PAGOS=mercadopago prende el cobro con el Mercado Pago simulado (MP_AMBIENTE=real para probar con la cuenta conectada)
+  const s = await crearServidor({ puerto: Number(process.env.PUERTO || 8092), pagos: process.env.PAGOS || 'simulado', mpAmbiente: process.env.MP_AMBIENTE || 'prueba' });
+  console.log(`Servidor de prueba listo en ${s.url}  (consultorio de ejemplo: ${CONSULTORIO.slug}; pagos: ${process.env.PAGOS || 'simulado'})`);
   console.log('Las cuentas y la clave de prueba están en pruebas/datos-de-ejemplo.mjs. Ctrl + C para apagarlo.');
 }

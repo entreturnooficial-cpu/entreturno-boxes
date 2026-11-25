@@ -213,7 +213,8 @@ prueba('las funciones de ARCA no se pueden llamar desde la página, y anotar y r
     arca_anotar: { p_factura: f.id, p_emisor_cuit: '20123456786', p_punto_venta: 1, p_numero: 1, p_version: 'x', p_dueno: 'y' },
     arca_resultado: { p_factura: f.id, p_estado: 'rechazada', p_cae: null, p_cae_vence: null, p_observaciones: '[]' },
   };
-  assert.deepEqual(Object.keys(ejemplo).sort(), [...FUNCIONES_DE_SERVICIO].sort());
+  // (las de Mercado Pago tienen la misma comprobación en mercadopago.test.mjs)
+  assert.deepEqual(Object.keys(ejemplo).sort(), FUNCIONES_DE_SERVICIO.filter((n) => n.startsWith('arca_')).sort());
   for (const [fn, args] of Object.entries(ejemplo)) {
     await esperarSinPermiso(e.llamarComo(esc.admin, fn, args));
     await esperarSinPermiso(e.comoAnon((c) => c.llamar(fn, args)));

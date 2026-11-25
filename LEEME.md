@@ -7,7 +7,7 @@ Un solo sistema para todos los consultorios: cada uno tiene su dirección (`nomb
 datos separados y su Mercado Pago. La base de datos vive en Supabase (plan gratis para arrancar; pasar al pago es
 cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
-## Cómo está hoy (20/11/2026)
+## Cómo está hoy (25/11/2026)
 
 | Parte | Estado |
 | --- | --- |
@@ -18,7 +18,7 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 | Revisión independiente de la página (Codex, 20/11) | 9 puntos: 6 corregidos con su prueba; 3 anotados más abajo. No encontró forma de meter código |
 | Revisión independiente de los mails de registro (Codex, 20/11) | 10 puntos: 6 corregidos, 2 comprobados y 2 que dependen de la prueba real (detalle más abajo). No encontró forma de meter código |
 | Proyecto real en Supabase | **Creado el 20/11/2026**: organización «Entreturno», proyecto `entreturno` (San Pablo, plan gratis). Base cargada desde el SQL Editor, controlada con `supabase\control.sql` y comprobada desde afuera con `npm run test:real` (8 de 8). El reloj (`pg_cron`) quedó programado. Consultorio `yanina` cargado (`supabase\datos\yanina.sql`) y página publicada en `yanina.entreturno.com.ar` el 20/11 (`publicar\armar_para_publicar.py`; comprobado, 3 de 3 archivos). Santiago entra como «Soporte Entreturno» (admin, `supabase\datos\yanina-soporte.sql`). Falta Yani como dueña: primero crea su cuenta en la página y después `select interno.alta_admin('yanina', '<su mail>', 'Yani')` |
-| Cobro real con Mercado Pago | Falta (etapa 2). Hoy el pago es «de prueba»: no mueve plata |
+| Cobro real con Mercado Pago | **Hecho y probado en la compu el 24/11/2026, contra un Mercado Pago simulado** (base, función de Supabase `mp` y página), con una revisión de Codex (la 6): `npm test` 197 de 197, `npm run test:pantallas-mp` 56 de 56 y `npm run test:pantallas` 103 de 103 (las tres corridas otra vez el 25/11). **Cargado en Supabase y publicado el 25/11/2026, con el OK de Santiago**: base (control 15 / 0 / 59 / 34 / 5 / 19 / 0 y huellas 543 de 543), función `mp` subida, reloj andando y página TODO BIEN. **El consultorio sigue en `pagos_modo = 'simulado'`**: el pago publicado sigue siendo «de prueba» y no mueve plata. **Todavía no se probó contra el Mercado Pago de verdad.** Falta: apagar «Verify JWT with legacy secret» de la función `mp` (se le pregunta a Santiago), sus pasos en Mercado Pago con los 4 secretos, y la primera prueba real. Lo lleva la sesión de Claude «Yanina Onzari página web (fork)»; si otra sesión necesita `web\index.html` o las funciones de pagos, que avise antes. Ver «Cobro con Mercado Pago» más abajo |
 | Avisos por mail del consultorio (solicitud, reserva confirmada, recordatorio…) | **Andando desde el 20/11**: cola `avisos` → Resend, cada minuto (`…_mails.sql`, 5 pruebas). La clave está en el Vault de Supabase (`resend_api_key`). El primer mail real llegó a Recibidos de Gmail |
 | Mails de registro (confirmar la cuenta, mandarlo de nuevo, olvidé mi contraseña) | **Hechos el 20/11** y publicados: ver «Los mails de registro» más abajo. «Confirm email» está **prendido** en Supabase. **«Olvidé mi contraseña» probado de verdad por Santiago el 20/11 a las 17:41**: el mail salió, llegó en menos de 20 segundos, el botón lo dejó adentro y apareció la pantalla de contraseña nueva (visto en los registros de Supabase: `recover` 200, `verify` 200). Puso la misma contraseña que tenía y Supabase la rechazó, como corresponde. **Falta probar de verdad:** guardar una contraseña distinta y «Pedir acceso» con una cuenta nueva (el mail de confirmación todavía no salió nunca) |
 | Fotos de boxes y máquinas | Falta (necesita el depósito de archivos del proyecto real); los botones de subir foto están escondidos |
@@ -31,12 +31,22 @@ cambiar el plan, sin mudar nada) y la página en Cloudflare Pages.
 
 ```
 npm install               (una sola vez)
-npm test                  (143 pruebas: base de datos + conexión + ARCA y facturación con un ARCA simulado; medio minuto)
+npm test                  (197 pruebas: base de datos + conexión + ARCA con un ARCA simulado + Mercado Pago con un Mercado Pago simulado; un minuto)
 npm run test:pantallas    (103 comprobaciones de la página en un Edge sin ventana; deja capturas en E:\Entreturno boxes\pruebas)
+npm run test:pantallas-mp (56 comprobaciones del cobro con Mercado Pago en la página: conectar la cuenta, pagar, rechazos, devoluciones)
 npm run test:real         (8 comprobaciones contra el proyecto real, sin entrar con ninguna cuenta: no cambia nada)
 npm run test:arca         (10 comprobaciones contra el ambiente de PRUEBA de ARCA: emite facturas de mentira; ver «Facturas con ARCA»)
-npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda»)
+npm run servidor          (la página andando en http://localhost:8092, con el consultorio de ejemplo «lavanda» y pagos de prueba)
+node pruebas/huellas.mjs  (escribe una consulta de SOLO LECTURA que compara la base real, pieza por pieza, con las migraciones)
 ```
+
+`huellas.mjs` no se conecta a ningún lado: se pega su consulta en el SQL Editor del proyecto real. Con `--hasta <migración>`
+sirve para mirar, ANTES de cargar una migración nueva, que la base real sea la que se espera. El 25/11/2026 dio 456 de 456
+antes de cargar Mercado Pago y 543 de 543 después (lo único de más es `public.rls_auto_enable`, que es de Supabase).
+
+Para ver en la compu la página cobrando con el Mercado Pago simulado (en PowerShell):
+`$env:PAGOS = 'mercadopago'; npm run servidor` (y `$env:MP_AMBIENTE = 'real'` para probar con la cuenta conectada).
+Las «pantallas de Mercado Pago» de ese servidor son páginas propias (`/__mp/autorizar` y `/__mp/pagar`): no sale a internet.
 
 Las pruebas usan un Postgres que corre adentro de Node (PGlite), preparado como lo deja Supabase. No tocan internet
 ni ningún dato real. Las cuentas y la clave del servidor de prueba están en `pruebas\datos-de-ejemplo.mjs`.
@@ -58,6 +68,10 @@ Desde Claude: `preview_start` con el nombre `entreturno-boxes` abre esa misma p�
 - `supabase\functions\_compartido\facturar.ts` — «Facturar todo el mes» y «Probar la conexión con ARCA».
   `supabase\functions\facturar\index.ts` — la función de Supabase. `publicar\armar_funcion.mjs` la junta en un solo archivo
   (`publicar\funcion-facturar\index.ts`) para pegarla en el panel. `pruebas\arca-simulado.mjs` — un ARCA de mentira.
+- `supabase\functions\_compartido\mp.ts` — lo que habla con Mercado Pago (pases, órdenes, devoluciones, firma de los avisos).
+  `supabase\functions\_compartido\cobros.ts` — conectar la cuenta, cobrar, atender los avisos, devolver y el reloj.
+  `supabase\functions\mp\index.ts` — la función de Supabase. `publicar\armar_funcion.mjs` también la junta en un solo archivo
+  (`publicar\funcion-mp\index.ts`). `pruebas\mp-simulado.mjs` — un Mercado Pago de mentira.
 - `referencia\` — la demo de la que se partió y `como-se-paso-la-demo.py` (qué se le cambió; se corrió una sola vez).
 - `revisiones\` — los pedidos a Codex y sus respuestas.
 
@@ -87,6 +101,9 @@ Además, un error que no viene del servidor ahora se muestra como «Algo falló 
 - Otra profesional ve un horario ajeno como «ocupado»: sin nombre, servicio ni plata.
 - Todo lo que cambia la agenda o los ajustes de un consultorio corre de a una operación por vez (`interno.candado`).
 - En la página, todo texto que escribe una persona pasa por `esc(...)` antes de mostrarse (hay una prueba con nombres «con trampa»).
+- Con Mercado Pago: la página nunca ve los pases de la cuenta del consultorio (están cifrados en el Vault); un aviso de
+  Mercado Pago vale solo con su firma y aun así se vuelve a leer la orden antes de acreditar; y la página solo manda a pagar
+  a direcciones de Mercado Pago.
 - El enlace de los mails trae un código de un solo uso después del `#` (esa parte de la dirección no viaja a ningún servidor):
   la página lo saca de la barra apenas carga y lo canjea por la sesión. La contraseña nunca se guarda en el navegador.
 
@@ -166,6 +183,10 @@ Sin prueba automática todavía: los puntos 3, 4 y 5 (hacen falta cortes de red 
 - Cualquiera con sesión: `foto` (todo lo que esa persona puede ver, con los mismos nombres que usaba la demo:
   `config`, `boxes`, `machines`, `users`, `blocks`, `releases`, `bookings`, `invoices`, más `site`, `me`, `now`, `today`),
   `pedir_acceso`, `reservar`, `simular_pago` (solo mientras no haya Mercado Pago), `cancelar_reserva`.
+- Con Mercado Pago, la página no llama a la base para pagar: le pide a la función de Supabase `mp`
+  (`servidor.funcion("mp", { accion })`) «pagar», «verificar», «despachar» y, la dueña, «conectar». La función usa por
+  adentro `mp_pago_preparar`, `mp_pago_mio`, `mp_consultorio_mio` y `mp_conexion_iniciar`. La dueña llama directo
+  `mp_conexion_confirmar`, `mp_desconectar` y `mp_devolucion_a_mano`.
 - La dueña: `bloquear`, `publicar_rato`, `liberar_dia`, `quitar_rato`, `quitar_bloqueo`, `cambiar_estado_profesional`,
   `cambiar_categoria_profesional`, `guardar_turnos`, `guardar_pago`, `guardar_politica`, `guardar_reglamento`,
   `guardar_box`, `guardar_foto_box`, `guardar_categoria`, `quitar_categoria`, `guardar_maquina`, `quitar_maquina`,
@@ -333,6 +354,175 @@ hay que esperar a que venza.
    - «Probar la conexión» en real tiene que mostrar su punto de venta;
    - recién ahí, la primera factura real.
 
+## Cobro con Mercado Pago (hecho el 24/11/2026; cargado en Supabase y publicado el 25/11/2026, con el consultorio todavía en pagos de prueba)
+
+**Cómo cobra Entreturno.** Cada consultorio cobra en SU cuenta de Mercado Pago. La dueña la conecta autorizándola desde
+Mercado Pago (no pasa ninguna clave) y la plata de las reservas entra directo ahí. Entreturno no la toca ni cobra comisión.
+La aplicación de Mercado Pago se llama «Entreturno» y está en la cuenta personal de Santiago (creada el 18/11/2026, con
+Checkout Pro y «API de Orders»); por esa cuenta no pasa la plata de ningún consultorio.
+
+**Lo que se usa de Mercado Pago** (leído en mercadopago.com.ar/developers el 24/11/2026; el resumen está en la cabecera de `mp.ts`):
+- Conectar la cuenta: OAuth con PKCE. La dueña va a `auth.mercadopago.com/authorization` y vuelve a la función con un código
+  que se cambia por los pases (`POST /oauth/token`). El pase dura 180 días y se renueva solo.
+- Cobrar: Checkout Pro por la API de Orders. `POST /v1/orders` devuelve `checkout_url`, que es a donde va a pagar la profesional.
+- Enterarse: Mercado Pago avisa a la función (webhook del evento «Order (Mercado Pago)», firmado con `x-signature`).
+- Devolver: `POST /v1/orders/{id}/refund`, entero o una parte. Necesita saldo disponible en la cuenta de la dueña.
+
+**El recorrido de un pago:**
+1. La profesional aprieta «Ir a pagar». La página le pide a la función `mp` la acción «pagar».
+2. La base revisa todo (`mp_pago_preparar`: de quién es la reserva, cuánto, hasta cuándo) y deja anotado el intento.
+3. La función crea la orden en Mercado Pago con el pase del consultorio y devuelve la dirección de pago. La página manda ahí.
+4. La profesional paga y vuelve a la página, que le pregunta al servidor cómo quedó («verificar»).
+5. Mercado Pago avisa a la función. La función NO le cree al aviso: lee la orden en Mercado Pago y comprueba que sea de ese
+   pago (referencia), de esa cuenta, en pesos y por el importe esperado. Recién ahí la base confirma la reserva.
+   Si el aviso no llega, lo resuelven «verificar» o el reloj.
+
+**Casos que no pueden quedar mal (cada uno con su prueba):**
+- Un aviso repetido no acredita dos veces. Un aviso sin firma válida, o firmado hace más de dos días, no se mira.
+- Del aviso viene firmado solo el número de la orden: ni el tipo ni el cuerpo. Por eso un aviso de «esta cuenta le quitó
+  el permiso a la aplicación» tampoco se cree: se prueba el pase de esa cuenta.
+- La cuenta no se puede sacar ni cambiar por otra mientras tenga cobros abiertos o devoluciones esperando. Reconectar la
+  misma sí. Cada pago guarda en qué cuenta se cobró, y nunca se intenta devolver con otra.
+- Un pago que llega con el plazo vencido: si el horario sigue libre, la reserva revive; si no, la plata se devuelve entera.
+- Un pago repetido, o de una reserva que la persona canceló mientras pagaba: se devuelve entero («sobrante»).
+- Si el importe, la moneda, la cuenta o la orden no coinciden: no se acredita nada y queda «para revisar» (aviso a la dueña).
+- Si se corta al crear la orden, repetir el pedido no crea otra (misma clave). Si Mercado Pago la rechaza, el próximo va con otra.
+- Una devolución se anota antes de pedirla, la toma una sola vuelta por vez (un minuto y medio) y cada parte tiene una
+  clave fija: repetirla no devuelve dos veces.
+- Si la cuenta de la dueña no tiene saldo, la devolución queda esperando, se reintenta (a los 10 minutos las primeras
+  veces, después cada 6 horas, sin fecha de abandono) y la dueña recibe un mail, que se repite una vez por semana.
+  Desde Pagos puede apretar «Intentar ahora» o, si ya hubo un intento fallido, «Ya la devolví yo» (le pide que mire antes
+  en su Mercado Pago que no haya salido sola).
+- Nada queda «pendiente» para siempre: una orden que no se pudo consultar en 3 días pasa a «revisar» y la dueña recibe un mail.
+- Si Mercado Pago rechaza el pase, se renueva en el momento; si no se puede (la dueña le quitó el permiso a la
+  aplicación), la cuenta queda «caída», no se cobra y la dueña recibe un mail para conectarla de nuevo.
+
+**La cuenta del consultorio:**
+- La conecta solo la dueña, desde Configuración → «Mercado Pago». El código que va y vuelve sirve una vez y 15 minutos.
+- Queda «por confirmar» hasta que la dueña mira en la página qué cuenta es (nombre, mail y número) y dice «Sí, es mi cuenta».
+  Recién ahí se cobra con ella. Así nadie puede hacer que un consultorio cobre en una cuenta que la dueña no eligió.
+- Los pases se guardan cifrados en el Vault de Supabase (`mp_acceso_<consultorio>` y `mp_renovar_<consultorio>`),
+  no en una tabla. La página nunca los ve.
+
+**Ambientes, por consultorio** (se cambian solo desde el SQL Editor, nunca desde la página):
+- `pagos_modo`: «simulado» (el pago de prueba de siempre, sin Mercado Pago) o «mercadopago».
+- `mp_ambiente`: «prueba» (órdenes de prueba: tarjetas de prueba, no se mueve plata; si el consultorio no conectó su cuenta
+  se cobra con el pase de prueba de la aplicación) o «real». Una cuenta conectada en un ambiente no sirve para el otro.
+
+**El reloj.** Cada minuto la base mira si hay algo para hacer (`interno.mp_reloj`): órdenes abiertas cuyo aviso no llegó,
+órdenes viejas para cerrar, devoluciones que esperan, pases que vencen en menos de 30 días. Si hay, despierta a la función
+con una clave que vive en el Vault. Si no hay nada, no llama a nadie.
+
+**Lo que NO se pudo comprobar sin el Mercado Pago de verdad** (el código está hecho para tolerarlo, pero hay que mirarlo en
+la primera prueba real):
+- Si la firma del aviso se calcula con el número de orden tal cual («ORD01…») o en minúsculas: se aceptan las dos.
+- Si `expiration_time` acepta minutos (`PT15M`): si lo rechaza, la orden se crea sin vencimiento y la cierra el reloj.
+- El cuerpo exacto de la devolución de una parte y el texto del error cuando la cuenta no tiene saldo.
+- Que los avisos de las órdenes creadas con el pase de una dueña lleguen a la dirección de avisos de la aplicación.
+- Cómo se prueba la conexión de una cuenta en modo prueba (`test_token`) y cómo es el aviso de «le quitó el permiso».
+- Si Mercado Pago acepta direcciones de vuelta que no sean https (en la compu son http://localhost).
+
+**Cómo se carga en Supabase (hecho el 25/11/2026 con el OK de Santiago, «Sí, cargalo»; lo que falta está marcado):**
+
+Qué se hizo el 25/11 y cómo dio:
+- Antes de tocar nada: huellas 456 de 456 (la base real era exactamente la de las migraciones hasta ARCA) y datos casi vacíos:
+  1 consultorio (`pagos_modo` simulado), 1 persona, 0 reservas, 0 pagos, 0 facturas.
+- Base cargada sin errores (el editor avisa «destructive operations» por `drop constraint`: es la regla de estados de `pagos`,
+  que se reemplaza en el mismo archivo). Control: 15 / 0 / 59 / `public.portada` / 34 / 5 / 19 / false / 0 / 0. Huellas 543 de 543.
+- El Vault de verdad guarda, cambia, lee y borra los pases (probado con valores inventados en un bloque que se deshace solo).
+- Como la dueña, en otro bloque que se deshace: `foto` trae `config.mp` (simulado, prueba, sin cuenta), conectar la cuenta
+  desde la página de Yani anda, desde otro sitio da `dato_invalido`, pagar da `pagos_simulados` y las funciones del servidor
+  dan «permission denied».
+- Función `mp` subida por el editor del panel (48.788 caracteres, huella `de7ab8698ad3`, igual a `publicar\funcion-mp\index.ts`).
+  **Queda con «Verify JWT with legacy secret» PRENDIDO** (así la crea Supabase): hasta apagarlo no entran ni la página, ni los
+  avisos de Mercado Pago, ni el reloj. Es apagar una protección, así que se le pregunta a Santiago aparte.
+- Reloj cargado: tarea `entreturno-boxes-mp`, cada minuto, corridas «succeeded», 0 pedidos en cola (no hay nada para hacer).
+- Página publicada a las 10:53 (Cloudflare `yanina-entreturno`): TODO BIEN, 6 de 6, y sin errores al abrirla como visitante.
+
+Los pasos, para otra vez:
+1. **Base:** en el SQL Editor, `supabase\migrations\20261124100000_mercadopago.sql`. No borra nada: agrega columnas, tablas
+   de adentro y funciones, y reemplaza `j_sitio`, `j_config`, `j_reserva` y `cancelar_reserva`. Está probada sobre una base
+   con datos como los de Yani (`pruebas\sql\migracion-sobre-datos.test.mjs`). Después, `supabase\control.sql`, que tiene que
+   dar f_public 59 (58 + `rls_auto_enable`), con_sesion 34, arca_solo_servicio 5, mp_solo_servicio 19 y mp_tablas_abiertas 0.
+   La página que está publicada hoy (la vieja) sigue andando igual con la base nueva: lo que cambia en lo que recibe son
+   datos que se agregan. Si hubiera que volver atrás: el consultorio sigue en pagos de prueba, así que alcanza con volver a
+   cargar `j_sitio`, `j_config`, `j_reserva` y `cancelar_reserva` de las migraciones anteriores; lo nuevo puede quedar.
+2. **La función:** `node publicar\armar_funcion.mjs` y, en el panel, Edge Functions → «Deploy a new function» → «Via Editor»,
+   con el nombre `mp`, pegando `publicar\funcion-mp\index.ts`. Después, **apagar «Enforce JWT verification»**.
+3. **El reloj:** en el SQL Editor, `supabase\migrations\20261124100100_reloj_mp.sql` (la dirección de la función, la clave
+   del reloj y la tarea de cada minuto).
+4. **Secretos** (Edge Functions → Secrets). **Los pega Santiago**: `MP_CLIENT_ID`, `MP_CLIENT_SECRET`,
+   `MP_WEBHOOK_SECRETO` y `MP_PRUEBA_TOKEN`. Los pasos están en `C:\Users\santi\Desktop\MERCADO PAGO - lo que tenés que hacer vos.txt`.
+5. **Página:** publicar como siempre (ver «Publicar»). Con `pagos_modo = 'simulado'` la página nueva se comporta igual que hoy,
+   más la tarjeta «Mercado Pago» en Configuración.
+6. **Prueba:** `update consultorios set pagos_modo = 'mercadopago', mp_ambiente = 'prueba' where slug = 'yanina'` y una
+   reserva con una tarjeta de prueba de Mercado Pago (titular «APRO», DNI 12345678). Después cancelarla y ver la devolución.
+   Recién con eso andando, la cuenta real de Yani y `mp_ambiente = 'real'`.
+
+**La revisión de Codex (`revisiones\respuesta-codex-6.md`, 14 puntos), punto por punto:**
+1. La firma del aviso no cubre el tipo ni el cuerpo → **corregido**: el aviso de «le quitaron el permiso» ya no tira una
+   cuenta (se prueba el pase), y una firma de más de dos días no vale. Con prueba.
+2. Dos operaciones sobre el mismo pago se podían trabar entre sí (candados en distinto orden) → **corregido**: siempre
+   consultorio → reserva → pago. **Sin prueba automática**: el Postgres de las pruebas tiene una sola conexión.
+3. Cambiar o sacar la cuenta dejaba cobros y devoluciones sin poder resolverse → **corregido** (ver arriba). Con pruebas.
+4. Una orden creada cuya respuesta se pierde y cuyo intento vence queda sin anotar → **analizado, sin cambio de fondo**:
+   sin la dirección de pago nadie puede pagarla (la página nunca la recibió). El intento se cierra solo, y si Mercado Pago
+   avisa de esa orden se la reconoce por nuestra referencia. No se agregó buscarla en Mercado Pago (no se pudo comprobar cómo contesta).
+5. Dos vueltas del reloj podían tomar la misma devolución, y «ya estaba devuelta» se decidía por el total → **corregido**:
+   una vuelta por vez, y se compara contra lo que la base tenía anotado como devuelto de ese pago. Con pruebas.
+6. Marcar «a mano» una devolución mientras salía la automática → **corregido**: no se puede mientras está tomada, el botón
+   aparece recién después de un intento fallido y pide mirar antes en Mercado Pago. Con pruebas.
+7. Había plazos después de los cuales se dejaba de mirar sin avisar → **corregido** (ver arriba). Con pruebas.
+8. La vuelta de conectar la cuenta podía mandar a cualquier sitio → **corregido**: solo páginas de Entreturno. Con prueba.
+9. Se confirmaba «la cuenta que haya» → **corregido**: se confirma la que la dueña vio en pantalla. Con prueba.
+10. En producción se aceptaba una pantalla de pago en localhost → **corregido**. Con prueba.
+11. `PT15M` sin comprobar → sigue sin comprobar; una orden creada sin vencimiento queda marcada y la cierra el reloj.
+12. y 13. Probar con cuentas reales y sobre el proyecto real → es lo que sigue.
+14. Código en el nombre o el mail de la cuenta, o en la dirección de vuelta → hay una prueba de pantalla: se muestran como texto.
+
+Además, las propias pruebas se probaron: se rompieron a propósito 22 reglas, de a una, en una copia del proyecto (12 del
+diseño y las 10 que salieron de la revisión 6), y las 22 se detectaron (24/11/2026; la primera vez se escapó una, la de
+«el cobro es justo el de ese pago», y se le agregó su prueba). El programa que las rompe no está en el repositorio: es
+`E:\Entreturno boxes\pruebas\mutar.mjs`, y trabaja sobre la copia `E:\Entreturno boxes\pruebas\copia-para-romper`.
+
+**Ojo con el orden al publicar: GitHub ya publica solo en una dirección de prueba.** El 24/11/2026 la sesión «Paso a
+paso», por pedido de Santiago, conectó GitHub con Cloudflare. Hay un proyecto de Pages nuevo, `entreturno-boxes`, que en
+cada `push` a `main` corre `python3 publicar/armar_para_publicar.py` y publica `publicar/yanina` en
+`https://entreturno-boxes.pages.dev` (tarda unos 14 segundos, según esa sesión). Esa copia habla con el Supabase real.
+Ese día `yanina.entreturno.com.ar` seguía saliendo del proyecto viejo `yanina-entreturno`, de subida a mano; «Paso a
+paso» avisa antes y después de moverlo. Lo que cambia para este trabajo:
+
+- **Primero Supabase, después el `push`, desde ya.** La página nueva llama a funciones que no existen hasta cargar la
+  migración. Orden: la base, la función `mp` y `control.sql`; después publicar (a mano mientras el dominio no se mueva) y
+  comprobar; recién entonces el `push`. Antes de publicar, mirar si el dominio ya se movió: si se movió, el `push` ES la
+  publicación.
+- **Comprobar también la dirección nueva.** `publicar\comprobar_publicado.py` mira `yanina.entreturno.com.ar` y
+  `yanina-entreturno.pages.dev`. Después del `push`, correrlo con `--github`, que mira `entreturno-boxes.pages.dev` (esperar
+  un minuto); cuando el dominio se mueva, el segundo sitio de ese programa pasa a ser ese.
+- El 25/11/2026 se hizo en ese orden: Supabase, página (a mano, el dominio seguía en `yanina-entreturno`) y `push`.
+- **En `entreturno-boxes.pages.dev` no andan ni «Facturar» ni Mercado Pago** (mirado en el código el 24/11/2026). Las
+  dos funciones y la vuelta de conectar la cuenta solo aceptan `*.entreturno.com.ar`, `*-entreturno.pages.dev` y, en
+  pruebas, localhost. El nombre nuevo empieza con «entreturno-», no termina así. Para el público no cambia nada: el
+  dominio real sigue aceptado aunque pase al proyecto nuevo. Para probar ARCA o Mercado Pago, usar el dominio real.
+- **Mejora menor pendiente:** el patrón `*-entreturno.pages.dev` acepta cualquier proyecto de Pages cuyo nombre termine
+  así, también de otra cuenta de Cloudflare. Con eso solo no se puede hacer nada (hace falta el pase de la persona), pero
+  es más prolijo poner la lista exacta de direcciones propias. Si se cambia, va en las dos funciones y en el control de
+  `volver_a` de la tabla `interno.mp_estados`.
+- **Paquetes:** Cloudflare corre `npm clean-install` en cada publicación. Si se agrega una dependencia, subir
+  `package.json` y `package-lock.json` juntos; si no coinciden, la publicación falla y queda en línea la anterior. El
+  cambio de Mercado Pago solo tocó `scripts` (comprobado con `git diff` el 24/11/2026).
+
+**Limitaciones conocidas (para decidir más adelante):**
+- No hay ninguna prueba con dos conexiones a la vez (reservar, cancelar y un aviso de pago en el mismo instante): hay que
+  hacerla en el Supabase real.
+- Si la dueña devuelve plata desde Mercado Pago de una reserva que sigue en pie, o hay un contracargo, el sistema hoy no
+  se entera solo: la reserva sigue figurando como pagada. (Sí se entera si después cancela la reserva: ve que ya está devuelta.)
+- No se limita la cantidad de cuotas ni se ofrecen cuotas sin interés: vale lo que tenga la cuenta de la dueña.
+- Efectivo (Rapipago, Pago Fácil) y cajero están excluidos: tardan días y el turno se guarda unos minutos.
+- El mail de la profesional viaja a Mercado Pago al crear el cobro en modo real (para que su pantalla lo traiga cargado).
+  Hay que nombrarlo en el aviso de datos personales cuando se haga.
+- Prender el cobro de verdad (`pagos_modo`) lo hace Entreturno por SQL, no la dueña. Al sumar consultorios conviene un botón.
+
 ## Decisiones tomadas al armar (sin consultar; se pueden cambiar)
 
 - Una profesional puede tener hasta 3 reservas sin pagar la seña a la vez (`max_sin_pagar`), para que nadie acapare turnos.
@@ -357,7 +547,10 @@ hay que esperar a que venza.
 3. Yani: que cree su cuenta desde la página y dejarla como dueña (`interno.alta_admin`).
 4. Datos reales de Yani: horarios, reglamento, descripción de los boxes, máquinas y fotos (depósito de archivos + subir
    desde Configuración).
-5. Mercado Pago real (aplicación «Entreturno», con API de Orders: falta probar que se puede cobrar a nombre de ella).
+5. Mercado Pago real: **hecho y probado en la compu el 24/11/2026** contra un Mercado Pago simulado (ver «Cobro con
+   Mercado Pago»), y **cargado en Supabase y publicado el 25/11/2026** (el consultorio sigue en pagos de prueba). Falta: apagar
+   «Verify JWT with legacy secret» de la función `mp` (con el OK de Santiago), que él cargue los datos en su aplicación de
+   Mercado Pago y pegue los 4 secretos, y la primera prueba contra el Mercado Pago de verdad.
 6. Copia diaria, «crear cuenta» desde el panel y prueba en celulares reales.
 7. Facturas con ARCA: en curso desde el 23/11 (ver «Facturas con ARCA»; ahí está su propio orden).
 
