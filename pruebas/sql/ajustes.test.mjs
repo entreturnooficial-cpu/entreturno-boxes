@@ -83,7 +83,7 @@ prueba('seña, plazo de pago y política de cancelación', async (e) => {
   await e.llamarComo(esc.admin, 'guardar_politica', politica);
 
   const cfg = (await e.foto(esc, esc.lucia)).config;
-  assert.deepEqual([cfg.depositPct, cfg.mpMinutes, cfg.policy], [30, 60, { days: 3, senaBefore: 50, senaAfter: 0, totalBefore: 100, totalAfter: 25 }]);
+  assert.deepEqual([cfg.depositPct, cfg.mpMinutes, cfg.policy], [30, 60, { days: 3, senaBefore: 50, senaAfter: 0, totalBefore: 100, totalAfter: 25, depositKept: false, moves: 0, moveDays: 3 }]);
   // La política nueva se aplica al cancelar: seña con más de 3 días → 50 %
   const r = await e.reservar(esc, esc.lucia, { fecha: await e.diaHabil(5), plan: 'sena' });
   assert.equal(r.amount, 12000);                                                     // 30 % de $ 40.000

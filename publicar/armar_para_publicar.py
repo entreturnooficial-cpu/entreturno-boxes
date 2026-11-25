@@ -19,7 +19,8 @@ DESTINO.mkdir(parents=True, exist_ok=True)
 for nombre in ('index.html', 'conexion.js'):
     shutil.copyfile(WEB / nombre, DESTINO / nombre)
 
-# El config de este sitio fija el consultorio, así también anda en la dirección de prueba *.pages.dev
+# El config de este sitio dice qué consultorio es, para que ande también en la dirección de prueba *.pages.dev (en *.entreturno.com.ar manda
+# la dirección). «yanina» es la dirección vieja de Punto Almagro: la base la sigue aceptando.
 config = (WEB / 'config.js').read_text(encoding='utf-8')
 assert 'slug:' not in config.split('window.ENTRETURNO')[1], 'web\\config.js ya trae un consultorio fijo'
 config, n = re.subn(r'(\n\s*key: "[^"]+",)', lambda m: m.group(1) + f'\n  slug: "{SLUG}",', config, count=1)

@@ -72,7 +72,7 @@ prueba('con el saldo de un turno que ya pasó sin pagar y en el tope, no reserva
 prueba('la dueña elige el tope: uno solo (estricto), varios, o sin tope', async (e) => {
   const esc = await e.armar();
   const dia = await e.diaHabil(4);
-  await esperarError(guardarPago(e, esc, 0), 'dato_invalido');
+  await esperarError(guardarPago(e, esc, -1), 'dato_invalido');       // cero se puede: es «ninguno» (pruebas/sql/almagro.test.mjs)
   await esperarError(guardarPago(e, esc, 21), 'dato_invalido');
 
   // Estricto: con un pago pendiente, el próximo turno va completo; y si ese pago es de un turno que ya pasó, nada

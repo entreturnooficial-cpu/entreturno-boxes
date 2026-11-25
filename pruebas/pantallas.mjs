@@ -83,7 +83,7 @@ try {
   console.log('--- antes de entrar ---');
   ver('ingreso', await js(`({ pestaña: document.title, marca: document.querySelector('.auth .brand-name')?.textContent, letras: [...document.querySelectorAll('.auth .mono text')].map(t => t.textContent).join('|'), barraDemo: !!document.querySelector('.demobar'), cuentasDeMuestra: document.querySelectorAll('.demo-user').length })`),
     (v) => v.pestaña === 'Consultorio Lavanda · Alquiler de boxes' && v.marca === 'Consultorio Lavanda' && v.letras === 'C|L' && !v.barraDemo && v.cuentasDeMuestra === 0);
-  ver('texto del ingreso', await texto('.auth-side'), (v) => v.includes('3 boxes equipados, turnos de 4 h') && v.includes('Pagás seña del 50 % o el total') && v.includes('aprobados por Laura'));
+  ver('texto del ingreso', await texto('.auth-side'), (v) => v.includes('3 espacios equipados, turnos de 4 h') && v.includes('Pagás seña del 50 % o el total') && v.includes('aprobados por Laura'));
   await foto('ingreso');
   ver('clave equivocada', (await entrar(LUCIA, 'otra-clave'), await aviso()), 'El mail o la contraseña no coinciden.');
   ver('el aviso de datos se lee sin entrar', [await clic('.auth [data-action="ver-privacidad"]'), await texto('.overlay .sheet')], (v) => v[0] === 'ok' && v[1].includes('Aviso de datos personales') && v[1].includes('Consultorio Lavanda · versión 2')

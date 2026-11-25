@@ -21,7 +21,7 @@ export const FUNCIONES_CON_SESION = [
   'guardar_categoria', 'quitar_categoria', 'guardar_maquina', 'quitar_maquina', 'guardar_facturacion',
   'facturacion_preparar', 'facturacion_estado',
   'mp_conexion_iniciar', 'mp_conexion_confirmar', 'mp_desconectar', 'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio',
-  'mp_devolucion_a_mano', 'aceptar_privacidad', 'guardar_privacidad',
+  'mp_devolucion_a_mano', 'aceptar_privacidad', 'guardar_privacidad', 'reprogramar_reserva',
 ];
 
 /** Las que solo pueden llamar las funciones de Supabase (ARCA, Mercado Pago y la copia de seguridad), con service_role. */

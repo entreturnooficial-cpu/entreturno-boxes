@@ -13,7 +13,7 @@ from pathlib import Path
 LOCAL = Path(__file__).resolve().parent / 'yanina'
 # Los dos salen del mismo proyecto de Pages, «entreturno-boxes», que publica solo cada «push» a main (desde el 25/11/2026).
 # El proyecto anterior, «yanina-entreturno» (subida a mano), quedó sin dominio, de respaldo: no se mira.
-SITIOS = ('https://yanina.entreturno.com.ar', 'https://entreturno-boxes.pages.dev')
+SITIOS = ('https://puntoalmagro.entreturno.com.ar', 'https://yanina.entreturno.com.ar', 'https://entreturno-boxes.pages.dev')
 
 
 def bajar(url):

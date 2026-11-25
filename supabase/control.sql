@@ -1,6 +1,6 @@
 -- Control para correr en el SQL Editor del proyecto real después de cargar las migraciones.
--- Tiene que dar: tablas 15 · sin_candado 0 · f_public 63 (64 en el proyecto real: public.rls_auto_enable)
---                sin_sesion «public.portada» · con_sesion 36 · arca_solo_servicio 5 · mp_solo_servicio 19 · copia_solo_servicio 3
+-- Tiene que dar: tablas 15 · sin_candado 0 · f_public 64 (65 en el proyecto real: public.rls_auto_enable)
+--                sin_sesion «public.portada» · con_sesion 37 · arca_solo_servicio 5 · mp_solo_servicio 19 · copia_solo_servicio 3
 --                interno_abierto false · legibles 0 · mp_tablas_abiertas 0 · ext «extensions» · lee_usuarios true · dueno «postgres»
 -- (antes de la copia de seguridad, del 25/11/2026, daba f_public 61 en el real, sin copia_solo_servicio;
 --  antes del aviso de datos personales, del 25/11/2026, daba f_public 59 en el real y con_sesion 34;

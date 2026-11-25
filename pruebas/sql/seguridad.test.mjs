@@ -15,6 +15,12 @@ prueba('desde la página no se puede leer ni escribir ninguna tabla', async (e) 
   }
   const rls = await e.sql(`select relname from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and not relrowsecurity`);
   assert.deepEqual(rls, [], 'hay tablas sin el candado de RLS');
+  // las de adentro: nadie de la página puede usar ese esquema ni sus tablas, y (salvo las dos de ARCA, que no tienen datos de personas) tienen el candado
+  const internas = await e.sql(`select c.relname, c.relrowsecurity as rls, r.rol,
+      has_table_privilege(r.rol, c.oid, 'select, insert, update, delete') or has_schema_privilege(r.rol, 'interno', 'usage') as permiso
+    from pg_class c, (values ('anon'), ('authenticated')) as r(rol) where c.relnamespace = 'interno'::regnamespace and c.relkind = 'r'`);
+  assert.deepEqual(internas.filter((t) => t.permiso), [], 'la página puede usar una tabla de adentro');
+  assert.deepEqual([...new Set(internas.filter((t) => !t.rls).map((t) => t.relname))].sort(), ['arca_candados', 'arca_tickets']);
   const tablas = await e.sql(`select tablename from pg_tables where schemaname = 'public' order by 1`);
   assert.deepEqual(tablas.map((t) => t.tablename), [...TABLAS].sort());
 });
@@ -100,7 +106,7 @@ prueba('quien no es la dueña no puede usar ninguna función de la dueña', asyn
   // Todas las funciones con sesión que no son de uso general tienen que estar en la lista de arriba
   // (las tres de Mercado Pago que usa cualquier profesional tienen sus pruebas en mercadopago.test.mjs)
   const generales = ['portada', 'foto', 'pedir_acceso', 'reservar', 'simular_pago', 'cancelar_reserva',
-    'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio', 'aceptar_privacidad'];
+    'mp_pago_preparar', 'mp_pago_mio', 'mp_consultorio_mio', 'aceptar_privacidad', 'reprogramar_reserva'];
   assert.deepEqual(llamadas.map((l) => l[0]).sort(), FUNCIONES_CON_SESION.filter((n) => !generales.includes(n)).sort());
 
   const antes = JSON.stringify(await e.foto(esc, esc.admin));

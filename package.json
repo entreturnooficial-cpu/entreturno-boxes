@@ -11,6 +11,7 @@
     "test:conexion": "node --test pruebas/conexion.test.mjs",
     "test:pantallas": "node pruebas/pantallas.mjs",
     "test:pantallas-mp": "node pruebas/pantallas-mp.mjs",
+    "test:pantallas-almagro": "node pruebas/pantallas-almagro.mjs",
     "test:real": "node pruebas/real.mjs",
     "test:real-mp": "node pruebas/real-mp.mjs",
     "servidor": "node pruebas/servidor-local.mjs"

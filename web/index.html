@@ -375,6 +375,8 @@ button.seg:active{transform:scale(.985)}
   .plate{width:26px;height:26px;font-size:13.5px}
   .cal-boxh b{font-size:13.5px}
   .cal-boxh .sh{display:none}
+  .cal .cal-boxh{flex-direction:column;align-items:flex-start;gap:5px}
+  .cal .cal-boxh b{font-size:13px;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
   .seg{left:2px;right:2px;padding:6px 7px;font-size:12px}
   .seg .tm{font-size:11.5px}
   .seg .pr{font-size:12px}
@@ -569,7 +571,7 @@ button.choice:active{transform:scale(.985)}
 @media (max-width:900px){
   .auth{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   .auth-side{padding:28px 20px 30px;gap:0}
-  .auth-side .brand{padding-bottom:26px}
+  .auth-side .brand{padding-bottom:26px;padding-right:52px}
   .auth-side h1{font-size:31px}
   .auth-side p{font-size:15.5px;margin-top:12px}
   .auth-side .plan,.auth-side ul{display:none}
@@ -819,8 +821,12 @@ function planSvg(focus = 0, cls = "") {
    Conexión con el servidor y estado
    ========================================================= */
 const CFG = window.ENTRETURNO || {};
-/* Qué consultorio es: sale de la dirección (yanina.entreturno.com.ar → «yanina»), salvo que config.js lo fije */
-const SLUG = String(CFG.slug || location.hostname.split(".")[0] || "").toLowerCase();
+/* Qué consultorio es: sale de la dirección (puntoalmagro.entreturno.com.ar → «puntoalmagro»). En las demás direcciones (la de prueba
+   de Cloudflare, la compu) es el que fija config.js */
+const consultorioDe = (host) => (/^([a-z0-9-]{1,40})\.entreturno\.com\.ar$/.exec(host) || [])[1] || null;
+const SLUG = String(consultorioDe(location.hostname) || CFG.slug || location.hostname.split(".")[0] || "").toLowerCase();
+/* Si entró por una dirección que el consultorio ya no usa, cuál es la de ahora (solo entre direcciones de Entreturno) */
+const direccionNueva = (host, actual) => consultorioDe(host) && consultorioDe(host) !== actual && /^[a-z0-9-]{1,40}$/.test(actual || "") ? `https://${actual}.entreturno.com.ar` : null;
 const almacen = (() => {
   try { localStorage.getItem("et-sesion"); return localStorage; }
   catch (e) { const m = {}; return { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: (k) => { delete m[k]; } }; }
@@ -885,6 +891,7 @@ const uiGuardada = () => { try { return JSON.parse(localStorage.getItem(UI_KEY))
 const guardarUi = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(S.ui)); } catch (e) { /* sin almacén: vale hasta cerrar la página */ } };
 const OW = () => esc(S.site.owner);     // cómo se nombra a la dueña en los textos
 const SITE = () => esc(S.site.name);    // el nombre del consultorio
+const LEMA = () => esc(S.site.tagline || "Alquiler de boxes");
 
 function armar(f) {
   const ui = S ? S.ui : Object.assign({ view: null, calDate: todayIso(), tab: {} }, uiGuardada());
@@ -896,7 +903,9 @@ function armar(f) {
     bookings: f.bookings || [], invoices: f.invoices || [], session: { userId: f.me || null }, ui,
   });
   if (f.now) desfase = f.now - Date.now();
-  document.title = S.site.name + " · Alquiler de boxes";
+  document.title = S.site.name + " · " + (S.site.tagline || "Alquiler de boxes");
+  const nueva = direccionNueva(location.hostname, S.site.slug);      // el consultorio cambió de dirección: se sigue en la nueva
+  if (nueva) location.replace(nueva + location.pathname + location.search + location.hash);
   const letra = esc(String(S.site.letters || S.site.name || "").slice(0, 1));
   const icono = document.getElementById("favicon");
   if (icono) icono.href = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='#1C1917'/><text x='16' y='22.5' text-anchor='middle' font-family='Georgia,serif' font-size='19' fill='white'>${letra}</text></svg>`);
@@ -919,6 +928,13 @@ const MENSAJES = {
   maquina_no_disponible: "Esa máquina se reservó recién en ese horario. La sacamos de tu reserva: revisá el total.",
   demasiadas_sin_pagar: "Tenés reservas sin pagar. Pagalas o cancelalas antes de tomar otro turno.",
   demasiados_saldos: "Ya llegaste al tope de turnos con saldo pendiente. Pagá un saldo o pagá este turno completo.",
+  saldo_pendiente: "Tenés un turno sin terminar de pagar. Pagalo en Mis reservas para reservar otro.",
+  no_se_puede_reprogramar: "Ese turno ya no se puede cambiar de día.",
+  sin_reprogramacion: "En este consultorio los turnos no se cambian de día.",
+  ya_reprogramada: "Ese turno ya lo cambiaste de día.",
+  tarde_para_reprogramar: "Ya es tarde para cambiar ese turno de día.",
+  mismo_horario: "Es el mismo día y horario que ya tenés.",
+  otro_precio: "Ese lugar tiene otro precio: elegí uno que cueste lo mismo.",
   saldo_vencido: "Tenés el saldo de un turno que ya pasó sin pagar. Pagalo en Mis reservas para volver a reservar.",
   reglamento_cambio: "El reglamento cambió recién. Leelo de nuevo antes de reservar.",
   fuera_de_rango: "Todavía no se puede reservar tan adelante.",
@@ -1131,7 +1147,7 @@ const ownRates = (u) => {
 const machineById = (id) => S.machines.find(m => m.id === id);
 const machinesOf = (b) => b.machines || [];
 const machineLine = (m, hours) => ({ id: m.id, name: m.name, hours, rate: m.pricePerHour, amount: m.pricePerHour * hours });
-const machineBusy = (id, date, start, end) => S.bookings.some(b => b.status !== "cancelada" && b.date === date && b.start < end && b.end > start && machinesOf(b).some(x => x.id === id));
+const machineBusy = (id, date, start, end, salvo) => S.bookings.some(b => b.id !== salvo && b.status !== "cancelada" && b.date === date && b.start < end && b.end > start && machinesOf(b).some(x => x.id === id));
 const boxAmountOf = (b) => b.boxAmount == null ? b.total : b.boxAmount;
 /* Facturación: las horas de cada profesional en el mes, con su precio, en una sola factura */
 const pad4 = (n) => String(n).padStart(4, "0");
@@ -1191,11 +1207,11 @@ function blocksFor(date, boxId) {
 function releasesFor(date, boxId) { return S.releases.filter(r => r.boxId === boxId && r.date === date); }
 
 /* Parte el día de un box en tramos: reserva, rato libre, bloqueo o libre (alineado a la grilla de turnos). */
-function segments(date, boxId) {
+function segments(date, boxId, salvo) {                       // salvo: una reserva que no cuenta (la que se está moviendo)
   const c = S.config;
   if (!c.days.includes(weekday(date))) return [];
   const T = c.turnHours, open = c.open, close = c.close;
-  const bks = S.bookings.filter(b => b.boxId === boxId && b.date === date && active(b));
+  const bks = S.bookings.filter(b => b.boxId === boxId && b.date === date && active(b) && b.id !== salvo);
   const bls = blocksFor(date, boxId), rls = releasesFor(date, boxId);
   const pts = new Set([open, close]);
   for (let h = open; h < close; h += T) pts.add(h);
@@ -1242,12 +1258,47 @@ function canBook(boxId, date, start, end, ignorePast = false) {
 
 function refundFor(b, by = "pro") {
   const paid = paidOf(b), pol = S.config.policy;
-  const days = (bookingStart(b).getTime() - ahora()) / 864e5;
+  // si lo cambió de día, cuenta la fecha más temprana que tuvo, igual que en el servidor
+  const days = (Math.min(bookingStart(b).getTime(), b.policyFrom || Infinity) - ahora()) / 864e5;
   const before = days >= pol.days;
   const full = paid >= b.total;
   let pct = full ? (before ? pol.totalBefore : pol.totalAfter) : (before ? pol.senaBefore : pol.senaAfter);
   if (by === "admin") pct = 100;
-  return { paid, pct, amount: Math.round(paid * pct / 100), days, before, full };
+  let amount = Math.round(paid * pct / 100);
+  if (pol.depositKept && by !== "admin") {                // la seña no se devuelve: cuenta lo que pagó de más que la seña
+    amount = Math.round(Math.max(0, paid - depositOf(b)) * (before ? pol.totalBefore : pol.totalAfter) / 100);
+    pct = paid ? Math.round(amount * 100 / paid) : 0;
+  }
+  return { paid, pct, amount, days, before, full };
+}
+
+/* La política de cancelación en una frase (cuando la seña no se devuelve nunca) */
+function politicaConSena() {
+  const p = S.config.policy, menos = (x) => x === 100 ? "te devolvemos todo menos la seña" : x ? `te devolvemos el ${x} % de lo que pagaste además de la seña` : "no hay devolución";
+  return `La seña no se devuelve. Si cancelás con ${p.days} días o más, ${menos(p.totalBefore)}. Con menos, ${menos(p.totalAfter)}.`;
+}
+/* Hasta cuándo y cuántas veces se puede mover un turno */
+function reglaDeMover() {
+  const p = S.config.policy;
+  if (!p.moves) return "";
+  return `Podés cambiarlo de día ${p.moves === 1 ? "una sola vez" : `hasta ${p.moves} veces`}, si hay lugar${p.moveDays ? ` y avisás con ${p.moveDays} ${p.moveDays === 1 ? "día" : "días"} o más` : ""}.`;
+}
+/* Por qué no se puede mover este turno (vacío si se puede) */
+function porQueNoSeMueve(b, by = "pro") {
+  const p = S.config.policy, dias = (bookingStart(b).getTime() - ahora()) / 864e5;
+  if (b.status !== "confirmada" || dias <= 0) return "no";
+  if (by === "admin") return "";
+  if (!p.moves) return "no";
+  if ((b.moved || 0) >= p.moves) return p.moves === 1 ? "Ya lo cambiaste de día una vez." : "Ya lo cambiaste de día todas las veces que se puede.";
+  return dias < p.moveDays ? `Se puede cambiar de día hasta ${p.moveDays} ${p.moveDays === 1 ? "día" : "días"} antes.` : "";
+}
+/* Los horarios a los que se puede mover: que duren lo mismo y cuesten lo mismo */
+function lugaresPara(b, date) {
+  const largo = b.end - b.start, cat = { category: b.category };
+  const conMaquinas = (s) => machinesOf(b).every(m => !machineBusy(m.id, date, s.start, s.end, b.id));
+  return S.boxes.filter(x => x.id === b.boxId || rateOf(cat, x) === b.rate)
+    .flatMap(x => segments(date, x.id, b.id).filter(s => s.bookable && s.end - s.start === largo && conMaquinas(s)
+      && !(x.id === b.boxId && date === b.date && s.start === b.start)).map(s => ({ box: x, start: s.start, end: s.end })));
 }
 
 /* Saldos pendientes: los turnos que una profesional señó y todavía no terminó de pagar.
@@ -1258,9 +1309,10 @@ function saldos(u = me()) {
   const conSaldo = suyas.filter(b => ["confirmada", "cumplida"].includes(b.status) && balanceOf(b) > 0);
   const porSenar = suyas.filter(b => b.status === "pago" && b.plan === "sena");
   const vencidos = conSaldo.filter(b => bookingStart(b).getTime() <= ya);
-  const n = conSaldo.length + porSenar.length, enTope = tope != null && n >= tope;
-  return { tope, n, conSaldo, vencidos, deuda: conSaldo.reduce((a, b) => a + balanceOf(b), 0),
-    bloqueado: enTope && vencidos.length > 0, soloTotal: enTope && vencidos.length === 0 && S.config.depositPct < 100 };
+  const n = conSaldo.length + porSenar.length, ninguno = tope === 0, enTope = tope > 0 && n >= tope;
+  // con «ninguno», hasta terminar de pagar el que tiene no reserva otro, ni pagándolo entero
+  return { tope, n, conSaldo, vencidos, ninguno, deuda: conSaldo.reduce((a, b) => a + balanceOf(b), 0),
+    bloqueado: (ninguno && n > 0) || (enTope && vencidos.length > 0), soloTotal: enTope && vencidos.length === 0 && S.config.depositPct < 100 };
 }
 
 /* Lo que cambia solo con el paso del tiempo (un plazo de pago que vence, un turno que termina) lo decide el servidor.
@@ -1364,7 +1416,7 @@ function render() {
   app.innerHTML = `
   <div class="shell">
     <aside class="sidebar" aria-label="Navegación">
-      <div class="brand">${mono()}<div><div class="brand-name">${SITE()}</div><div class="brand-sub">${u.role === "admin" ? "Panel de administración" : "Alquiler de boxes"}</div></div></div>
+      <div class="brand">${mono()}<div><div class="brand-name">${SITE()}</div><div class="brand-sub">${u.role === "admin" ? "Panel de administración" : LEMA()}</div></div></div>
       <nav class="nav">${navLinks}</nav>
       <div class="side-foot"><div class="avatar">${initials(u.name)}</div><div class="who"><b>${esc(u.name)}</b><span>${esc(u.profession)}</span></div>
         <button class="iconbtn" style="margin-left:auto;width:32px;height:32px" data-action="toggle-theme"></button>
@@ -1407,13 +1459,13 @@ const lateralDeIngreso = () => {
   heroDrawn = true;
   return `<section class="auth-side">
       <div>
-        <div class="brand">${mono()}<div><div class="brand-name">${SITE()}</div><div class="brand-sub">Alquiler de boxes</div></div></div>
-        <h1>Tu box equipado, por turnos</h1>
-        <p>Mirá qué box está libre, reservá y pagá desde el celular. Sin mensajes de ida y vuelta.</p>
+        <div class="brand">${mono()}<div><div class="brand-name">${SITE()}</div><div class="brand-sub">${LEMA()}</div></div></div>
+        <h1>Tu espacio equipado, por turnos</h1>
+        <p>Mirá qué espacio está libre, reservá y pagá desde el celular. Sin mensajes de ida y vuelta.</p>
       </div>
       ${n === 3 ? planSvg(0, draw) : ""}
       <ul>
-        <li>${ic("check")} ${n} ${n === 1 ? "box equipado" : "boxes equipados"}, turnos de ${S.config.turnHours} h</li>
+        <li>${ic("check")} ${n} ${n === 1 ? "espacio equipado" : "espacios equipados"}, turnos de ${S.config.turnHours} h</li>
         <li>${ic("check")} Equipos para sumar a tu turno, por hora</li>
         <li>${ic("check")} Pagás seña del ${S.config.depositPct} % o el total</li>
         <li>${ic("check")} Solo profesionales aprobados por ${OW()}</li>
@@ -1759,6 +1811,7 @@ function viewMis() {
   const toPay = prox.filter(b => b.status === "pago").length;
   const proxima = prox.find(b => b.status !== "cumplida");
   const finding = debe.length ? `Tenés <b>el saldo de ${debe.length === 1 ? "un turno que ya pasó" : debe.length + " turnos que ya pasaron"} sin pagar</b>: ${money(debe.reduce((a, b) => a + balanceOf(b), 0))}.${sd.bloqueado ? " Pagalo para volver a reservar." : ""}`
+    : sd.ninguno && sd.conSaldo.length ? `Te falta pagar <b>${money(sd.deuda)}</b> de ${sd.conSaldo.length === 1 ? "un turno" : sd.conSaldo.length + " turnos"}. Hasta pagarlo no podés reservar otro.`
     : toPay ? `Tenés <b>${toPay} ${toPay === 1 ? "reserva" : "reservas"} sin pagar</b>: pagala antes de que se libere el horario.`
     : proxima ? `Tu próximo turno es el <b>${fmtDay(proxima.date)}</b>, ${esc(boxById(proxima.boxId).name)}, de ${fmtRange(proxima.start, proxima.end)}.` : "No tenés turnos próximos.";
   return `
@@ -1788,12 +1841,17 @@ function bookingCard(b) {
     acts.push(`<button class="btn btn-sm" data-action="cancel" data-id="${b.id}">Cancelar</button>`);
   }
   if (["confirmada", "cumplida"].includes(b.status) && bal) acts.push(`<button class="btn btn-sm ${b.status === "cumplida" ? "btn-primary" : ""}" data-action="pay-balance" data-id="${b.id}">Pagar saldo</button>`);
+  if (b.status === "confirmada" && S.config.policy.moves) {
+    const no = porQueNoSeMueve(b);
+    if (!no) acts.push(`<button class="btn btn-sm" data-action="mover" data-id="${b.id}">Cambiar de día</button>`);
+    else if (no !== "no") pay += `${pay ? " · " : ""}<span class="muted">${no}</span>`;
+  }
   if (b.status === "confirmada") acts.push(`<button class="btn btn-sm btn-danger" data-action="cancel" data-id="${b.id}">Cancelar</button>`);
   return `<article class="bk">
     <div class="bk-date"><div class="m">${MESES_C[d.getMonth()]}</div><div class="d num">${d.getDate()}</div><div class="w">${DIAS_C[d.getDay()]}</div></div>
     <div>
       <div class="t">${esc(box.name)} <span class="hr num">${fmtRange(b.start, b.end)}</span></div>
-      <div class="s">${cap(fmtDay(b.date))} · ${esc(b.service || "")}${machinesOf(b).length ? ` · con ${machinesOf(b).map(m => esc(m.name)).join(", ")}` : ""}</div>
+      <div class="s">${cap(fmtDay(b.date))}${b.original ? ` (antes ${fmtDay(b.original.date)})` : ""} · ${esc(b.service || "")}${machinesOf(b).length ? ` · con ${machinesOf(b).map(m => esc(m.name)).join(", ")}` : ""}</div>
       <div style="margin-top:8px">${statusPill(b)}</div>
       <div class="pay">${pay}</div>
     </div>
@@ -2266,8 +2324,8 @@ function viewConfig() {
           <div class="field"><label for="mpm">Plazo para pagar al reservar</label><select class="input" id="mpm" name="mpMinutes">${optv([10, 15, 30, 60], c.mpMinutes, x => x + " minutos")}</select></div>
         </div>
         <div class="field"><label for="ms">Turnos con saldo pendiente que puede tener cada profesional</label>
-          <select class="input" id="ms" name="maxSaldos" style="max-width:340px">${[1, 2, 3, 5].concat(c.maxOpenBalances == null || [1, 2, 3, 5].includes(c.maxOpenBalances) ? [] : [c.maxOpenBalances]).sort((a, b) => a - b).map(x => `<option value="${x}" ${x === c.maxOpenBalances ? "selected" : ""}>${x === 1 ? "Uno solo" : "Hasta " + x}</option>`).join("")}<option value="" ${c.maxOpenBalances == null ? "selected" : ""}>Sin tope</option></select>
-          <span class="hint">Son los turnos que señó y todavía no terminó de pagar. Al llegar a ese número, el turno siguiente lo paga completo; y si debe el saldo de un turno que ya pasó, no reserva hasta pagarlo.</span></div>
+          <select class="input" id="ms" name="maxSaldos" style="max-width:340px">${[0, 1, 2, 3, 5].concat(c.maxOpenBalances == null || [0, 1, 2, 3, 5].includes(c.maxOpenBalances) ? [] : [c.maxOpenBalances]).sort((a, b) => a - b).map(x => `<option value="${x}" ${x === c.maxOpenBalances ? "selected" : ""}>${x === 0 ? "Ninguno: hasta pagar, no reserva otro" : x === 1 ? "Uno solo" : "Hasta " + x}</option>`).join("")}<option value="" ${c.maxOpenBalances == null ? "selected" : ""}>Sin tope</option></select>
+          <span class="hint">Son los turnos que señó y todavía no terminó de pagar. Con «ninguno», hasta terminar de pagar el que señó no reserva otro. Con un número, al llegar, el turno siguiente lo paga completo; y si debe el saldo de un turno que ya pasó, no reserva hasta pagarlo.</span></div>
         <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
       </form>
     </section>
@@ -2275,6 +2333,7 @@ function viewConfig() {
       <div><h2>Política de cancelación ${tag}</h2><p class="desc">El sistema calcula solo cuánto se devuelve y se lo muestra a la profesional antes de cancelar.</p></div>
       <form class="set-panel" data-form="cfg-politica">
         <div class="field"><label for="pd">Anticipación mínima para devolución completa</label><select class="input" id="pd" name="days" style="max-width:220px">${optv([2, 3, 5, 7, 10, 14], p.days, x => x + " días")}</select></div>
+        <label class="check" style="margin:2px 0 12px"><input type="checkbox" name="depositKept" ${p.depositKept ? "checked" : ""}><span>La seña no se devuelve nunca. Los porcentajes de «Pagó el total» corren sobre lo que pagó además de la seña.</span></label>
         <table class="policy">
           <thead><tr><th>Si cancela…</th><th>Pagó seña</th><th>Pagó el total</th></tr></thead>
           <tbody>
@@ -2282,7 +2341,12 @@ function viewConfig() {
             <tr><td>Con menos de ${p.days} días</td><td><select class="input" name="senaAfter">${optv([0, 50, 100], p.senaAfter, x => x + " %")}</select></td><td><select class="input" name="totalAfter">${optv([0, 25, 50, 75, 100], p.totalAfter, x => x + " %")}</select></td></tr>
           </tbody>
         </table>
-        <p class="hint muted small" style="margin:10px 0 12px">Porcentaje de lo pagado que se devuelve.</p>
+        <p class="hint muted small" style="margin:10px 0 12px">Porcentaje de lo pagado que se devuelve.${p.depositKept ? " La columna «Pagó seña» hoy no se usa: la seña no se devuelve." : ""}</p>
+        <div class="row2">
+          <div class="field"><label for="mv">Cambiar un turno de día</label><select class="input" id="mv" name="moves">${optv([0, 1, 2, 3], p.moves, x => x === 0 ? "No se puede" : x === 1 ? "Una vez" : x + " veces")}</select></div>
+          <div class="field"><label for="mvd">Con cuánta anticipación</label><select class="input" id="mvd" name="moveDays">${optv([0, 1, 2, 3, 5, 7, 10], p.moveDays, x => x === 0 ? "Hasta que empiece" : x === 1 ? "1 día" : x + " días")}</select></div>
+        </div>
+        <p class="hint muted small" style="margin:-4px 0 12px">La profesional lo mueve sola, si hay lugar y cuesta lo mismo. Lo pagado sigue valiendo. Vos podés mover cualquiera, cuando quieras.</p>
         <div class="acts"><button class="btn btn-dark" type="submit">Guardar</button></div>
       </form>
     </section>
@@ -2391,7 +2455,7 @@ function startBooking(boxId, date, start, end) {
   if (u.status !== "aprobado") { toast("Solo las profesionales aprobadas pueden reservar."); return; } // RN01
   if (!canBook(boxId, date, start, end)) { toast("Ese horario ya no está disponible."); render(); return; }
   const sd = saldos(u);
-  if (sd.bloqueado) { toast(MENSAJES.saldo_vencido); go("mis"); return; }
+  if (sd.bloqueado) { toast(sd.ninguno ? MENSAJES.saldo_pendiente : MENSAJES.saldo_vencido); go("mis"); return; }
   draft = { boxId, date, start, end, step: 1, service: "", plan: sd.soloTotal ? "total" : "sena", accepted: false, machines: [] };
   renderBookingSheet();
 }
@@ -2427,7 +2491,7 @@ function renderBookingSheet(keepScroll = false) {
       <label class="choice"><input type="radio" name="plan" value="total" data-draft="plan" ${d.plan === "total" ? "checked" : ""}><div><div class="ct">Total</div><div class="cs">Y te olvidás del saldo</div></div><span class="camt num">${money(total)}</span></label>
       <div class="group-l">Cómo se paga</div>
       ${payLine()}
-      <div class="note">Si cancelás con ${p.days} días o más, te devolvemos el ${d.plan === "sena" ? p.senaBefore : p.totalBefore} %. Con menos, ${d.plan === "sena" ? (p.senaAfter ? `el ${p.senaAfter} %` : "la seña no se devuelve") : `el ${p.totalAfter} %`}.</div>`;
+      <div class="note">${p.depositKept ? `${politicaConSena()} ${reglaDeMover()}` : `${reglaDeMover()} Si cancelás con ${p.days} días o más, te devolvemos el ${d.plan === "sena" ? p.senaBefore : p.totalBefore} %. Con menos, ${d.plan === "sena" ? (p.senaAfter ? `el ${p.senaAfter} %` : "la seña no se devuelve") : `el ${p.totalAfter} %`}.`}</div>`;
     foot = `<button class="btn" data-action="draft-back">Atrás</button><button class="btn btn-primary" data-action="draft-next">Continuar</button>`;
   } else {
     d.termsVersion = c.terms.version;      // la versión que se le está mostrando: esa es la que acepta
@@ -2612,14 +2676,18 @@ function showSuccess(b, title, text) {
 /* ---------- Cancelación con devolución calculada (RF16, RF17) ---------- */
 function openCancel(b, by = "pro") {
   const r = refundFor(b, by), p = S.config.policy, box = boxById(b.boxId);
-  const daysTxt = r.days >= 1 ? `Faltan ${Math.floor(r.days)} ${Math.floor(r.days) === 1 ? "día" : "días"}` : `Faltan menos de 24 h`;
+  // los días se cuentan hasta el turno o, si lo cambió de día, hasta la fecha más temprana que tuvo
+  const cuando = b.policyFrom && b.policyFrom < bookingStart(b).getTime() ? `la fecha que tenía antes (${fmtDay(iso(new Date(b.policyFrom)))})` : "el turno";
+  const daysTxt = r.days >= 1 ? `Faltan ${Math.floor(r.days)} ${Math.floor(r.days) === 1 ? "día" : "días"} para ${cuando}` : r.days >= 0 || cuando === "el turno" ? `Faltan menos de 24 h para ${cuando}` : `Ya pasó ${cuando}`;
   const unpaid = r.paid === 0;
   const hitBefore = r.before, hitFull = r.full;
   openSheet(`${sheetHead(by === "admin" ? "Cancelar esta reserva" : "¿Cancelar tu reserva?", `${esc(box.name)} · ${cap(fmtDay(b.date))} · ${fmtRange(b.start, b.end)}`)}
   <div class="sheet-b">
     ${unpaid ? `<div class="note">Todavía no hay pagos aprobados en esta reserva, así que no hay nada para devolver. El horario se libera para otra persona.</div>`
-      : `<div class="summary"><span class="muted">Pagado</span><span class="r num">${money(r.paid)}</span><span class="muted">${by === "admin" ? "Cancelás vos: se devuelve todo" : daysTxt + " para el turno"}</span><span class="r num">${r.pct} %</span><b>${by === "admin" ? "Se le devuelve" : "Te devolvemos"}</b><b class="r num">${money(r.amount)}</b></div>
-      ${by === "pro" ? `<table class="policy">
+      : `<div class="summary"><span class="muted">Pagado</span><span class="r num">${money(r.paid)}</span><span class="muted">${by === "admin" ? "Cancelás vos: se devuelve todo" : daysTxt}</span><span class="r num">${r.pct} %</span><b>${by === "admin" ? "Se le devuelve" : "Te devolvemos"}</b><b class="r num">${money(r.amount)}</b></div>
+      ${by === "pro" && p.depositKept ? `<p class="muted" style="margin-top:10px">${politicaConSena()}</p>
+      <p class="muted small" style="margin-top:8px">Tu caso: ${daysTxt.toLowerCase()} y pagaste ${money(r.paid)}, de los que ${money(Math.min(r.paid, depositOf(b)))} son la seña.</p>` : ""}
+      ${by === "pro" && !p.depositKept ? `<table class="policy">
         <thead><tr><th>Si cancelás…</th><th class="num">Pagaste seña</th><th class="num">Pagaste el total</th></tr></thead>
         <tbody>
           <tr class="${hitBefore ? "hit" : ""}"><td>Con ${p.days} días o más</td><td class="num">${p.senaBefore} %</td><td class="num">${p.totalBefore} %</td></tr>
@@ -2628,7 +2696,33 @@ function openCancel(b, by = "pro") {
       <p class="muted small" style="margin-top:8px">Tu caso: ${daysTxt.toLowerCase()} y ${hitFull ? "pagaste el total" : "pagaste la seña"}.</p>` : ""}
       <div class="note ${r.amount ? "acc" : "warn"}">${r.amount === 0 ? "Según la política de cancelación, no corresponde devolución." : "La devolución vuelve por el mismo medio con el que se pagó. Puede tardar unos días."}</div>`}
   </div>
-  <div class="sheet-f"><button class="btn" data-action="close-sheet">Volver</button><button class="btn btn-dark" data-action="confirm-cancel" data-id="${b.id}" data-by="${by}">Sí, cancelar</button></div>`);
+  <div class="sheet-f"><button class="btn" data-action="close-sheet">Volver</button>${by === "pro" && !porQueNoSeMueve(b) ? `<button class="btn" data-action="mover" data-id="${b.id}">Mejor cambiarlo de día</button>` : ""}<button class="btn btn-dark" data-action="confirm-cancel" data-id="${b.id}" data-by="${by}">Sí, cancelar</button></div>`);
+}
+
+/* ---------- Cambiar un turno de día: se elige el día, después uno de los lugares libres que duran y cuestan lo mismo ---------- */
+let mudanza = null;       // { id, by, date, lugar }
+function openMover(b, by = "pro") {
+  const c = S.config, hoy = todayIso(), dias = [];
+  for (let i = 0; i < 7 * ((c.weeksAhead || 8) + 1); i++) {
+    const d = addDays(hoy, i);
+    if (d > addDays(mondayOf(hoy), 7 * (c.weeksAhead || 8) + 6)) break;
+    if (c.days.includes(weekday(d))) dias.push({ d, n: lugaresPara(b, d).length });
+  }
+  mudanza = { id: b.id, by, date: (dias.find(x => x.n) || dias[0] || { d: hoy }).d, lugar: null, dias };
+  renderMover();
+}
+function renderMover() {
+  const b = findB(mudanza.id), box = boxById(b.boxId), lugares = lugaresPara(b, mudanza.date), l = mudanza.lugar;
+  openSheet(`${sheetHead("Cambiar de día", `Ahora: ${esc(box.name)} · ${cap(fmtDay(b.date))} · ${fmtRange(b.start, b.end)}`)}
+  <div class="sheet-b">
+    <div class="field"><label for="mover-dia">¿Qué día?</label><select class="input" id="mover-dia" data-mover="date">${mudanza.dias.map(x => `<option value="${x.d}" ${x.d === mudanza.date ? "selected" : ""}>${cap(fmtDay(x.d))} · ${x.n ? `${x.n} ${x.n === 1 ? "lugar" : "lugares"}` : "sin lugar"}</option>`).join("")}</select></div>
+    <div class="group-l">Lugares libres</div>
+    ${lugares.length ? `<div class="choices">${lugares.map(x => { const v = `${x.box.id}|${x.start}`; return `<label class="choice"><input type="radio" name="lugar" value="${v}" data-mover="lugar" ${l === v ? "checked" : ""}><div><div class="ct">${esc(x.box.name)}</div><div class="cs num">${fmtRange(x.start, x.end)}</div></div></label>`; }).join("")}</div>` : `<div class="note">Ese día no queda ningún lugar que dure lo mismo y cueste lo mismo. Probá con otro día.</div>`}
+    <div class="note" style="margin-top:12px">Lo que ya ${mudanza.by === "admin" ? "pagó" : "pagaste"} sigue valiendo.${mudanza.by === "admin" ? "" : ` ${reglaDeMover()} Si después lo cancelás, los días se cuentan desde la fecha más temprana que tuvo.`}</div>
+  </div>
+  <div class="sheet-f"><button class="btn" data-action="close-sheet">Dejarlo como está</button><button class="btn btn-primary" data-action="mover-ok" ${l ? "" : "disabled"}>Cambiar de día</button></div>`);
+  // se redibujó al elegir: que el foco del teclado quede donde estaba
+  (overlayEl.querySelector('[data-mover="lugar"]:checked') || overlayEl.querySelector("#mover-dia")).focus({ preventScroll: true });
 }
 
 /* ---------- Detalle de reserva para la administradora ---------- */
@@ -2645,6 +2739,7 @@ function openAdminBooking(b) {
       <dt>Total</dt><dd class="num">${money(b.total)} · ${b.plan === "sena" ? "eligió seña" : "eligió pago total"}</dd>
       <dt>Cobrado</dt><dd class="num">${money(paidOf(b))}${balanceOf(b) && b.status !== "cancelada" ? ` · saldo ${money(balanceOf(b))}` : ""}</dd>
       <dt>Reglamento</dt><dd>Aceptó la versión ${b.termsVersion}</dd>
+      ${b.original ? `<dt>Cambio de día</dt><dd>Era el ${fmtDay(b.original.date)} a las ${b.original.start} h${b.moved ? ` · lo cambió ${b.moved === 1 ? "una vez" : b.moved + " veces"}` : " · lo cambiaste vos"}</dd>` : ""}
       ${b.status === "cancelada" ? `<dt>Cancelación</dt><dd>${b.cancelledBy === "vencida" ? "Se venció el plazo de pago" : b.cancelledBy === "admin" ? "La cancelaste vos" : "La canceló la profesional"}${b.refund?.amount ? ` · devolución ${money(b.refund.amount)}${b.refund.done ? "" : " (en camino)"}` : ""}</dd>` : ""}
     </dl>
     <div class="group-l" style="margin-top:16px">Pagos</div>
@@ -2653,7 +2748,7 @@ function openAdminBooking(b) {
       <span class="pill ${p.status === "aprobado" ? "pill-positive" : "pill-neutral"}">${cap(p.status)}</span></li>`).join("")}</ul>`
       : `<p class="muted">Todavía no pagó. ${b.status === "pago" && b.expiresAt ? `Se libera sola el ${fmtWhen(b.expiresAt)}.` : ""}</p>`}
   </div>
-  <div class="sheet-f">${canCancel ? `<button class="btn btn-danger" data-action="admin-cancel" data-id="${b.id}">Cancelar reserva</button>` : ""}<button class="btn" data-action="close-sheet">Cerrar</button></div>`);
+  <div class="sheet-f">${b.status === "confirmada" && !porQueNoSeMueve(b, "admin") ? `<button class="btn" data-action="mover" data-id="${b.id}" data-by="admin">Cambiar de día</button>` : ""}${canCancel ? `<button class="btn btn-danger" data-action="admin-cancel" data-id="${b.id}">Cancelar reserva</button>` : ""}<button class="btn" data-action="close-sheet">Cerrar</button></div>`);
 }
 
 /* ---------- Bloqueos y ratos libres (RF06, RF07) ---------- */
@@ -2901,6 +2996,16 @@ document.addEventListener("click", async (e) => {
     case "mp-approve": await mpApprove(ds.id, ds.kind); break;
     case "mp-ir": await mpIr(ds.id, ds.kind); break;
     case "cancel": openCancel(findB(ds.id), "pro"); break;
+    case "mover": openMover(findB(ds.id), ds.by || "pro"); break;
+    case "mover-ok": {
+      const [box, desde] = mudanza.lugar.split("|").map(Number);
+      const r = await accion("reprogramar_reserva", { p_reserva: mudanza.id, p_box: box, p_fecha: mudanza.date, p_desde: desde });
+      if (!r) { if (ultimoError === "horario_no_disponible") { mudanza.lugar = null; const b = findB(mudanza.id); if (b) { openMover(b, mudanza.by); } } break; }
+      mudanza = null;
+      closeSheet(); render();
+      toast(`Listo: ahora es el ${fmtDay(r.date)}, de ${fmtRange(r.start, r.end)}.`);
+      break;
+    }
     case "admin-cancel": openCancel(findB(ds.id), "admin"); break;
     case "confirm-cancel": {
       const r = await accion("cancelar_reserva", { p_reserva: ds.id });
@@ -3012,6 +3117,11 @@ document.addEventListener("click", async (e) => {
 
 document.addEventListener("change", async (e) => {
   const t = e.target;
+  if (t.dataset.mover && mudanza) {                      // cambiar un turno de día: eligió otro día u otro lugar
+    if (t.dataset.mover === "date") { mudanza.date = t.value; mudanza.lugar = null; } else mudanza.lugar = t.value;
+    renderMover();
+    return;
+  }
   if (t.dataset.input === "agDays") { S.ui.agDays = Math.min(31, Math.max(1, Math.round(+t.value) || 1)); fx = "cal"; render(); return; }
   if (t.dataset.input === "userCat") {
     const id = t.dataset.id, nombre = userById(id).name;
@@ -3140,7 +3250,8 @@ document.addEventListener("submit", async (e) => {
       render(); toast("Seña y pago guardados."); break;
     }
     case "cfg-politica": {
-      const r = await accion("guardar_politica", { p_dias: +fd.get("days"), p_sena_antes: +fd.get("senaBefore"), p_sena_despues: +fd.get("senaAfter"), p_total_antes: +fd.get("totalBefore"), p_total_despues: +fd.get("totalAfter") });
+      const r = await accion("guardar_politica", { p_dias: +fd.get("days"), p_sena_antes: +fd.get("senaBefore"), p_sena_despues: +fd.get("senaAfter"), p_total_antes: +fd.get("totalBefore"), p_total_despues: +fd.get("totalAfter"),
+        p_sena_no_vuelve: fd.get("depositKept") != null, p_repro_max: +fd.get("moves"), p_repro_dias: +fd.get("moveDays") });
       if (!r) return;
       render(); toast("Política de cancelación guardada."); break;
     }
